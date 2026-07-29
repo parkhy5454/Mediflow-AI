@@ -1,0 +1,45 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #f7f7f7;
+  margin: 0;
+  padding: 0;
+}
+
+.navbar {
+  background: #222;
+  padding: 10px;
+}
+
+.navbar button {
+  color: white;
+  background: transparent;
+  border: none;
+  margin-right: 10px;
+  cursor: pointer;
+}
+
+.navbar button:hover {
+  text-decoration: underline;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  margin-top: 15px;
+}
+
+table th, table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+}
+
+.roster-controls {
+  margin: 10px 0;
+}
+
+button {
+  margin: 5px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
