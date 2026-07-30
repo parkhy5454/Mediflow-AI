@@ -194,9 +194,10 @@ const Dashboard = ({
         nurses={nurses}
         selectedMonth={selectedMonth}
         selectedYear={selectedYear}
+        rosterConfig={rosterConfig}
       />
 
-      <AssignmentChart assignmentData={assignmentData} />
+      <AssignmentChart assignmentData={assignmentData} rosterConfig={rosterConfig} />
 
       <CalendarView 
         selectedMonth={selectedMonth}

@@ -1,7 +1,13 @@
+// src/components/Dashboard/StatsCards.jsx
+// [수정] "주간 근무/야간 근무" 고정 카드 → stats.totalsByShift에 있는 교대 종류(D/E/N/M)만큼 동적 카드 생성
 import React from 'react';
 import { Users, CheckCircle, Clock } from 'lucide-react';
+import { SHIFT_TYPES, shiftLabel, shiftColor } from '../../constants/shiftTypes';
 
 const StatsCards = ({ nurses, activeNurses, stats }) => {
+  const totalsByShift = stats?.totalsByShift || {};
+  const shiftKeys = Object.keys(totalsByShift).length > 0 ? Object.keys(totalsByShift) : SHIFT_TYPES;
+
   const statsConfig = [
     {
       title: '전체 간호사',
@@ -15,24 +21,18 @@ const StatsCards = ({ nurses, activeNurses, stats }) => {
       icon: CheckCircle,
       color: '#10b981'
     },
-    {
-      title: '주간 근무',
-      value: stats.totalMorningAssignments,
+    ...shiftKeys.map(s => ({
+      title: `${shiftLabel(s)} 근무`,
+      value: totalsByShift[s] || 0,
       icon: Clock,
-      color: '#f59e0b'
-    },
-    {
-      title: '야간 근무',
-      value: stats.totalNightAssignments,
-      icon: Clock,
-      color: '#8b5cf6'
-    }
+      color: shiftColor(s)
+    }))
   ];
 
   return (
     <div style={{ 
       display: 'grid', 
-      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+      gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
       gap: '20px', 
       marginBottom: '30px' 
     }}>
