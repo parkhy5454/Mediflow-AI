@@ -34,16 +34,24 @@ const StatusBadge = ({ text, type, qualification, status }) => {
 
   const styles = getStyles();
 
+  // [수정] 실제 상태값(active/disabled/archived)은 그대로 두고, 화면에 보이는 텍스트만 한글로 변환
+  const getDisplayText = () => {
+    if (type === 'status') {
+      const statusLabels = { active: '근무 가능', disabled: '근무 중지', archived: '보관됨' };
+      return statusLabels[status] || text;
+    }
+    return text;
+  };
+
   return (
     <span style={{
       ...styles,
       padding: '4px 8px',
       borderRadius: '12px',
       fontSize: '12px',
-      fontWeight: '500',
-      textTransform: 'capitalize'
+      fontWeight: '500'
     }}>
-      {text}
+      {getDisplayText()}
     </span>
   );
 };
