@@ -10,13 +10,13 @@ const NurseTable = ({ nurses, updateNurseStatus, deleteNurse }) => {
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
           <thead style={{ backgroundColor: '#f9fafb' }}>
             <tr>
-              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Name</th>
-              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Qualification</th>
-              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Experience</th>
-              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Department</th>
-              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Status</th>
-              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>Last Shift</th>
-              <th style={{ padding: '12px', textAlign: 'center', borderBottom: '1px solid #e5e7eb' }}>Actions</th>
+              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>이름</th>
+              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>자격</th>
+              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>경력</th>
+              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>부서</th>
+              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>상태</th>
+              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>마지막 근무</th>
+              <th style={{ padding: '12px', textAlign: 'center', borderBottom: '1px solid #e5e7eb' }}>작업</th>
             </tr>
           </thead>
           <tbody>
@@ -40,7 +40,7 @@ const NurseTable = ({ nurses, updateNurseStatus, deleteNurse }) => {
                   />
                 </td>
                 <td style={{ padding: '12px' }}>
-                  {nurse.lastShiftType || 'None'}
+                  {nurse.lastShiftType === 'morning' ? '주간' : nurse.lastShiftType === 'night' ? '야간' : '없음'}
                 </td>
                 <td style={{ padding: '12px', textAlign: 'center' }}>
                   <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
@@ -57,7 +57,7 @@ const NurseTable = ({ nurses, updateNurseStatus, deleteNurse }) => {
                           display: 'flex',
                           alignItems: 'center'
                         }}
-                        title="Disable"
+                        title="근무 중지"
                       >
                         <EyeOff size={14} />
                       </button>
@@ -75,7 +75,7 @@ const NurseTable = ({ nurses, updateNurseStatus, deleteNurse }) => {
                           display: 'flex',
                           alignItems: 'center'
                         }}
-                        title="Enable"
+                        title="근무 재개"
                       >
                         <Eye size={14} />
                       </button>
@@ -92,7 +92,7 @@ const NurseTable = ({ nurses, updateNurseStatus, deleteNurse }) => {
                         display: 'flex',
                         alignItems: 'center'
                       }}
-                      title="Archive"
+                      title="보관"
                     >
                       <Archive size={14} />
                     </button>
@@ -108,7 +108,7 @@ const NurseTable = ({ nurses, updateNurseStatus, deleteNurse }) => {
                         display: 'flex',
                         alignItems: 'center'
                       }}
-                      title="Delete"
+                      title="삭제"
                     >
                       <Trash2 size={14} />
                     </button>

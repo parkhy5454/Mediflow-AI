@@ -12,7 +12,7 @@ const NurseFilters = ({ searchTerm, setSearchTerm, filterStatus, setFilterStatus
     }}>
       <input
         type="text"
-        placeholder="Search nurses..."
+        placeholder="간호사 검색..."
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
         style={{
@@ -33,10 +33,10 @@ const NurseFilters = ({ searchTerm, setSearchTerm, filterStatus, setFilterStatus
           fontSize: '14px'
         }}
       >
-        <option value="all">All Status</option>
-        <option value="active">Active</option>
-        <option value="disabled">Disabled</option>
-        <option value="archived">Archived</option>
+        <option value="all">전체 상태</option>
+        <option value="active">근무 가능</option>
+        <option value="disabled">근무 불가</option>
+        <option value="archived">보관됨</option>
       </select>
     </div>
   );

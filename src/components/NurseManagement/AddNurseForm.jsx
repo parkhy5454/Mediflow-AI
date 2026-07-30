@@ -5,13 +5,13 @@ const AddNurseForm = ({ onAddNurse, onCancel }) => {
   const [newNurse, setNewNurse] = useState({
     name: '',
     qualification: 'RN',
-    experience: 'Junior',
-    department: 'ICU'
+    experience: '주니어',
+    department: '중환자실'
   });
 
   const handleSubmit = () => {
     if (!newNurse.name.trim()) {
-      alert('Please enter a nurse name');
+      alert('간호사 이름을 입력해주세요');
       return;
     }
     
@@ -20,8 +20,8 @@ const AddNurseForm = ({ onAddNurse, onCancel }) => {
       setNewNurse({ 
         name: '', 
         qualification: 'RN', 
-        experience: 'Junior', 
-        department: 'ICU' 
+        experience: '주니어', 
+        department: '중환자실' 
       });
     }
   };
@@ -34,7 +34,7 @@ const AddNurseForm = ({ onAddNurse, onCancel }) => {
       border: '1px solid #e5e7eb',
       marginBottom: '20px'
     }}>
-      <h3 style={{ marginBottom: '15px', color: '#1f2937' }}>Add New Nurse</h3>
+      <h3 style={{ marginBottom: '15px', color: '#1f2937' }}>새 간호사 추가</h3>
       <div style={{ 
         display: 'grid', 
         gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
@@ -42,7 +42,7 @@ const AddNurseForm = ({ onAddNurse, onCancel }) => {
       }}>
         <input
           type="text"
-          placeholder="Nurse Name"
+          placeholder="간호사 이름"
           value={newNurse.name}
           onChange={(e) => setNewNurse({ ...newNurse, name: e.target.value })}
           style={{
@@ -62,9 +62,9 @@ const AddNurseForm = ({ onAddNurse, onCancel }) => {
             fontSize: '14px'
           }}
         >
-          <option value="RN">RN (Registered Nurse)</option>
-          <option value="MW">MW (Midwife)</option>
-          <option value="RN-MW">RN-MW (Both)</option>
+          <option value="RN">RN (정간호사)</option>
+          <option value="MW">MW (조산사)</option>
+          <option value="RN-MW">RN-MW (둘 다)</option>
         </select>
         <select
           value={newNurse.experience}
@@ -76,9 +76,9 @@ const AddNurseForm = ({ onAddNurse, onCancel }) => {
             fontSize: '14px'
           }}
         >
-          <option value="Junior">Junior</option>
-          <option value="Mid-level">Mid-level</option>
-          <option value="Senior">Senior</option>
+          <option value="주니어">주니어</option>
+          <option value="중급">중급</option>
+          <option value="시니어">시니어</option>
         </select>
         <select
           value={newNurse.department}
@@ -90,10 +90,10 @@ const AddNurseForm = ({ onAddNurse, onCancel }) => {
             fontSize: '14px'
           }}
         >
-          <option value="ICU">ICU</option>
-          <option value="Emergency">Emergency</option>
-          <option value="Surgery">Surgery</option>
-          <option value="Maternity">Maternity</option>
+          <option value="중환자실">중환자실</option>
+          <option value="응급실">응급실</option>
+          <option value="수술실">수술실</option>
+          <option value="산부인과">산부인과</option>
         </select>
       </div>
       <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
@@ -108,7 +108,7 @@ const AddNurseForm = ({ onAddNurse, onCancel }) => {
             cursor: 'pointer'
           }}
         >
-          Add Nurse
+          간호사 추가
         </button>
         <button 
           onClick={onCancel}
@@ -121,7 +121,7 @@ const AddNurseForm = ({ onAddNurse, onCancel }) => {
             cursor: 'pointer'
           }}
         >
-          Cancel
+          취소
         </button>
       </div>
     </div>

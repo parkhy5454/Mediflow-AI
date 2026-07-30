@@ -41,7 +41,7 @@ const NurseManagement = ({
         alignItems: 'center', 
         marginBottom: '20px' 
       }}>
-        <h2 style={{ color: '#1f2937' }}>Nurse Management</h2>
+        <h2 style={{ color: '#1f2937' }}>간호사 관리</h2>
         <button 
           onClick={() => setShowAddForm(!showAddForm)}
           style={{
@@ -57,7 +57,7 @@ const NurseManagement = ({
           }}
         >
           <UserPlus size={18} />
-          Add Nurse
+          간호사 추가
         </button>
       </div>
 
