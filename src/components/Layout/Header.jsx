@@ -1,6 +1,5 @@
 // src/components/Layout/Header.jsx
 import React from 'react';
-import egwiapp from '../../images/egwiapp.jpg';
 
 const Header = ({ activeNurses, currentUser, onLogout }) => {
   return (
@@ -11,9 +10,6 @@ const Header = ({ activeNurses, currentUser, onLogout }) => {
       padding: '0 20px'
     }}>
 
-      <div style={{ textAlign: 'center', padding: '2px', backgroundColor: 'grey' }}>
-      <img src={egwiapp} alt='egwiapp 로고' style={{ height: '50px' }}/>
-    </div>
       <div style={{ 
         display: 'flex', 
         alignItems: 'center', 
