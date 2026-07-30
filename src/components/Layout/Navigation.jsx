@@ -4,10 +4,10 @@ import { BarChart3, Users, Calendar, Settings } from 'lucide-react';
 
 const Navigation = ({ activeTab, setActiveTab }) => {
   const tabs = [
-    { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
-    { id: 'nurses', label: 'Nurses', icon: Users },
-    { id: 'roster', label: 'Roster', icon: Calendar },
-    { id: 'settings', label: 'Settings', icon: Settings }
+    { id: 'dashboard', label: '대시보드', icon: BarChart3 },
+    { id: 'nurses', label: '간호사 관리', icon: Users },
+    { id: 'roster', label: '근무표', icon: Calendar },
+    { id: 'settings', label: '설정', icon: Settings }
   ];
 
   return (

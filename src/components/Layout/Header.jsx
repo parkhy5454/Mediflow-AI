@@ -26,11 +26,11 @@ const Header = ({ activeNurses }) => {
           fontWeight: 'bold', 
           color: '#1f2937' 
         }}>
-          Hospital Nurse Duties System
+          병원 간호사 근무 관리 시스템
         </h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span style={{ fontSize: '14px', color: '#6b7280' }}>
-            Active Nurses: {activeNurses.length}
+            근무 중인 간호사: {activeNurses.length}명
           </span>
         </div>
       </div>
