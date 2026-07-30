@@ -4,7 +4,7 @@ import { getDaysInMonth, getMonthName } from '../utils/dateUtils';
 // Utility function to validate roster data
 const validateRosterData = (monthRoster) => {
   if (!monthRoster || Object.keys(monthRoster).length === 0) {
-    throw new Error('No roster data available for export');
+    throw new Error('내보낼 근무표 데이터가 없습니다.');
   }
 
   const hasValidData = Object.keys(monthRoster).some(day => {
@@ -17,7 +17,7 @@ const validateRosterData = (monthRoster) => {
   });
 
   if (!hasValidData) {
-    throw new Error('Roster data appears to be empty or invalid');
+    throw new Error('근무표 데이터가 비어있거나 올바르지 않습니다.');
   }
 
   return true;
@@ -95,34 +95,34 @@ export const exportToExcel = (monthRoster, selectedMonth, selectedYear, rosterCo
     
     // Create CSV content with UTF-8 BOM for proper Excel encoding
     let csvContent = '\uFEFF'; // UTF-8 BOM
-    csvContent += `Hospital Nurse Roster - ${monthName} ${selectedYear}\n`;
-    csvContent += `Generated on: ${new Date().toLocaleDateString()}\n\n`;
+    csvContent += `병원 간호사 근무표 - ${selectedYear}년 ${monthName}\n`;
+    csvContent += `생성일: ${new Date().toLocaleDateString()}\n\n`;
     
     // Add configuration info
-    csvContent += `ROSTER CONFIGURATION\n`;
-    csvContent += `Morning Shift Size,${rosterConfig.morningShiftSize}\n`;
-    csvContent += `Night Shift Size,${rosterConfig.nightShiftSize}\n`;
-    csvContent += `Morning Shift Duration,${rosterConfig.morningShiftDays} days\n`;
-    csvContent += `Night Shift Duration,${rosterConfig.nightShiftDays} days\n`;
-    csvContent += `Off-Duty After Morning,${rosterConfig.offDutyAfterMorning} days\n`;
-    csvContent += `Off-Duty After Night,${rosterConfig.offDutyAfterNight} days\n\n`;
+    csvContent += `근무표 설정\n`;
+    csvContent += `주간 근무 인원,${rosterConfig.morningShiftSize}\n`;
+    csvContent += `야간 근무 인원,${rosterConfig.nightShiftSize}\n`;
+    csvContent += `주간 근무 기간,${rosterConfig.morningShiftDays}일\n`;
+    csvContent += `야간 근무 기간,${rosterConfig.nightShiftDays}일\n`;
+    csvContent += `주간 근무 후 휴무,${rosterConfig.offDutyAfterMorning}일\n`;
+    csvContent += `야간 근무 후 휴무,${rosterConfig.offDutyAfterNight}일\n\n`;
     
     // Daily roster table
-    csvContent += `DAILY ROSTER\n`;
-    csvContent += `Day,Date,Day of Week,Morning Shift,Night Shift,Off Duty\n`;
+    csvContent += `일별 근무표\n`;
+    csvContent += `일,날짜,요일,주간 근무,야간 근무,비번\n`;
     
     // Data rows
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(selectedYear, selectedMonth, day);
-      const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+      const dayName = date.toLocaleDateString('ko-KR', { weekday: 'long' });
       const formattedDate = date.toLocaleDateString();
       const dayData = monthRoster[day];
       
       const morningNurses = dayData?.morning?.map(n => `${n.name} (${n.qualification})`).join('; ') || '';
       const nightNurses = dayData?.night?.map(n => `${n.name} (${n.qualification})`).join('; ') || '';
       const offDutyNurses = dayData?.offDuty?.map(n => {
-        const status = n.daysRemaining > 0 ? `${n.daysRemaining} days remaining` : 
-                     n.status === 'Available' ? 'Available' : '';
+        const status = n.daysRemaining > 0 ? `${n.daysRemaining}일 남음` : 
+                     n.status === 'Available' ? '근무 가능' : '';
         return `${n.name}${status ? ` (${status})` : ''}`;
       }).join('; ') || '';
       
@@ -130,15 +130,15 @@ export const exportToExcel = (monthRoster, selectedMonth, selectedYear, rosterCo
     }
     
     // Add workload summary
-    csvContent += `\n\nWORKLOAD SUMMARY\n`;
-    csvContent += `Nurse Name,Qualification,Morning Shifts,Night Shifts,Total Work Days,Off-Duty Days\n`;
+    csvContent += `\n\n업무량 요약\n`;
+    csvContent += `간호사 이름,자격,주간 근무,야간 근무,총 근무일,휴무일\n`;
     
     workloadSummary.forEach(nurse => {
       csvContent += `"${nurse.name}","${nurse.qualification}",${nurse.morningShifts},${nurse.nightShifts},${nurse.totalWorkDays},${nurse.offDutyDays}\n`;
     });
     
     // Add summary statistics
-    csvContent += `\n\nMONTHLY STATISTICS\n`;
+    csvContent += `\n\n월간 통계\n`;
     let totalMorningShifts = 0;
     let totalNightShifts = 0;
     let totalOffDutyDays = 0;
@@ -150,29 +150,29 @@ export const exportToExcel = (monthRoster, selectedMonth, selectedYear, rosterCo
       totalOffDutyDays += dayData?.offDuty?.length || 0;
     }
     
-    csvContent += `Total Morning Shifts,${totalMorningShifts}\n`;
-    csvContent += `Total Night Shifts,${totalNightShifts}\n`;
-    csvContent += `Total Off-Duty Days,${totalOffDutyDays}\n`;
-    csvContent += `Total Nurses in Roster,${workloadSummary.length}\n`;
-    csvContent += `Average Work Days per Nurse,${workloadSummary.length > 0 ? ((totalMorningShifts + totalNightShifts) / workloadSummary.length).toFixed(1) : 0}\n`;
+    csvContent += `총 주간 근무,${totalMorningShifts}\n`;
+    csvContent += `총 야간 근무,${totalNightShifts}\n`;
+    csvContent += `총 휴무일,${totalOffDutyDays}\n`;
+    csvContent += `근무표 내 전체 간호사,${workloadSummary.length}\n`;
+    csvContent += `간호사당 평균 근무일,${workloadSummary.length > 0 ? ((totalMorningShifts + totalNightShifts) / workloadSummary.length).toFixed(1) : 0}\n`;
     
     // Create and download file
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `Hospital_Roster_${monthName}_${selectedYear}.csv`);
+    link.setAttribute('download', `병원_근무표_${selectedYear}년_${monthName}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
-    return { success: true, message: `Excel file exported successfully for ${monthName} ${selectedYear}` };
+    return { success: true, message: `${selectedYear}년 ${monthName} 엑셀 파일이 성공적으로 내보내졌습니다.` };
 
   } catch (error) {
     console.error('Excel export error:', error);
-    throw new Error(`Failed to export Excel file: ${error.message}`);
+    throw new Error(`엑셀 파일 내보내기에 실패했습니다: ${error.message}`);
   }
 };
 
@@ -189,7 +189,7 @@ export const exportToPDF = (monthRoster, selectedMonth, selectedYear, rosterConf
     const printWindow = window.open('', '_blank', 'width=1200,height=800');
     
     if (!printWindow) {
-      throw new Error('Unable to open print window. Please check your browser popup settings.');
+      throw new Error('인쇄 창을 열 수 없습니다. 브라우저의 팝업 차단 설정을 확인해주세요.');
     }
     
     // Generate HTML content for PDF
@@ -197,7 +197,7 @@ export const exportToPDF = (monthRoster, selectedMonth, selectedYear, rosterConf
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Hospital Nurse Roster - ${monthName} ${selectedYear}</title>
+        <title>병원 간호사 근무표 - ${selectedYear}년 ${monthName}</title>
         <meta charset="UTF-8">
         <style>
           * { box-sizing: border-box; }
@@ -397,33 +397,33 @@ export const exportToPDF = (monthRoster, selectedMonth, selectedYear, rosterConf
       </head>
       <body>
         <div class="header no-break">
-          <h1>🏥 Hospital Nurse Roster System</h1>
-          <h2>${monthName} ${selectedYear}</h2>
-          <div class="meta">Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</div>
+          <h1>🏥 병원 간호사 근무표 시스템</h1>
+          <h2>${selectedYear}년 ${monthName}</h2>
+          <div class="meta">생성일: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</div>
         </div>
         
         <div class="section no-break">
-          <h3>📊 Roster Configuration</h3>
+          <h3>📊 근무표 설정</h3>
           <div class="config-grid">
-            <div class="config-item"><strong>Morning Shift Size:</strong> ${rosterConfig.morningShiftSize} nurses</div>
-            <div class="config-item"><strong>Night Shift Size:</strong> ${rosterConfig.nightShiftSize} nurses</div>
-            <div class="config-item"><strong>Morning Shift Duration:</strong> ${rosterConfig.morningShiftDays} days</div>
-            <div class="config-item"><strong>Night Shift Duration:</strong> ${rosterConfig.nightShiftDays} days</div>
-            <div class="config-item"><strong>Off-Duty After Morning:</strong> ${rosterConfig.offDutyAfterMorning} days</div>
-            <div class="config-item"><strong>Off-Duty After Night:</strong> ${rosterConfig.offDutyAfterNight} days</div>
+            <div class="config-item"><strong>주간 근무 인원:</strong> ${rosterConfig.morningShiftSize}명</div>
+            <div class="config-item"><strong>야간 근무 인원:</strong> ${rosterConfig.nightShiftSize}명</div>
+            <div class="config-item"><strong>주간 근무 기간:</strong> ${rosterConfig.morningShiftDays}일</div>
+            <div class="config-item"><strong>야간 근무 기간:</strong> ${rosterConfig.nightShiftDays}일</div>
+            <div class="config-item"><strong>주간 근무 후 휴무:</strong> ${rosterConfig.offDutyAfterMorning}일</div>
+            <div class="config-item"><strong>야간 근무 후 휴무:</strong> ${rosterConfig.offDutyAfterNight}일</div>
           </div>
         </div>
         
         <div class="section">
-          <h3>📅 Daily Roster Schedule</h3>
+          <h3>📅 일별 근무표</h3>
           <table class="roster-table">
             <thead>
               <tr>
-                <th>Day</th>
-                <th>Date</th>
-                <th>Morning Shift (${rosterConfig.morningShiftSize})</th>
-                <th>Night Shift (${rosterConfig.nightShiftSize})</th>
-                <th>Off Duty</th>
+                <th>일</th>
+                <th>날짜</th>
+                <th>주간 근무 (${rosterConfig.morningShiftSize})</th>
+                <th>야간 근무 (${rosterConfig.nightShiftSize})</th>
+                <th>비번</th>
               </tr>
             </thead>
             <tbody>
@@ -435,7 +435,7 @@ export const exportToPDF = (monthRoster, selectedMonth, selectedYear, rosterConf
       
       for (let day = 1; day <= daysInMonth; day++) {
         const date = new Date(selectedYear, selectedMonth, day);
-        const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+        const dayName = date.toLocaleDateString('ko-KR', { weekday: 'short' });
         const isWeekend = date.getDay() === 0 || date.getDay() === 6;
         const dayData = monthRoster[day];
         
@@ -470,8 +470,8 @@ export const exportToPDF = (monthRoster, selectedMonth, selectedYear, rosterConf
         if (dayData?.offDuty) {
           const offDutyBadges = dayData.offDuty.map(nurse => {
             const badgeClass = nurse.status === 'Available' ? 'available' : 'off-duty';
-            const status = nurse.daysRemaining > 0 ? ` (${nurse.daysRemaining}d)` : 
-                         nurse.status === 'Available' ? ' (Avail)' : '';
+            const status = nurse.daysRemaining > 0 ? ` (${nurse.daysRemaining}일)` : 
+                         nurse.status === 'Available' ? ' (근무 가능)' : '';
             return `<span class="nurse-badge ${badgeClass}">${nurse.name}${status}</span>`;
           }).join(' ');
           tableRows += offDutyBadges;
@@ -493,16 +493,16 @@ export const exportToPDF = (monthRoster, selectedMonth, selectedYear, rosterConf
         <div class="page-break"></div>
         
         <div class="section">
-          <h3>👥 Nurse Workload Summary</h3>
+          <h3>👥 간호사 업무량 요약</h3>
           <table class="workload-table">
             <thead>
               <tr>
-                <th>Nurse Name</th>
-                <th>Qualification</th>
-                <th>Morning Shifts</th>
-                <th>Night Shifts</th>
-                <th>Total Work Days</th>
-                <th>Off-Duty Days</th>
+                <th>간호사 이름</th>
+                <th>자격</th>
+                <th>주간 근무</th>
+                <th>야간 근무</th>
+                <th>총 근무일</th>
+                <th>휴무일</th>
               </tr>
             </thead>
             <tbody>
@@ -543,38 +543,38 @@ export const exportToPDF = (monthRoster, selectedMonth, selectedYear, rosterConf
         </div>
         
         <div class="section">
-          <h3>📈 Monthly Statistics</h3>
+          <h3>📈 월간 통계</h3>
           <div class="summary-stats">
             <div class="stat-card">
               <div class="stat-number">${totalMorningShifts}</div>
-              <div class="stat-label">Total Morning Shifts</div>
+              <div class="stat-label">총 주간 근무</div>
             </div>
             <div class="stat-card">
               <div class="stat-number">${totalNightShifts}</div>
-              <div class="stat-label">Total Night Shifts</div>
+              <div class="stat-label">총 야간 근무</div>
             </div>
             <div class="stat-card">
               <div class="stat-number">${totalOffDutyDays}</div>
-              <div class="stat-label">Total Off-Duty Days</div>
+              <div class="stat-label">총 휴무일</div>
             </div>
             <div class="stat-card">
               <div class="stat-number">${workloadSummary.length}</div>
-              <div class="stat-label">Active Nurses</div>
+              <div class="stat-label">근무 중인 간호사</div>
             </div>
             <div class="stat-card">
               <div class="stat-number">${averageWorkDays}</div>
-              <div class="stat-label">Avg Work Days/Nurse</div>
+              <div class="stat-label">간호사당 평균 근무일</div>
             </div>
             <div class="stat-card">
               <div class="stat-number">${daysInMonth}</div>
-              <div class="stat-label">Days in Month</div>
+              <div class="stat-label">이번 달 일수</div>
             </div>
           </div>
         </div>
         
         <div class="footer">
-          <p>This roster was automatically generated by the Hospital Nurse Roster System</p>
-          <p>© ${new Date().getFullYear()} Hospital Management System | Generated: ${new Date().toLocaleString()}</p>
+          <p>이 근무표는 병원 간호사 근무 관리 시스템에 의해 자동으로 생성되었습니다.</p>
+          <p>© ${new Date().getFullYear()} 병원 관리 시스템 | 생성 시각: ${new Date().toLocaleString()}</p>
         </div>
       </body>
       </html>
@@ -590,10 +590,10 @@ export const exportToPDF = (monthRoster, selectedMonth, selectedYear, rosterConf
       printWindow.print();
     }, 1500);
 
-    return { success: true, message: `PDF export initiated for ${monthName} ${selectedYear}` };
+    return { success: true, message: `${selectedYear}년 ${monthName} PDF 내보내기가 시작되었습니다.` };
 
   } catch (error) {
     console.error('PDF export error:', error);
-    throw new Error(`Failed to export PDF: ${error.message}`);
+    throw new Error(`PDF 내보내기에 실패했습니다: ${error.message}`);
   }
 };
