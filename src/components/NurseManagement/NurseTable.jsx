@@ -2,6 +2,7 @@
 import React from 'react';
 import { Eye, EyeOff, Archive, Trash2 } from 'lucide-react';
 import StatusBadge from '../Common/StatusBadge';
+import { SHIFT_TYPES, shiftLabel } from '../../constants/shiftTypes';
 
 const NurseTable = ({ nurses, updateNurseStatus, deleteNurse }) => {
   return (
@@ -40,7 +41,7 @@ const NurseTable = ({ nurses, updateNurseStatus, deleteNurse }) => {
                   />
                 </td>
                 <td style={{ padding: '12px' }}>
-                  {nurse.lastShiftType === 'morning' ? '주간' : nurse.lastShiftType === 'night' ? '야간' : '없음'}
+                  {SHIFT_TYPES.includes(nurse.lastShiftType) ? shiftLabel(nurse.lastShiftType) : '없음'}
                 </td>
                 <td style={{ padding: '12px', textAlign: 'center' }}>
                   <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
