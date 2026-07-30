@@ -2540,7 +2540,7 @@ export const generateRoster = (activeNurses, daysInMonth, rosterConfig) => {
     if (morningShort > 0 || nightShort > 0) {
       hasEmptyShifts = true;
       totalEmptyShifts += morningShort + nightShort;
-      continuityIssues.push(`Day ${day}: Morning ${newRoster[day].morning.length}/${rosterConfig.morningShiftSize} (${morningShort} short), Night ${newRoster[day].night.length}/${rosterConfig.nightShiftSize} (${nightShort} short)`);
+      continuityIssues.push(`${day}일차: 주간 ${newRoster[day].morning.length}/${rosterConfig.morningShiftSize}명 (${morningShort}명 부족), 야간 ${newRoster[day].night.length}/${rosterConfig.nightShiftSize}명 (${nightShort}명 부족)`);
     }
   }
   
@@ -2561,21 +2561,23 @@ export const generateRoster = (activeNurses, daysInMonth, rosterConfig) => {
   });
 
   // Enhanced summary message
-  const balanceReport = `📊 BALANCE ANALYSIS:
-This Month: ${balancedNurses.length}/${workloadSummary.length} nurses balanced
-Cumulative: ${perfectCumulativeBalance.length}/${workloadSummary.length} nurses with perfect overall balance
-Average balance score: ${(workloadSummary.reduce((sum, n) => sum + n.balanceScore, 0) / workloadSummary.length).toFixed(1)}
+  const balanceReport = `📊 균형 분석:
+이번 달: 전체 ${workloadSummary.length}명 중 ${balancedNurses.length}명 균형 달성
+누적: 전체 ${workloadSummary.length}명 중 ${perfectCumulativeBalance.length}명 완벽한 전체 균형
+평균 균형 점수: ${(workloadSummary.reduce((sum, n) => sum + n.balanceScore, 0) / workloadSummary.length).toFixed(1)}
 
-📋 WORKLOAD DISTRIBUTION:
+📋 업무량 분포:
 ${workloadSummary.sort((a, b) => a.balanceScore - b.balanceScore).map(n => 
-  `${n.name}: ${n.morning}M/${n.night}N/${n.offDuty}Off (targets: ${n.morningTarget}M/${n.nightTarget}N) | Cumulative: ${n.cumulativeMorning}M/${n.cumulativeNight}N | Balance: ${n.cumulativeBalance <= 1 ? '✅' : '⚖️'}`
+  `${n.name}: 주간 ${n.morning} / 야간 ${n.night} / 비번 ${n.offDuty} (목표: 주간 ${n.morningTarget} / 야간 ${n.nightTarget}) | 누적: 주간 ${n.cumulativeMorning} / 야간 ${n.cumulativeNight} | 균형: ${n.cumulativeBalance <= 1 ? '✅' : '⚖️'}`
 ).join('\n')}`;
 
+  const cycleLabel = (cycle) => cycle === 'morning' ? '주간 근무' : cycle === 'night' ? '야간 근무' : cycle === 'off-duty' ? '휴무' : '근무 가능';
+
   const summaryMessage = hasEmptyShifts 
-    ? `⚠️ ROSTER ISSUE: ${totalEmptyShifts} unfilled shift slots!\n\n${continuityIssues.join('\n')}\n\n${balanceReport}`
-    : `✅ BALANCED ROSTER GENERATED with enhanced alternation!\n\n${balanceReport}${nursesInTransition.length > 0 ? 
-        `\n\n🔄 Nurses continuing cycles into next month:\n${nursesInTransition.map(n => 
-          `${n.name}: ${n.endState.currentCycle}${n.endState.remainingCycleDays > 0 ? ` (${n.endState.remainingCycleDays} days left)` : n.endState.remainingOffDutyDays > 0 ? ` (${n.endState.remainingOffDutyDays} off-duty days left)` : ''}`
+    ? `⚠️ 근무표 문제: 채워지지 않은 근무 ${totalEmptyShifts}건!\n\n${continuityIssues.join('\n')}\n\n${balanceReport}`
+    : `✅ 균형 잡힌 근무표가 생성되었습니다!\n\n${balanceReport}${nursesInTransition.length > 0 ? 
+        `\n\n🔄 다음 달로 근무 주기가 이어지는 간호사:\n${nursesInTransition.map(n => 
+          `${n.name}: ${cycleLabel(n.endState.currentCycle)}${n.endState.remainingCycleDays > 0 ? ` (${n.endState.remainingCycleDays}일 남음)` : n.endState.remainingOffDutyDays > 0 ? ` (휴무 ${n.endState.remainingOffDutyDays}일 남음)` : ''}`
         ).join('\n')}` : ''
       }`;
 
