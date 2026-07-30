@@ -2001,283 +2001,165 @@
 
 // src/services/rosterGenerator.js (Enhanced with Monthly Balance & Alternation)
 
+import { shiftLabel } from '../constants/shiftTypes';
+
+// [수정] 2교대(주간/야간) 전용이던 로직을 4교대(D/E/N/M)에 대해 일반화했다.
+// 교대 종류가 몇 개든(설정에 있는 만큼) 동일한 로직으로 처리된다.
 export const generateRoster = (activeNurses, daysInMonth, rosterConfig) => {
-  const totalShiftSlots = rosterConfig.morningShiftSize + rosterConfig.nightShiftSize;
-  
+  const shiftTypes = Object.keys(rosterConfig.shifts);
+  const totalShiftSlots = shiftTypes.reduce((sum, s) => sum + rosterConfig.shifts[s].size, 0);
+
   if (activeNurses.length < totalShiftSlots) {
     return {
       success: false,
-      message: `Need at least ${totalShiftSlots} active nurses to generate roster (${rosterConfig.morningShiftSize} morning + ${rosterConfig.nightShiftSize} night). Currently have ${activeNurses.length}.`
+      message: `근무표를 생성하려면 최소 ${totalShiftSlots}명의 근무 가능한 간호사가 필요합니다 (${shiftTypes.map(s => `${shiftLabel(s)} ${rosterConfig.shifts[s].size}명`).join(' + ')}). 현재 ${activeNurses.length}명입니다.`
     };
   }
 
-  // Initialize roster structure
   const newRoster = {};
-  
-  // Calculate ideal workload distribution with monthly balancing
-  const totalShiftDays = daysInMonth * (rosterConfig.morningShiftSize + rosterConfig.nightShiftSize);
+
+  // 이번 달 전체 목표 근무일수 계산 (교대 종류에 상관없이 공정하게 분배)
+  const totalShiftDays = daysInMonth * totalShiftSlots;
   const averageWorkDaysPerNurse = Math.floor(totalShiftDays / activeNurses.length);
   const extraWorkDays = totalShiftDays % activeNurses.length;
-  
-  // More precise workload targets
-  const baseTargetWorkDays = Math.floor(averageWorkDaysPerNurse);
-  const idealMorningDays = Math.floor(baseTargetWorkDays / 2);
-  const idealNightDays = Math.ceil(baseTargetWorkDays / 2);
-  
-  console.log(`Monthly Balance Calculation:
-    - Total shift days: ${totalShiftDays}
-    - Active nurses: ${activeNurses.length}
-    - Base work days per nurse: ${baseTargetWorkDays}
-    - Extra work days to distribute: ${extraWorkDays}
-    - Target morning days: ${idealMorningDays}
-    - Target night days: ${idealNightDays}`);
 
-  // Enhanced nurse state tracking with historical balance
+  // 각 교대가 전체에서 차지하는 비중 (개인별 목표를 교대별로 나눌 때 사용)
+  const shiftProportion = {};
+  shiftTypes.forEach(s => {
+    shiftProportion[s] = rosterConfig.shifts[s].size / totalShiftSlots;
+  });
+
+  console.log('4교대 월간 균형 계산:', {
+    전체근무일: totalShiftDays,
+    활성간호사: activeNurses.length,
+    '1인당기본목표': averageWorkDaysPerNurse,
+    추가배정대상: extraWorkDays
+  });
+
   const nurseStates = activeNurses.map((nurse, index) => {
-    // Calculate cumulative historical workload for better balance
-    const historicalMorningDays = nurse.lastMonthMorning || 0;
-    const historicalNightDays = nurse.lastMonthNight || 0;
-    const totalHistoricalDays = historicalMorningDays + historicalNightDays;
-    
-    // Calculate balance debt/credit from previous months
-    const expectedHistoricalDays = baseTargetWorkDays; // Assuming same target each month
-    const workloadDebt = Math.max(0, expectedHistoricalDays - totalHistoricalDays);
-    const workloadCredit = Math.max(0, totalHistoricalDays - expectedHistoricalDays);
-    
-    // Determine if this nurse should get extra work days this month
+    // 과거(누적) 교대별 근무일수. 없으면 전부 0으로 시작.
+    const historical = { ...(nurse.historicalDaysByShift || {}) };
+    shiftTypes.forEach(s => { if (typeof historical[s] !== 'number') historical[s] = 0; });
+    const historicalTotalDays = shiftTypes.reduce((sum, s) => sum + historical[s], 0);
+
     const shouldGetExtraDay = index < extraWorkDays;
-    const thisMonthTargetWorkDays = baseTargetWorkDays + (shouldGetExtraDay ? 1 : 0) + workloadDebt;
-    
-    // Calculate morning/night distribution based on historical bias
-    const historicalMorningBias = historicalMorningDays - historicalNightDays;
-    let thisMonthMorningTarget, thisMonthNightTarget;
-    
-    if (historicalMorningBias > 1) {
-      // Had more morning shifts historically, favor nights this month
-      thisMonthNightTarget = Math.ceil(thisMonthTargetWorkDays / 2);
-      thisMonthMorningTarget = thisMonthTargetWorkDays - thisMonthNightTarget;
-    } else if (historicalMorningBias < -1) {
-      // Had more night shifts historically, favor mornings this month
-      thisMonthMorningTarget = Math.ceil(thisMonthTargetWorkDays / 2);
-      thisMonthNightTarget = thisMonthTargetWorkDays - thisMonthMorningTarget;
-    } else {
-      // Balanced historically, distribute evenly
-      thisMonthMorningTarget = Math.floor(thisMonthTargetWorkDays / 2);
-      thisMonthNightTarget = Math.ceil(thisMonthTargetWorkDays / 2);
-    }
+    const thisMonthTargetWorkDays = averageWorkDaysPerNurse + (shouldGetExtraDay ? 1 : 0);
+
+    // 개인 목표를 교대 비중대로 배분
+    const targetByShift = {};
+    shiftTypes.forEach(s => {
+      targetByShift[s] = Math.round(thisMonthTargetWorkDays * shiftProportion[s]);
+    });
 
     const nurseState = {
       id: nurse.id,
       name: nurse.name,
       qualification: nurse.qualification,
       experience: nurse.experience,
-      // Current state - will be set based on previous month data
-      currentCycle: 'available',
+
+      currentCycle: 'available', // 교대 코드(D/E/N/M) | 'off-duty' | 'available'
       cycleDay: 0,
       offDutyDays: 0,
-      lastShiftType: nurse.lastShiftType,
-      
-      // Work counters for this month
-      totalMorningDays: 0,
-      totalNightDays: 0,
-      totalOffDutyDays: 0,
-      totalWorkDays: 0,
-      
-      // Enhanced targets for fair distribution
-      targetMorningDays: thisMonthMorningTarget,
-      targetNightDays: thisMonthNightTarget,
-      targetTotalWorkDays: thisMonthTargetWorkDays,
-      
-      // Priority scores for assignment (higher = more priority)
-      morningPriority: 0,
-      nightPriority: 0,
-      workloadPriority: workloadDebt, // Higher debt = higher priority
-      
-      // Historical balance tracking
-      historicalMorningDays: historicalMorningDays,
-      historicalNightDays: historicalNightDays,
-      historicalTotalDays: totalHistoricalDays,
-      workloadDebt: workloadDebt,
-      workloadCredit: workloadCredit,
-      historicalMorningBias: historicalMorningBias,
-      
-      // Cycle continuity fields
       remainingCycleDays: 0,
       remainingOffDutyDays: 0,
-      
-      // Balance alternation tracking
-      lastShiftPreference: nurse.lastShiftPreference || 'none', // 'morning', 'night', 'none'
-      monthlyRotation: nurse.monthlyRotation || 0 // Rotation counter for alternation
+
+      lastShiftType: nurse.lastShiftType || null,
+      lastShiftPreference: nurse.lastShiftPreference || null,
+
+      totalDaysByShift: Object.fromEntries(shiftTypes.map(s => [s, 0])),
+      totalWorkDays: 0,
+      totalOffDutyDays: 0,
+
+      targetByShift,
+      targetTotalWorkDays: thisMonthTargetWorkDays,
+
+      priorityByShift: Object.fromEntries(shiftTypes.map(s => [s, 0])),
+
+      historicalDaysByShift: historical,
+      historicalTotalDays
     };
 
-    // Handle continuation from previous month based on nurse's last state
-    if (nurse.lastShiftType && nurse.lastShiftCycleDay && nurse.lastOffDutyRemaining !== undefined) {
+    // 이전 달에서 이어지는 근무/휴무 사이클 반영
+    if (nurse.lastShiftType && shiftTypes.includes(nurse.lastShiftType) && nurse.lastShiftCycleDay && nurse.lastOffDutyRemaining !== undefined) {
+      const cfg = rosterConfig.shifts[nurse.lastShiftType];
       if (nurse.lastOffDutyRemaining > 0) {
         nurseState.currentCycle = 'off-duty';
         nurseState.offDutyDays = nurse.lastOffDutyRemaining;
         nurseState.remainingOffDutyDays = nurse.lastOffDutyRemaining;
-      } else if (nurse.lastShiftType === 'morning' && nurse.lastShiftCycleDay < rosterConfig.morningShiftDays) {
-        nurseState.currentCycle = 'morning';
+      } else if (nurse.lastShiftCycleDay < cfg.shiftDays) {
+        nurseState.currentCycle = nurse.lastShiftType;
         nurseState.cycleDay = nurse.lastShiftCycleDay;
-        nurseState.remainingCycleDays = rosterConfig.morningShiftDays - nurse.lastShiftCycleDay;
-      } else if (nurse.lastShiftType === 'night' && nurse.lastShiftCycleDay < rosterConfig.nightShiftDays) {
-        nurseState.currentCycle = 'night';
-        nurseState.cycleDay = nurse.lastShiftCycleDay;
-        nurseState.remainingCycleDays = rosterConfig.nightShiftDays - nurse.lastShiftCycleDay;
+        nurseState.remainingCycleDays = cfg.shiftDays - nurse.lastShiftCycleDay;
       } else {
-        if (nurse.lastShiftType === 'morning') {
-          nurseState.currentCycle = 'off-duty';
-          nurseState.offDutyDays = rosterConfig.offDutyAfterMorning;
-          nurseState.remainingOffDutyDays = rosterConfig.offDutyAfterMorning;
-        } else if (nurse.lastShiftType === 'night') {
-          nurseState.currentCycle = 'off-duty';
-          nurseState.offDutyDays = rosterConfig.offDutyAfterNight;
-          nurseState.remainingOffDutyDays = rosterConfig.offDutyAfterNight;
-        }
+        nurseState.currentCycle = 'off-duty';
+        nurseState.offDutyDays = cfg.offDutyAfter;
+        nurseState.remainingOffDutyDays = cfg.offDutyAfter;
       }
+    } else if (nurse.lastShiftType && shiftTypes.includes(nurse.lastShiftType)) {
+      const cfg = rosterConfig.shifts[nurse.lastShiftType];
+      nurseState.currentCycle = 'off-duty';
+      nurseState.offDutyDays = cfg.offDutyAfter;
+      nurseState.remainingOffDutyDays = cfg.offDutyAfter;
     } else {
-      // Handle legacy data or nurses without detailed cycle information
-      if (nurse.lastShiftType === 'morning') {
-        nurseState.currentCycle = 'off-duty';
-        nurseState.offDutyDays = rosterConfig.offDutyAfterMorning;
-        nurseState.remainingOffDutyDays = rosterConfig.offDutyAfterMorning;
-      } else if (nurse.lastShiftType === 'night') {
-        nurseState.currentCycle = 'off-duty';
-        nurseState.offDutyDays = rosterConfig.offDutyAfterNight;
-        nurseState.remainingOffDutyDays = rosterConfig.offDutyAfterNight;
-      } else {
-        nurseState.currentCycle = 'available';
-      }
+      nurseState.currentCycle = 'available';
     }
 
     return nurseState;
   });
 
-  console.log('Enhanced nurse states with balance tracking:', nurseStates.map(n => ({
-    name: n.name,
-    currentCycle: n.currentCycle,
-    targetMorning: n.targetMorningDays,
-    targetNight: n.targetNightDays,
-    historicalMorning: n.historicalMorningDays,
-    historicalNight: n.historicalNightDays,
-    bias: n.historicalMorningBias,
-    debt: n.workloadDebt,
-    lastPreference: n.lastShiftPreference
-  })));
-
-  // Enhanced priority calculation function
+  // 우선순위 재계산: 이번 달 부족분 + 과거(누적) 편중 보정 + 직전 근무와 다른 교대로 유도(로테이션)
   const updatePriorities = () => {
     nurseStates.forEach(nurse => {
-      // Calculate work deficits
-      const morningDeficit = nurse.targetMorningDays - nurse.totalMorningDays;
-      const nightDeficit = nurse.targetNightDays - nurse.totalNightDays;
-      //const totalWorkDeficit = nurse.targetTotalWorkDays - nurse.totalWorkDays;
-      
-      // Base priority on current month deficit
-      let baseMorningPriority = morningDeficit * 10;
-      let baseNightPriority = nightDeficit * 10;
-      
-      // Adjust for historical bias (encourage alternation)
-      if (nurse.historicalMorningBias > 1) {
-        // Had more morning shifts historically, boost night priority
-        baseNightPriority += 20;
-        baseMorningPriority -= 10;
-      } else if (nurse.historicalMorningBias < -1) {
-        // Had more night shifts historically, boost morning priority
-        baseMorningPriority += 20;
-        baseNightPriority -= 10;
-      }
-      
-      // Adjust for workload debt
-      baseMorningPriority += nurse.workloadDebt * 5;
-      baseNightPriority += nurse.workloadDebt * 5;
-      
-      // Adjust for last shift preference (encourage alternation)
-      if (nurse.lastShiftPreference === 'morning') {
-        baseNightPriority += 15; // Favor night shifts after morning preference
-        baseMorningPriority -= 5;
-      } else if (nurse.lastShiftPreference === 'night') {
-        baseMorningPriority += 15; // Favor morning shifts after night preference
-        baseNightPriority -= 5;
-      }
-      
-      // Monthly rotation bonus (ensure everyone gets different patterns)
-      const rotationBonus = (nurse.monthlyRotation % 4) * 2;
-      if (nurse.monthlyRotation % 2 === 0) {
-        baseMorningPriority += rotationBonus;
-      } else {
-        baseNightPriority += rotationBonus;
-      }
-      
-      nurse.morningPriority = baseMorningPriority;
-      nurse.nightPriority = baseNightPriority;
+      shiftTypes.forEach(s => {
+        const deficit = nurse.targetByShift[s] - nurse.totalDaysByShift[s];
+        let priority = deficit * 10;
+
+        const avgHistoricalPerShift = nurse.historicalTotalDays / shiftTypes.length;
+        const historicalBias = nurse.historicalDaysByShift[s] - avgHistoricalPerShift;
+        if (historicalBias > 1) {
+          priority -= 15; // 이 교대를 과거에 많이 했으면 우선순위 낮춤
+        } else if (historicalBias < -1) {
+          priority += 15; // 적게 했으면 우선순위 높임
+        }
+
+        if (nurse.lastShiftPreference === s) {
+          priority -= 15; // 바로 직전과 같은 교대는 비선호 (교대 다양성 유도)
+        } else if (nurse.lastShiftPreference) {
+          priority += 5;
+        }
+
+        nurse.priorityByShift[s] = priority;
+      });
     });
   };
 
-  // Enhanced assignment functions with balance consideration
-  const getAvailableForMorning = () => {
+  const getAvailableForShift = (shiftType) => {
     return nurseStates
-      .filter(nurse => nurse.currentCycle === 'available')
+      .filter(n => n.currentCycle === 'available')
       .sort((a, b) => {
-        // Primary sort: Morning priority
-        if (b.morningPriority !== a.morningPriority) {
-          return b.morningPriority - a.morningPriority;
+        if (b.priorityByShift[shiftType] !== a.priorityByShift[shiftType]) {
+          return b.priorityByShift[shiftType] - a.priorityByShift[shiftType];
         }
-        // Secondary sort: Total work deficit
-        const aWorkDeficit = a.targetTotalWorkDays - a.totalWorkDays;
-        const bWorkDeficit = b.targetTotalWorkDays - b.totalWorkDays;
-        if (bWorkDeficit !== aWorkDeficit) {
-          return bWorkDeficit - aWorkDeficit;
-        }
-        // Tertiary sort: Historical balance
+        const aDeficit = a.targetTotalWorkDays - a.totalWorkDays;
+        const bDeficit = b.targetTotalWorkDays - b.totalWorkDays;
+        if (bDeficit !== aDeficit) return bDeficit - aDeficit;
         return a.historicalTotalDays - b.historicalTotalDays;
       });
   };
 
-  const getAvailableForNight = () => {
-    return nurseStates
-      .filter(nurse => nurse.currentCycle === 'available')
-      .sort((a, b) => {
-        // Primary sort: Night priority
-        if (b.nightPriority !== a.nightPriority) {
-          return b.nightPriority - a.nightPriority;
-        }
-        // Secondary sort: Total work deficit
-        const aWorkDeficit = a.targetTotalWorkDays - a.totalWorkDays;
-        const bWorkDeficit = b.targetTotalWorkDays - b.totalWorkDays;
-        if (bWorkDeficit !== aWorkDeficit) {
-          return bWorkDeficit - aWorkDeficit;
-        }
-        // Tertiary sort: Historical balance
-        return a.historicalTotalDays - b.historicalTotalDays;
-      });
-  };
-
-  // Enhanced emergency assignment with balance consideration
+  // 그래도 자리가 안 채워지면 휴무 중인 사람을 비상으로 앞당겨 배정 (휴무 얼마 안 남은 사람 우선)
   const forceAssignmentFromOffDuty = (shiftType, needed) => {
     const offDutyNurses = nurseStates
       .filter(n => n.currentCycle === 'off-duty')
       .sort((a, b) => {
-        // Primary: Days remaining in off-duty (fewer = higher priority)
-        if (a.offDutyDays !== b.offDutyDays) {
-          return a.offDutyDays - b.offDutyDays;
-        }
-        // Secondary: Work priority for this shift type
-        const aPriority = shiftType === 'morning' ? a.morningPriority : a.nightPriority;
-        const bPriority = shiftType === 'morning' ? b.morningPriority : b.nightPriority;
-        if (bPriority !== aPriority) {
-          return bPriority - aPriority;
-        }
-        // Tertiary: Total work deficit
-        const aWorkDeficit = a.targetTotalWorkDays - a.totalWorkDays;
-        const bWorkDeficit = b.targetTotalWorkDays - b.totalWorkDays;
-        return bWorkDeficit - aWorkDeficit;
+        if (a.offDutyDays !== b.offDutyDays) return a.offDutyDays - b.offDutyDays;
+        return (b.priorityByShift[shiftType] || 0) - (a.priorityByShift[shiftType] || 0);
       });
-    
+
     const assigned = [];
     for (let i = 0; i < Math.min(needed, offDutyNurses.length); i++) {
       const nurse = offDutyNurses[i];
-      console.warn(`EMERGENCY BALANCED ASSIGNMENT: ${nurse.name} (debt: ${nurse.workloadDebt}, bias: ${nurse.historicalMorningBias}) forced from off-duty to ${shiftType} shift`);
+      console.warn(`비상 배정: ${nurse.name}을(를) 휴무에서 앞당겨 ${shiftLabel(shiftType)} 근무로 배정`);
       nurse.currentCycle = shiftType;
       nurse.cycleDay = 1;
       nurse.offDutyDays = 0;
@@ -2287,44 +2169,32 @@ export const generateRoster = (activeNurses, daysInMonth, rosterConfig) => {
     return assigned;
   };
 
-  // Generate roster for each day with enhanced balance tracking
-  for (let day = 1; day <= daysInMonth; day++) {
-    newRoster[day] = {
-      morning: [],
-      night: [],
-      offDuty: []
-    };
+  const continuityIssues = [];
+  let hasEmptyShifts = false;
+  let totalEmptyShifts = 0;
 
-    // Update priorities based on current work distribution and balance
+  for (let day = 1; day <= daysInMonth; day++) {
+    newRoster[day] = { offDuty: [] };
+    shiftTypes.forEach(s => { newRoster[day][s] = []; });
+
     updatePriorities();
 
-    // Process state transitions
+    // 상태 전이: 근무/휴무 하루 진행, 사이클 끝나면 자동 전환
     nurseStates.forEach(nurse => {
-      if (nurse.currentCycle === 'morning') {
-        if (nurse.cycleDay >= rosterConfig.morningShiftDays) {
+      if (shiftTypes.includes(nurse.currentCycle)) {
+        const cfg = rosterConfig.shifts[nurse.currentCycle];
+        if (nurse.cycleDay >= cfg.shiftDays) {
+          const finishedShift = nurse.currentCycle;
           nurse.currentCycle = 'off-duty';
-          nurse.offDutyDays = rosterConfig.offDutyAfterMorning;
-          nurse.remainingOffDutyDays = rosterConfig.offDutyAfterMorning;
+          nurse.offDutyDays = cfg.offDutyAfter;
+          nurse.remainingOffDutyDays = cfg.offDutyAfter;
           nurse.cycleDay = 0;
-          nurse.lastShiftType = 'morning';
-          nurse.lastShiftPreference = 'morning'; // Track preference for alternation
+          nurse.lastShiftType = finishedShift;
+          nurse.lastShiftPreference = finishedShift;
           nurse.remainingCycleDays = 0;
         } else {
           nurse.cycleDay++;
-          nurse.remainingCycleDays = Math.max(0, rosterConfig.morningShiftDays - nurse.cycleDay);
-        }
-      } else if (nurse.currentCycle === 'night') {
-        if (nurse.cycleDay >= rosterConfig.nightShiftDays) {
-          nurse.currentCycle = 'off-duty';
-          nurse.offDutyDays = rosterConfig.offDutyAfterNight;
-          nurse.remainingOffDutyDays = rosterConfig.offDutyAfterNight;
-          nurse.cycleDay = 0;
-          nurse.lastShiftType = 'night';
-          nurse.lastShiftPreference = 'night'; // Track preference for alternation
-          nurse.remainingCycleDays = 0;
-        } else {
-          nurse.cycleDay++;
-          nurse.remainingCycleDays = Math.max(0, rosterConfig.nightShiftDays - nurse.cycleDay);
+          nurse.remainingCycleDays = Math.max(0, cfg.shiftDays - nurse.cycleDay);
         }
       } else if (nurse.currentCycle === 'off-duty') {
         if (nurse.offDutyDays > 1) {
@@ -2338,245 +2208,164 @@ export const generateRoster = (activeNurses, daysInMonth, rosterConfig) => {
       }
     });
 
-    // Assign morning shift with balance consideration
-    const currentMorning = nurseStates.filter(n => n.currentCycle === 'morning');
-    const morningGap = rosterConfig.morningShiftSize - currentMorning.length;
-    
-    if (morningGap > 0) {
-      const availableForMorning = getAvailableForMorning();
-      
-      let assigned = 0;
-      for (let i = 0; i < Math.min(morningGap, availableForMorning.length); i++) {
-        const nurse = availableForMorning[i];
-        nurse.currentCycle = 'morning';
-        nurse.cycleDay = 1;
-        nurse.remainingCycleDays = rosterConfig.morningShiftDays - 1;
-        nurse.lastShiftPreference = 'morning';
-        assigned++;
-      }
-      
-      const stillNeeded = morningGap - assigned;
-      if (stillNeeded > 0) {
-        forceAssignmentFromOffDuty('morning', stillNeeded);
-      }
-    }
+    // 교대별로 부족한 자리 채우기
+    shiftTypes.forEach(shiftType => {
+      const cfg = rosterConfig.shifts[shiftType];
+      const current = nurseStates.filter(n => n.currentCycle === shiftType);
+      const gap = cfg.size - current.length;
 
-    // Assign night shift with balance consideration
-    const currentNight = nurseStates.filter(n => n.currentCycle === 'night');
-    const nightGap = rosterConfig.nightShiftSize - currentNight.length;
-    
-    if (nightGap > 0) {
-      const availableForNight = getAvailableForNight();
-      
-      let assigned = 0;
-      for (let i = 0; i < Math.min(nightGap, availableForNight.length); i++) {
-        const nurse = availableForNight[i];
-        nurse.currentCycle = 'night';
-        nurse.cycleDay = 1;
-        nurse.remainingCycleDays = rosterConfig.nightShiftDays - 1;
-        nurse.lastShiftPreference = 'night';
-        assigned++;
+      if (gap > 0) {
+        const available = getAvailableForShift(shiftType);
+        let assignedCount = 0;
+        for (let i = 0; i < Math.min(gap, available.length); i++) {
+          const nurse = available[i];
+          nurse.currentCycle = shiftType;
+          nurse.cycleDay = 1;
+          nurse.remainingCycleDays = cfg.shiftDays - 1;
+          nurse.lastShiftPreference = shiftType;
+          assignedCount++;
+        }
+        const stillNeeded = gap - assignedCount;
+        if (stillNeeded > 0) {
+          forceAssignmentFromOffDuty(shiftType, stillNeeded);
+        }
       }
-      
-      const stillNeeded = nightGap - assigned;
-      if (stillNeeded > 0) {
-        forceAssignmentFromOffDuty('night', stillNeeded);
-      }
-    }
-
-    // Record assignments and update counters
-    const finalMorning = nurseStates.filter(n => n.currentCycle === 'morning');
-    const finalNight = nurseStates.filter(n => n.currentCycle === 'night');
-    const finalOffDuty = nurseStates.filter(n => n.currentCycle === 'off-duty' || n.currentCycle === 'available');
-
-    finalMorning.forEach(nurse => {
-      newRoster[day].morning.push({
-        id: nurse.id,
-        name: nurse.name,
-        qualification: nurse.qualification,
-        experience: nurse.experience
-      });
-      nurse.totalMorningDays++;
-      nurse.totalWorkDays++;
     });
 
-    finalNight.forEach(nurse => {
-      newRoster[day].night.push({
-        id: nurse.id,
-        name: nurse.name,
-        qualification: nurse.qualification,
-        experience: nurse.experience
+    // 오늘 배정 결과 기록 + 부족 인원 체크
+    shiftTypes.forEach(shiftType => {
+      const cfg = rosterConfig.shifts[shiftType];
+      const assignedNurses = nurseStates.filter(n => n.currentCycle === shiftType);
+      const shortfall = cfg.size - assignedNurses.length;
+
+      if (shortfall > 0) {
+        hasEmptyShifts = true;
+        totalEmptyShifts += shortfall;
+        continuityIssues.push(`${day}일차: ${shiftLabel(shiftType)} ${assignedNurses.length}/${cfg.size}명 (${shortfall}명 부족)`);
+      }
+
+      assignedNurses.forEach(nurse => {
+        newRoster[day][shiftType].push({
+          id: nurse.id,
+          name: nurse.name,
+          qualification: nurse.qualification,
+          experience: nurse.experience
+        });
+        nurse.totalDaysByShift[shiftType]++;
+        nurse.totalWorkDays++;
       });
-      nurse.totalNightDays++;
-      nurse.totalWorkDays++;
     });
 
-    finalOffDuty.forEach(nurse => {
+    const offDutyOrAvailable = nurseStates.filter(n => n.currentCycle === 'off-duty' || n.currentCycle === 'available');
+    offDutyOrAvailable.forEach(nurse => {
       const statusText = nurse.currentCycle === 'available' ? 'Available' : 'Off-Duty';
       const daysRemaining = nurse.currentCycle === 'off-duty' ? nurse.offDutyDays : 0;
-      
+
       newRoster[day].offDuty.push({
         id: nurse.id,
         name: nurse.name,
         qualification: nurse.qualification,
         experience: nurse.experience,
-        daysRemaining: daysRemaining,
+        daysRemaining,
         status: statusText,
-        cycleInfo: nurse.currentCycle === 'off-duty' ? 
-          `휴무 (${daysRemaining}일 남음)` : 
-          '배정 가능'
+        cycleInfo: nurse.currentCycle === 'off-duty' ? `휴무 (${daysRemaining}일 남음)` : '배정 가능'
       });
       nurse.totalOffDutyDays++;
     });
   }
 
-  // Enhanced workload summary with balance analysis
-  const workloadSummary = nurseStates.map(nurse => {
-    const morningDifference = nurse.totalMorningDays - nurse.targetMorningDays;
-    const nightDifference = nurse.totalNightDays - nurse.targetNightDays;
-    
-    // Calculate balance score (lower = better balance)
-    const balanceScore = Math.abs(morningDifference) + Math.abs(nightDifference);
-    
-    // Determine if nurse is balanced this month
-    const isBalanced = balanceScore <= 2;
-    
-    // Calculate cumulative balance including history
-    const cumulativeMorning = nurse.totalMorningDays + nurse.historicalMorningDays;
-    const cumulativeNight = nurse.totalNightDays + nurse.historicalNightDays;
-    const cumulativeBalance = Math.abs(cumulativeMorning - cumulativeNight);
-    
+  // 다음 달로 이어질 사이클 연속성 정보 계산
+  const nursesInTransition = nurseStates.filter(n =>
+    n.currentCycle !== 'available' && (n.remainingCycleDays > 0 || n.remainingOffDutyDays > 0)
+  );
+
+  // 다음 달 계산을 위해 간호사별 최신 상태를 업데이트
+  const updatedNurses = activeNurses.map(originalNurse => {
+    const nurseState = nurseStates.find(n => n.id === originalNurse.id);
+    const historicalDaysByShift = {};
+    shiftTypes.forEach(s => {
+      historicalDaysByShift[s] = (nurseState.historicalDaysByShift[s] || 0) + nurseState.totalDaysByShift[s];
+    });
+
+    let lastShiftType = nurseState.lastShiftType;
+    let lastShiftCycleDay = 0;
+    let lastOffDutyRemaining = 0;
+
+    if (shiftTypes.includes(nurseState.currentCycle)) {
+      lastShiftType = nurseState.currentCycle;
+      lastShiftCycleDay = nurseState.cycleDay;
+    } else if (nurseState.currentCycle === 'off-duty' && nurseState.offDutyDays > 0) {
+      lastOffDutyRemaining = nurseState.offDutyDays;
+    }
+
     return {
-      name: nurse.name,
-      morning: nurse.totalMorningDays,
-      night: nurse.totalNightDays,
-      offDuty: nurse.totalOffDutyDays,
-      morningTarget: nurse.targetMorningDays,
-      nightTarget: nurse.targetNightDays,
-      morningDiff: morningDifference,
-      nightDiff: nightDifference,
-      balance: isBalanced ? 'Balanced' : 'Needs Adjustment',
-      balanceScore: balanceScore,
-      
-      // Historical context
-      historicalMorning: nurse.historicalMorningDays,
-      historicalNight: nurse.historicalNightDays,
-      cumulativeMorning: cumulativeMorning,
-      cumulativeNight: cumulativeNight,
-      cumulativeBalance: cumulativeBalance,
-      
-      // End state for next month
-      endState: {
-        currentCycle: nurse.currentCycle,
-        cycleDay: nurse.cycleDay,
-        offDutyDays: nurse.offDutyDays,
-        remainingCycleDays: nurse.remainingCycleDays,
-        remainingOffDutyDays: nurse.remainingOffDutyDays,
-        lastShiftPreference: nurse.lastShiftPreference,
-        monthlyRotation: nurse.monthlyRotation + 1
-      }
+      ...originalNurse,
+      lastShiftType,
+      lastShiftCycleDay,
+      lastOffDutyRemaining,
+      lastShiftPreference: nurseState.lastShiftPreference,
+      historicalDaysByShift,
+      // 과거 방식과의 호환을 위해 남겨두되, 더 이상 로직에서 사용하지 않음
+      lastMonthMorning: undefined,
+      lastMonthNight: undefined
     };
   });
 
-  // Update nurse data with enhanced balance tracking
-  const updatedNurses = activeNurses.map(nurse => {
-    const nurseState = nurseStates.find(ns => ns.id === nurse.id);
-    if (nurseState) {
-      let finalShiftType = nurseState.lastShiftType;
-      
-      if (nurseState.currentCycle === 'morning') {
-        finalShiftType = 'morning';
-      } else if (nurseState.currentCycle === 'night') {
-        finalShiftType = 'night';
-      } else if (nurseState.currentCycle === 'off-duty' && nurseState.offDutyDays > 0) {
-        finalShiftType = nurseState.lastShiftType;
-      } else {
-        finalShiftType = null;
-      }
-      
-      return { 
-        ...nurse, 
-        lastShiftType: finalShiftType,
-        // Enhanced cycle continuity tracking
-        lastShiftCycleDay: nurseState.currentCycle === 'morning' || nurseState.currentCycle === 'night' ? 
-          nurseState.cycleDay : 0,
-        lastOffDutyRemaining: nurseState.currentCycle === 'off-duty' ? 
-          nurseState.offDutyDays : 0,
-        lastCycleState: nurseState.currentCycle,
-        
-        // Enhanced balance tracking
-        lastMonthMorning: nurseState.totalMorningDays,
-        lastMonthNight: nurseState.totalNightDays,
-        lastShiftPreference: nurseState.lastShiftPreference,
-        monthlyRotation: (nurse.monthlyRotation || 0) + 1,
-        
-        // Cumulative balance tracking
-        totalCumulativeMorning: nurseState.totalMorningDays + nurseState.historicalMorningDays,
-        totalCumulativeNight: nurseState.totalNightDays + nurseState.historicalNightDays,
-        
-        // Balance metadata
-        balanceMetadata: {
-          thisMonthBalance: Math.abs(nurseState.totalMorningDays - nurseState.totalNightDays),
-          cumulativeBalance: Math.abs((nurseState.totalMorningDays + nurseState.historicalMorningDays) - 
-                                     (nurseState.totalNightDays + nurseState.historicalNightDays)),
-          workloadDebt: Math.max(0, nurseState.targetTotalWorkDays - nurseState.totalWorkDays),
-          balanceScore: Math.abs(nurseState.totalMorningDays - nurseState.targetMorningDays) + 
-                       Math.abs(nurseState.totalNightDays - nurseState.targetNightDays)
+  // 균형 분석 리포트 (교대 종류 수에 맞게 자동으로 구성)
+  const workloadSummary = nurseStates
+    .map(n => {
+      const cumulativeByShift = {};
+      shiftTypes.forEach(s => {
+        cumulativeByShift[s] = (n.historicalDaysByShift[s] || 0) + n.totalDaysByShift[s];
+      });
+      // 균형 점수: 이번 달 각 교대의 목표 대비 편차 절대값 합
+      const balanceScore = shiftTypes.reduce((sum, s) => sum + Math.abs(n.targetByShift[s] - n.totalDaysByShift[s]), 0);
+      // 누적 균형: 누적 근무일이 교대별로 얼마나 고르게 퍼져있는지 (표준편차 느낌의 단순 버전)
+      const cumulativeValues = shiftTypes.map(s => cumulativeByShift[s]);
+      const cumulativeAvg = cumulativeValues.reduce((a, b) => a + b, 0) / shiftTypes.length;
+      const cumulativeBalance = Math.max(...cumulativeValues.map(v => Math.abs(v - cumulativeAvg)));
+
+      return {
+        name: n.name,
+        qualification: n.qualification,
+        totalWorkDays: n.totalWorkDays,
+        offDutyDays: n.totalOffDutyDays,
+        daysByShift: n.totalDaysByShift,
+        targetByShift: n.targetByShift,
+        cumulativeByShift,
+        balanceScore,
+        cumulativeBalance,
+        endState: {
+          currentCycle: n.currentCycle,
+          remainingCycleDays: n.remainingCycleDays,
+          remainingOffDutyDays: n.remainingOffDutyDays
         }
       };
-    }
-    return nurse;
-  });
-  
-  // Enhanced validation and reporting
-  let hasEmptyShifts = false;
-  let totalEmptyShifts = 0;
-  let continuityIssues = [];
-  
-  for (let day = 1; day <= daysInMonth; day++) {
-    const morningShort = rosterConfig.morningShiftSize - newRoster[day].morning.length;
-    const nightShort = rosterConfig.nightShiftSize - newRoster[day].night.length;
-    
-    if (morningShort > 0 || nightShort > 0) {
-      hasEmptyShifts = true;
-      totalEmptyShifts += morningShort + nightShort;
-      continuityIssues.push(`${day}일차: 주간 ${newRoster[day].morning.length}/${rosterConfig.morningShiftSize}명 (${morningShort}명 부족), 야간 ${newRoster[day].night.length}/${rosterConfig.nightShiftSize}명 (${nightShort}명 부족)`);
-    }
-  }
-  
-  // Balance analysis
-  const balancedNurses = workloadSummary.filter(n => n.balance === 'Balanced');
-  const imbalancedNurses = workloadSummary.filter(n => n.balance === 'Needs Adjustment');
-  const perfectCumulativeBalance = workloadSummary.filter(n => n.cumulativeBalance <= 1);
-  const nursesInTransition = workloadSummary.filter(n => 
-    n.endState.currentCycle !== 'available' && 
-    (n.endState.remainingCycleDays > 0 || n.endState.remainingOffDutyDays > 0)
-  );
-  
-  console.log('Enhanced Balance Analysis:', {
-    balancedThisMonth: balancedNurses.length,
-    imbalancedThisMonth: imbalancedNurses.length,
-    perfectCumulativeBalance: perfectCumulativeBalance.length,
-    avgBalanceScore: workloadSummary.reduce((sum, n) => sum + n.balanceScore, 0) / workloadSummary.length
-  });
+    })
+    .sort((a, b) => a.balanceScore - b.balanceScore);
 
-  // Enhanced summary message
+  const balancedNurses = workloadSummary.filter(n => n.balanceScore <= 1);
+  const perfectCumulativeBalance = workloadSummary.filter(n => n.cumulativeBalance <= 1);
+  const avgBalanceScore = workloadSummary.reduce((sum, n) => sum + n.balanceScore, 0) / workloadSummary.length;
+
+  const cycleLabel = (cycle) => shiftTypes.includes(cycle) ? `${shiftLabel(cycle)} 근무` : cycle === 'off-duty' ? '휴무' : '근무 가능';
+
+  const shiftBreakdownLine = (n) => shiftTypes.map(s => `${shiftLabel(s)} ${n.daysByShift[s]}`).join(' / ');
+
   const balanceReport = `📊 균형 분석:
 이번 달: 전체 ${workloadSummary.length}명 중 ${balancedNurses.length}명 균형 달성
 누적: 전체 ${workloadSummary.length}명 중 ${perfectCumulativeBalance.length}명 완벽한 전체 균형
-평균 균형 점수: ${(workloadSummary.reduce((sum, n) => sum + n.balanceScore, 0) / workloadSummary.length).toFixed(1)}
+평균 균형 점수: ${avgBalanceScore.toFixed(1)}
 
 📋 업무량 분포:
-${workloadSummary.sort((a, b) => a.balanceScore - b.balanceScore).map(n => 
-  `${n.name}: 주간 ${n.morning} / 야간 ${n.night} / 비번 ${n.offDuty} (목표: 주간 ${n.morningTarget} / 야간 ${n.nightTarget}) | 누적: 주간 ${n.cumulativeMorning} / 야간 ${n.cumulativeNight} | 균형: ${n.cumulativeBalance <= 1 ? '✅' : '⚖️'}`
+${workloadSummary.map(n =>
+  `${n.name}: ${shiftBreakdownLine(n)} / 비번 ${n.offDutyDays} | 균형: ${n.balanceScore <= 1 ? '✅' : '⚖️'}`
 ).join('\n')}`;
 
-  const cycleLabel = (cycle) => cycle === 'morning' ? '주간 근무' : cycle === 'night' ? '야간 근무' : cycle === 'off-duty' ? '휴무' : '근무 가능';
-
-  const summaryMessage = hasEmptyShifts 
+  const summaryMessage = hasEmptyShifts
     ? `⚠️ 근무표 문제: 채워지지 않은 근무 ${totalEmptyShifts}건!\n\n${continuityIssues.join('\n')}\n\n${balanceReport}`
-    : `✅ 균형 잡힌 근무표가 생성되었습니다!\n\n${balanceReport}${nursesInTransition.length > 0 ? 
-        `\n\n🔄 다음 달로 근무 주기가 이어지는 간호사:\n${nursesInTransition.map(n => 
+    : `✅ 균형 잡힌 근무표가 생성되었습니다!\n\n${balanceReport}${nursesInTransition.length > 0 ?
+        `\n\n🔄 다음 달로 근무 주기가 이어지는 간호사:\n${nursesInTransition.map(n =>
           `${n.name}: ${cycleLabel(n.endState.currentCycle)}${n.endState.remainingCycleDays > 0 ? ` (${n.endState.remainingCycleDays}일 남음)` : n.endState.remainingOffDutyDays > 0 ? ` (휴무 ${n.endState.remainingOffDutyDays}일 남음)` : ''}`
         ).join('\n')}` : ''
       }`;
@@ -2587,18 +2376,11 @@ ${workloadSummary.sort((a, b) => a.balanceScore - b.balanceScore).map(n =>
     updatedNurses,
     message: summaryMessage,
     workloadSummary,
+    shiftTypes,
     continuityInfo: {
       nursesInTransition: nursesInTransition.length,
       hasEmptyShifts,
-      totalEmptyShifts,
-      continuityIssues: hasEmptyShifts ? continuityIssues : []
-    },
-    balanceInfo: {
-      balancedThisMonth: balancedNurses.length,
-      imbalancedThisMonth: imbalancedNurses.length,
-      perfectCumulativeBalance: perfectCumulativeBalance.length,
-      averageBalanceScore: workloadSummary.reduce((sum, n) => sum + n.balanceScore, 0) / workloadSummary.length,
-      workloadDetails: workloadSummary
+      totalEmptyShifts
     }
   };
 };
