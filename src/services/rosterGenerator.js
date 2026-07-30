@@ -2423,8 +2423,8 @@ export const generateRoster = (activeNurses, daysInMonth, rosterConfig) => {
         daysRemaining: daysRemaining,
         status: statusText,
         cycleInfo: nurse.currentCycle === 'off-duty' ? 
-          `Off-duty (${daysRemaining} days remaining)` : 
-          'Available for assignment'
+          `휴무 (${daysRemaining}일 남음)` : 
+          '배정 가능'
       });
       nurse.totalOffDutyDays++;
     });
