@@ -1,12 +1,13 @@
 // src/components/Layout/Navigation.jsx
 import React from 'react';
-import { BarChart3, Users, Calendar, Settings } from 'lucide-react';
+import { BarChart3, Users, Calendar, Settings, UserCheck } from 'lucide-react';
 
 const Navigation = ({ activeTab, setActiveTab }) => {
   const tabs = [
     { id: 'dashboard', label: '대시보드', icon: BarChart3 },
     { id: 'nurses', label: '간호사 관리', icon: Users },
     { id: 'roster', label: '근무표', icon: Calendar },
+    { id: 'members', label: '회원 관리', icon: UserCheck },
     { id: 'settings', label: '설정', icon: Settings }
   ];
 
