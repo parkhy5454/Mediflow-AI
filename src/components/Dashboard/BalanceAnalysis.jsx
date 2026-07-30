@@ -351,7 +351,7 @@ const BalanceAnalysis = ({ nurses, selectedMonth, selectedYear }) => {
       marginBottom: '20px' 
     }}>
       <h3 style={{ marginBottom: '20px', color: '#1f2937', display: 'flex', alignItems: 'center', gap: '10px' }}>
-        📊 Workload Balance Analysis
+        📊 업무량 균형 분석
         <div style={{
           backgroundColor: balancedNurses === totalNurses ? '#dcfce7' : balancedNurses > totalNurses / 2 ? '#fef3c7' : '#fee2e2',
           color: balancedNurses === totalNurses ? '#166534' : balancedNurses > totalNurses / 2 ? '#92400e' : '#dc2626',
@@ -360,7 +360,7 @@ const BalanceAnalysis = ({ nurses, selectedMonth, selectedYear }) => {
           fontSize: '12px',
           fontWeight: '600'
         }}>
-          {balancedNurses}/{totalNurses} Balanced
+          {balancedNurses}/{totalNurses}명 균형
         </div>
       </h3>
 
@@ -382,7 +382,7 @@ const BalanceAnalysis = ({ nurses, selectedMonth, selectedYear }) => {
             {((balancedNurses / totalNurses) * 100).toFixed(0)}%
           </div>
           <div style={{ fontSize: '12px', color: '#0369a1', marginTop: '4px' }}>
-            Perfect Balance
+            완벽한 균형
           </div>
         </div>
 
@@ -397,7 +397,7 @@ const BalanceAnalysis = ({ nurses, selectedMonth, selectedYear }) => {
             {avgCumulativeBalance.toFixed(1)}
           </div>
           <div style={{ fontSize: '12px', color: '#92400e', marginTop: '4px' }}>
-            Avg Balance Score
+            평균 균형 점수
           </div>
         </div>
 
@@ -412,7 +412,7 @@ const BalanceAnalysis = ({ nurses, selectedMonth, selectedYear }) => {
             {balanceData.filter(n => n.trend === 'improving').length}
           </div>
           <div style={{ fontSize: '12px', color: '#15803d', marginTop: '4px' }}>
-            Improving Balance
+            개선 중
           </div>
         </div>
 
@@ -427,14 +427,14 @@ const BalanceAnalysis = ({ nurses, selectedMonth, selectedYear }) => {
             {balanceData.filter(n => Math.abs(n.cumulativeBalance) > 3).length}
           </div>
           <div style={{ fontSize: '12px', color: '#991b1b', marginTop: '4px' }}>
-            Need Attention
+            주의 필요
           </div>
         </div>
       </div>
 
       {/* Cumulative Balance Chart */}
       <div style={{ marginBottom: '25px' }}>
-        <h4 style={{ marginBottom: '15px', color: '#1f2937' }}>Cumulative Morning vs Night Balance</h4>
+        <h4 style={{ marginBottom: '15px', color: '#1f2937' }}>누적 주간 vs 야간 균형</h4>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={balanceData}>
             <CartesianGrid strokeDasharray="3 3" />
@@ -449,20 +449,20 @@ const BalanceAnalysis = ({ nurses, selectedMonth, selectedYear }) => {
             <Tooltip 
               formatter={(value, name) => [
                 value, 
-                name === 'cumulativeMorning' ? 'Morning Shifts' : 'Night Shifts'
+                name === 'cumulativeMorning' ? '주간 근무' : '야간 근무'
               ]}
-              labelFormatter={(label) => `Nurse: ${label}`}
+              labelFormatter={(label) => `간호사: ${label}`}
             />
             <Legend />
-            <Bar dataKey="cumulativeMorning" fill="#3b82f6" name="Morning Shifts" />
-            <Bar dataKey="cumulativeNight" fill="#8b5cf6" name="Night Shifts" />
+            <Bar dataKey="cumulativeMorning" fill="#3b82f6" name="주간 근무" />
+            <Bar dataKey="cumulativeNight" fill="#8b5cf6" name="야간 근무" />
           </BarChart>
         </ResponsiveContainer>
       </div>
 
       {/* Balance Details Table */}
       <div style={{ marginBottom: '20px' }}>
-        <h4 style={{ marginBottom: '15px', color: '#1f2937' }}>Individual Balance Details</h4>
+        <h4 style={{ marginBottom: '15px', color: '#1f2937' }}>개인별 균형 상세</h4>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ 
             width: '100%', 
@@ -472,19 +472,19 @@ const BalanceAnalysis = ({ nurses, selectedMonth, selectedYear }) => {
             <thead>
               <tr style={{ backgroundColor: '#f9fafb' }}>
                 <th style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>
-                  Nurse
+                  간호사
                 </th>
                 <th style={{ padding: '12px 8px', textAlign: 'center', borderBottom: '1px solid #e5e7eb' }}>
-                  This Month
+                  이번 달
                 </th>
                 <th style={{ padding: '12px 8px', textAlign: 'center', borderBottom: '1px solid #e5e7eb' }}>
-                  Cumulative
+                  누적
                 </th>
                 <th style={{ padding: '12px 8px', textAlign: 'center', borderBottom: '1px solid #e5e7eb' }}>
-                  Balance
+                  균형
                 </th>
                 <th style={{ padding: '12px 8px', textAlign: 'center', borderBottom: '1px solid #e5e7eb' }}>
-                  Status
+                  상태
                 </th>
               </tr>
             </thead>
@@ -499,14 +499,14 @@ const BalanceAnalysis = ({ nurses, selectedMonth, selectedYear }) => {
                   </td>
                   <td style={{ padding: '10px 8px', textAlign: 'center', fontSize: '12px' }}>
                     <div style={{ display: 'flex', justifyContent: 'center', gap: '4px' }}>
-                      <span style={{ color: '#3b82f6' }}>{nurse.thisMonthMorning}M</span>
-                      <span style={{ color: '#8b5cf6' }}>{nurse.thisMonthNight}N</span>
+                      <span style={{ color: '#3b82f6' }}>{nurse.thisMonthMorning}주</span>
+                      <span style={{ color: '#8b5cf6' }}>{nurse.thisMonthNight}야</span>
                     </div>
                   </td>
                   <td style={{ padding: '10px 8px', textAlign: 'center', fontSize: '12px' }}>
                     <div style={{ display: 'flex', justifyContent: 'center', gap: '4px' }}>
-                      <span style={{ color: '#3b82f6', fontWeight: '600' }}>{nurse.cumulativeMorning}M</span>
-                      <span style={{ color: '#8b5cf6', fontWeight: '600' }}>{nurse.cumulativeNight}N</span>
+                      <span style={{ color: '#3b82f6', fontWeight: '600' }}>{nurse.cumulativeMorning}주</span>
+                      <span style={{ color: '#8b5cf6', fontWeight: '600' }}>{nurse.cumulativeNight}야</span>
                     </div>
                   </td>
                   <td style={{ padding: '10px 8px', textAlign: 'center' }}>
@@ -533,9 +533,9 @@ const BalanceAnalysis = ({ nurses, selectedMonth, selectedYear }) => {
                         fontSize: '11px',
                         color: Math.abs(nurse.cumulativeBalance) <= 1 ? '#166534' : '#6b7280'
                       }}>
-                        {Math.abs(nurse.cumulativeBalance) <= 1 ? 'Perfect' : 
-                         nurse.trend === 'improving' ? 'Improving' :
-                         nurse.trend === 'declining' ? 'Declining' : 'Stable'}
+                        {Math.abs(nurse.cumulativeBalance) <= 1 ? '완벽' : 
+                         nurse.trend === 'improving' ? '개선 중' :
+                         nurse.trend === 'declining' ? '악화 중' : '안정'}
                       </span>
                     </div>
                   </td>
@@ -556,7 +556,7 @@ const BalanceAnalysis = ({ nurses, selectedMonth, selectedYear }) => {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
             <AlertTriangle size={18} style={{ color: '#d97706' }} />
-            <strong style={{ color: '#92400e' }}>Balance Recommendations</strong>
+            <strong style={{ color: '#92400e' }}>균형 조정 권장사항</strong>
           </div>
           <div style={{ fontSize: '13px', color: '#78350f', lineHeight: '1.5' }}>
             {balanceData
@@ -565,13 +565,13 @@ const BalanceAnalysis = ({ nurses, selectedMonth, selectedYear }) => {
               .map(nurse => (
                 <div key={nurse.name} style={{ marginBottom: '4px' }}>
                   • <strong>{nurse.name}</strong>: {nurse.cumulativeBalance > 0 ? 
-                    `Has ${nurse.cumulativeBalance} more morning shifts - prioritize for night shifts next month` :
-                    `Has ${Math.abs(nurse.cumulativeBalance)} more night shifts - prioritize for morning shifts next month`}
+                    `주간 근무가 ${nurse.cumulativeBalance}일 더 많음 - 다음 달은 야간 근무 우선 배정 권장` :
+                    `야간 근무가 ${Math.abs(nurse.cumulativeBalance)}일 더 많음 - 다음 달은 주간 근무 우선 배정 권장`}
                 </div>
               ))}
             {balanceData.filter(n => Math.abs(n.cumulativeBalance) > 1).length > 3 && (
               <div style={{ marginTop: '8px', fontSize: '12px', fontStyle: 'italic' }}>
-                And {balanceData.filter(n => Math.abs(n.cumulativeBalance) > 1).length - 3} more nurses need balance adjustments...
+                그 외 {balanceData.filter(n => Math.abs(n.cumulativeBalance) > 1).length - 3}명의 간호사가 균형 조정이 필요합니다...
               </div>
             )}
           </div>

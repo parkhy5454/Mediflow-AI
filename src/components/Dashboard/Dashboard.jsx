@@ -160,7 +160,7 @@ const Dashboard = ({
         gap: '15px'
       }}>
         <h2 style={{ color: '#1f2937', margin: 0 }}>
-          Dashboard - {getMonthName(selectedMonth)} {selectedYear}
+          대시보드 - {selectedYear}년 {getMonthName(selectedMonth)}
         </h2>
         
         {/* Quick Export from Dashboard */}

@@ -34,12 +34,12 @@ const CalendarView = ({ selectedMonth, selectedYear, rosterConfig }) => {
         {dayData && (
           <div style={{ fontSize: '12px' }}>
             <div style={{ color: morningCount < rosterConfig.morningShiftSize ? '#ef4444' : '#3b82f6' }}>
-              M: {morningCount}/{rosterConfig.morningShiftSize}
+              주: {morningCount}/{rosterConfig.morningShiftSize}
             </div>
             <div style={{ color: nightCount < rosterConfig.nightShiftSize ? '#ef4444' : '#8b5cf6' }}>
-              N: {nightCount}/{rosterConfig.nightShiftSize}
+              야: {nightCount}/{rosterConfig.nightShiftSize}
             </div>
-            <div style={{ color: '#6b7280' }}>Off: {dayData.offDuty?.length || 0}</div>
+            <div style={{ color: '#6b7280' }}>휴무: {dayData.offDuty?.length || 0}</div>
           </div>
         )}
       </div>
@@ -53,7 +53,7 @@ const CalendarView = ({ selectedMonth, selectedYear, rosterConfig }) => {
       borderRadius: '8px', 
       border: '1px solid #e5e7eb' 
     }}>
-      <h3 style={{ marginBottom: '20px', color: '#1f2937' }}>Monthly Calendar</h3>
+      <h3 style={{ marginBottom: '20px', color: '#1f2937' }}>월간 캘린더</h3>
       <div>
         <div style={{ 
           display: 'grid', 
@@ -61,7 +61,7 @@ const CalendarView = ({ selectedMonth, selectedYear, rosterConfig }) => {
           gap: '2px', 
           marginBottom: '10px' 
         }}>
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+          {['일', '월', '화', '수', '목', '금', '토'].map(day => (
             <div key={day} style={{ 
               padding: '10px', 
               textAlign: 'center', 

@@ -4,25 +4,25 @@ import { Users, CheckCircle, Clock } from 'lucide-react';
 const StatsCards = ({ nurses, activeNurses, stats }) => {
   const statsConfig = [
     {
-      title: 'Total Nurses',
+      title: '전체 간호사',
       value: nurses.length,
       icon: Users,
       color: '#3b82f6'
     },
     {
-      title: 'Active Nurses',
+      title: '근무 가능 간호사',
       value: activeNurses.length,
       icon: CheckCircle,
       color: '#10b981'
     },
     {
-      title: 'Morning Shifts',
+      title: '주간 근무',
       value: stats.totalMorningAssignments,
       icon: Clock,
       color: '#f59e0b'
     },
     {
-      title: 'Night Shifts',
+      title: '야간 근무',
       value: stats.totalNightAssignments,
       icon: Clock,
       color: '#8b5cf6'
