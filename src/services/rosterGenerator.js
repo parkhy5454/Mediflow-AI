@@ -2366,7 +2366,7 @@ ${workloadSummary.map(n =>
     ? `⚠️ 근무표 문제: 채워지지 않은 근무 ${totalEmptyShifts}건!\n\n${continuityIssues.join('\n')}\n\n${balanceReport}`
     : `✅ 균형 잡힌 근무표가 생성되었습니다!\n\n${balanceReport}${nursesInTransition.length > 0 ?
         `\n\n🔄 다음 달로 근무 주기가 이어지는 간호사:\n${nursesInTransition.map(n =>
-          `${n.name}: ${cycleLabel(n.endState.currentCycle)}${n.endState.remainingCycleDays > 0 ? ` (${n.endState.remainingCycleDays}일 남음)` : n.endState.remainingOffDutyDays > 0 ? ` (휴무 ${n.endState.remainingOffDutyDays}일 남음)` : ''}`
+          `${n.name}: ${cycleLabel(n.currentCycle)}${n.remainingCycleDays > 0 ? ` (${n.remainingCycleDays}일 남음)` : n.remainingOffDutyDays > 0 ? ` (휴무 ${n.remainingOffDutyDays}일 남음)` : ''}`
         ).join('\n')}` : ''
       }`;
 
