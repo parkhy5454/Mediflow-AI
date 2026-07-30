@@ -1,28 +1,39 @@
 // src/components/Roster/CycleContinuityDisplay.jsx
+// [수정] 근무 사이클에 있는 간호사들을 "주간/야간 둘 중 하나"로 가정하지 않고,
+// 실제 배정된 교대 종류(D/E/N/M)별로 그룹핑해서 각각 보여주도록 일반화했다.
 import React from 'react';
 import { Clock, UserCheck, UserX, Users } from 'lucide-react';
+import { SHIFT_TYPES, shiftFullLabel, shiftColor } from '../../constants/shiftTypes';
 
 const CycleContinuityDisplay = ({ nurses, rosterConfig }) => {
-  // Analyze nurse states for next month
-  const nursesInTransition = nurses.filter(nurse => 
-    nurse.status === 'active' && (
-      nurse.lastOffDutyRemaining > 0 || 
-      (nurse.lastShiftCycleDay > 0 && nurse.lastShiftCycleDay < 
-        (nurse.lastShiftType === 'morning' ? rosterConfig.morningShiftDays : rosterConfig.nightShiftDays))
-    )
+  const shiftTypes = rosterConfig?.shifts ? Object.keys(rosterConfig.shifts) : SHIFT_TYPES;
+
+  const isNotFullyInCycle = (nurse) => {
+    const cfg = rosterConfig.shifts[nurse.lastShiftType];
+    return nurse.lastShiftCycleDay > 0 && cfg && nurse.lastShiftCycleDay < cfg.shiftDays;
+  };
+
+  const nursesInTransition = nurses.filter(nurse =>
+    nurse.status === 'active' && (nurse.lastOffDutyRemaining > 0 || isNotFullyInCycle(nurse))
   );
 
-  const nursesOffDuty = nurses.filter(nurse => 
+  const nursesOffDuty = nurses.filter(nurse =>
     nurse.status === 'active' && nurse.lastOffDutyRemaining > 0
   );
 
-  const nursesInShiftCycle = nurses.filter(nurse => 
-    nurse.status === 'active' && nurse.lastShiftCycleDay > 0 && nurse.lastOffDutyRemaining === 0
+  const nursesInShiftCycle = nurses.filter(nurse =>
+    nurse.status === 'active' && nurse.lastShiftCycleDay > 0 && nurse.lastOffDutyRemaining === 0 &&
+    shiftTypes.includes(nurse.lastShiftType)
   );
 
-  const nursesAvailable = nurses.filter(nurse => 
+  const nursesAvailable = nurses.filter(nurse =>
     nurse.status === 'active' && nurse.lastOffDutyRemaining === 0 && nurse.lastShiftCycleDay === 0
   );
+
+  // 근무 사이클 중인 간호사를 실제 교대 종류별로 그룹핑
+  const shiftCycleGroups = shiftTypes
+    .map(s => ({ shiftType: s, list: nursesInShiftCycle.filter(n => n.lastShiftType === s) }))
+    .filter(g => g.list.length > 0);
 
   if (nursesInTransition.length === 0) {
     return (
@@ -58,7 +69,7 @@ const CycleContinuityDisplay = ({ nurses, rosterConfig }) => {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px' }}>
-        {/* Nurses Off-Duty */}
+        {/* 휴무 계속 */}
         {nursesOffDuty.length > 0 && (
           <div style={{
             backgroundColor: '#fef3c7',
@@ -85,44 +96,42 @@ const CycleContinuityDisplay = ({ nurses, rosterConfig }) => {
           </div>
         )}
 
-        {/* Nurses in Shift Cycles */}
-        {nursesInShiftCycle.length > 0 && (
-          <div style={{
-            backgroundColor: nursesInShiftCycle[0]?.lastShiftType === 'morning' ? '#dbeafe' : '#e0e7ff',
-            border: `1px solid ${nursesInShiftCycle[0]?.lastShiftType === 'morning' ? '#3b82f6' : '#8b5cf6'}`,
-            borderRadius: '6px',
-            padding: '12px'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-              <Clock size={16} style={{ 
-                color: nursesInShiftCycle[0]?.lastShiftType === 'morning' ? '#1e40af' : '#5b21b6' 
-              }} />
-              <strong style={{ 
-                color: nursesInShiftCycle[0]?.lastShiftType === 'morning' ? '#1e3a8a' : '#4c1d95',
-                fontSize: '14px' 
-              }}>
-                {nursesInShiftCycle[0]?.lastShiftType === 'morning' ? '주간' : '야간'} 근무 계속 ({nursesInShiftCycle.length}명)
-              </strong>
+        {/* 교대 종류별 근무 계속 (D/E/N/M 각각 별도 카드) */}
+        {shiftCycleGroups.map(({ shiftType, list }) => {
+          const color = shiftColor(shiftType);
+          return (
+            <div key={shiftType} style={{
+              backgroundColor: `${color}1a`,
+              border: `1px solid ${color}`,
+              borderRadius: '6px',
+              padding: '12px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                <Clock size={16} style={{ color }} />
+                <strong style={{ color, fontSize: '14px' }}>
+                  {shiftFullLabel(shiftType)} 계속 ({list.length}명)
+                </strong>
+              </div>
+              {list.map(nurse => {
+                const cfg = rosterConfig.shifts[shiftType];
+                const totalDays = cfg ? cfg.shiftDays : 0;
+                const remaining = totalDays - nurse.lastShiftCycleDay;
+                return (
+                  <div key={nurse.id} style={{
+                    fontSize: '12px',
+                    color,
+                    marginBottom: '4px',
+                    paddingLeft: '8px'
+                  }}>
+                    • {nurse.name}: {totalDays}일 중 {nurse.lastShiftCycleDay}일차 ({remaining}일 남음)
+                  </div>
+                );
+              })}
             </div>
-            {nursesInShiftCycle.map(nurse => {
-              const totalDays = nurse.lastShiftType === 'morning' ? 
-                rosterConfig.morningShiftDays : rosterConfig.nightShiftDays;
-              const remaining = totalDays - nurse.lastShiftCycleDay;
-              return (
-                <div key={nurse.id} style={{
-                  fontSize: '12px',
-                  color: nurse.lastShiftType === 'morning' ? '#1e3a8a' : '#4c1d95',
-                  marginBottom: '4px',
-                  paddingLeft: '8px'
-                }}>
-                  • {nurse.name}: {totalDays}일 중 {nurse.lastShiftCycleDay}일차 ({remaining}일 남음)
-                </div>
-              );
-            })}
-          </div>
-        )}
+          );
+        })}
 
-        {/* Available Nurses */}
+        {/* 즉시 근무 가능 */}
         {nursesAvailable.length > 0 && (
           <div style={{
             backgroundColor: '#dcfce7',

@@ -221,6 +221,7 @@ import RosterTable from './RosterTable';
 import ExportButtons from './ExportButtons';
 import CycleContinuityDisplay from './CycleContinuityDisplay';
 import { getMonthName } from '../../utils/dateUtils';
+import { shiftLabel } from '../../constants/shiftTypes';
 
 const RosterView = ({ 
   selectedMonth, 
@@ -272,9 +273,10 @@ const RosterView = ({
             if (n.lastOffDutyRemaining > 0) {
               return `• ${n.name}: 휴무 ${n.lastOffDutyRemaining}일 남음`;
             } else {
-              const totalDays = n.lastShiftType === 'morning' ? rosterConfig.morningShiftDays : rosterConfig.nightShiftDays;
+              const shiftCfg = rosterConfig.shifts[n.lastShiftType];
+              const totalDays = shiftCfg ? shiftCfg.shiftDays : 0;
               const remaining = totalDays - n.lastShiftCycleDay;
-              return `• ${n.name}: ${n.lastShiftType === 'morning' ? '주간' : '야간'} 근무 ${remaining}일 남음`;
+              return `• ${n.name}: ${shiftLabel(n.lastShiftType)} 근무 ${remaining}일 남음`;
             }
           }).join('\n') +
           `\n\n이 간호사들은 새로운 배정 전에 현재 주기를 완료합니다. 계속하시겠습니까?`;
@@ -460,7 +462,7 @@ const RosterView = ({
           </div>
           <div style={{ fontSize: '13px', color: '#0c4a6e', lineHeight: '1.4' }}>
             <strong>근무 주기 연속성 기능:</strong> 미래 달의 근무표를 생성할 때, 
-            간호사는 새로운 근무를 배정받기 전에 현재 진행 중인 근무 주기(주간 근무, 야간 근무, 휴무 기간)를 자동으로 완료합니다. 
+            간호사는 새로운 근무를 배정받기 전에 현재 진행 중인 근무 주기(데이/이브닝/나이트/미들 근무, 휴무 기간)를 자동으로 완료합니다. 
             이를 통해 적절한 휴식 기간을 보장하고 일과 삶의 균형을 유지합니다.
           </div>
         </div>
