@@ -4,6 +4,7 @@ import { UserPlus } from 'lucide-react';
 import AddNurseForm from './AddNurseForm';
 import NurseFilters from './NurseFilters';
 import NurseTable from './NurseTable';
+import { DEPARTMENT_LIST } from '../../constants/nurseOptions';
 
 const NurseManagement = ({ 
   nurses, 
@@ -25,10 +26,13 @@ const NurseManagement = ({
     return success;
   };
 
-  // 실제 등록된 부서 목록 (가나다순)
-  const departments = Array.from(
+  // [수정] "간호사 추가" 폼과 동일한 공용 부서 목록을 기본으로 쓰고,
+  // 직접 입력으로 추가된(목록에 없는) 부서가 실제로 있으면 그것도 필터에 포함시킨다.
+  const customDepartmentsInUse = Array.from(
     new Set(nurses.map(n => (n.department || '').trim()).filter(Boolean))
-  ).sort((a, b) => a.localeCompare(b, 'ko'));
+  ).filter(dept => !DEPARTMENT_LIST.includes(dept));
+
+  const departments = [...DEPARTMENT_LIST, ...customDepartmentsInUse].sort((a, b) => a.localeCompare(b, 'ko'));
 
   const filteredNurses = nurses.filter(nurse => {
     const matchesSearch = nurse.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
