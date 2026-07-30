@@ -102,7 +102,7 @@
 //   };
 // };
 
-// src/hooks/useRoster.js (Updated with nurse state management)
+// src/hooks/useRoster.js (4교대 D/E/N/M 시스템 대응)
 import { useState } from 'react';
 import { generateRoster } from '../services/rosterGenerator';
 import { getDaysInMonth } from '../utils/dateUtils';
@@ -143,24 +143,28 @@ export const useRoster = (nurses, selectedMonth, selectedYear, updateNurses) => 
     return roster[monthKey] || {};
   };
 
+  // [수정] 교대 종류(D/E/N/M)별 합계를 자동으로 계산. 근무표 데이터에 실제로 들어있는
+  // 교대 키만 집계하므로, rosterConfig가 바뀌어도(교대 추가/삭제) 그대로 동작한다.
   const getRosterStats = () => {
     const monthRoster = getCurrentMonthRoster();
     const daysInMonth = getDaysInMonth(selectedMonth, selectedYear);
-    let totalMorningAssignments = 0;
-    let totalNightAssignments = 0;
+    const totalsByShift = {};
     let totalOffDutyDays = 0;
 
     for (let day = 1; day <= daysInMonth; day++) {
-      if (monthRoster[day]) {
-        totalMorningAssignments += monthRoster[day].morning?.length || 0;
-        totalNightAssignments += monthRoster[day].night?.length || 0;
-        totalOffDutyDays += monthRoster[day].offDuty?.length || 0;
-      }
+      const dayData = monthRoster[day];
+      if (!dayData) continue;
+      Object.keys(dayData).forEach(key => {
+        if (key === 'offDuty') {
+          totalOffDutyDays += dayData.offDuty?.length || 0;
+        } else {
+          totalsByShift[key] = (totalsByShift[key] || 0) + (dayData[key]?.length || 0);
+        }
+      });
     }
 
     return {
-      totalMorningAssignments,
-      totalNightAssignments,
+      totalsByShift,
       totalOffDutyDays,
       daysInMonth
     };
@@ -172,37 +176,29 @@ export const useRoster = (nurses, selectedMonth, selectedYear, updateNurses) => 
     const activeNurses = nurses.filter(nurse => nurse.status === 'active');
     const nurseAssignments = {};
 
-    // Initialize all active nurses
     activeNurses.forEach(nurse => {
-      nurseAssignments[nurse.name] = {
-        name: nurse.name,
-        morningDays: 0,
-        nightDays: 0,
-        offDutyDays: 0
-      };
+      nurseAssignments[nurse.name] = { name: nurse.name, offDutyDays: 0 };
     });
 
-    // Count assignments for each nurse
     for (let day = 1; day <= daysInMonth; day++) {
-      if (monthRoster[day]) {
-        monthRoster[day].morning?.forEach(nurse => {
-          if (nurseAssignments[nurse.name]) {
-            nurseAssignments[nurse.name].morningDays++;
-          }
-        });
-        
-        monthRoster[day].night?.forEach(nurse => {
-          if (nurseAssignments[nurse.name]) {
-            nurseAssignments[nurse.name].nightDays++;
-          }
-        });
-        
-        monthRoster[day].offDuty?.forEach(nurse => {
-          if (nurseAssignments[nurse.name]) {
-            nurseAssignments[nurse.name].offDutyDays++;
-          }
-        });
-      }
+      const dayData = monthRoster[day];
+      if (!dayData) continue;
+
+      Object.keys(dayData).forEach(key => {
+        if (key === 'offDuty') {
+          dayData.offDuty?.forEach(nurse => {
+            if (nurseAssignments[nurse.name]) {
+              nurseAssignments[nurse.name].offDutyDays++;
+            }
+          });
+        } else {
+          dayData[key]?.forEach(nurse => {
+            if (nurseAssignments[nurse.name]) {
+              nurseAssignments[nurse.name][key] = (nurseAssignments[nurse.name][key] || 0) + 1;
+            }
+          });
+        }
+      });
     }
 
     return Object.values(nurseAssignments);
