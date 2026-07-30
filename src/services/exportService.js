@@ -1,7 +1,7 @@
-// src/services/exportService.js (Enhanced with Error Handling and Features)
+// src/services/exportService.js (4교대 D/E/N/M 시스템 대응)
 import { getDaysInMonth, getMonthName } from '../utils/dateUtils';
+import { shiftLabel, shiftFullLabel } from '../constants/shiftTypes';
 
-// Utility function to validate roster data
 const validateRosterData = (monthRoster) => {
   if (!monthRoster || Object.keys(monthRoster).length === 0) {
     throw new Error('내보낼 근무표 데이터가 없습니다.');
@@ -9,11 +9,8 @@ const validateRosterData = (monthRoster) => {
 
   const hasValidData = Object.keys(monthRoster).some(day => {
     const dayData = monthRoster[day];
-    return dayData && (
-      (dayData.morning && dayData.morning.length > 0) ||
-      (dayData.night && dayData.night.length > 0) ||
-      (dayData.offDuty && dayData.offDuty.length > 0)
-    );
+    if (!dayData) return false;
+    return Object.keys(dayData).some(key => dayData[key] && dayData[key].length > 0);
   });
 
   if (!hasValidData) {
@@ -23,60 +20,37 @@ const validateRosterData = (monthRoster) => {
   return true;
 };
 
-// Generate nurse workload summary for exports
-const generateWorkloadSummary = (monthRoster, selectedMonth, selectedYear) => {
+// 교대 종류(D/E/N/M)별 근무일수를 동적으로 집계
+const generateWorkloadSummary = (monthRoster, selectedMonth, selectedYear, shiftTypes) => {
   const daysInMonth = getDaysInMonth(selectedMonth, selectedYear);
   const nurseWorkload = {};
 
-  // Initialize and calculate workload for each nurse
+  const ensureNurse = (nurse) => {
+    if (!nurseWorkload[nurse.name]) {
+      nurseWorkload[nurse.name] = {
+        name: nurse.name,
+        qualification: nurse.qualification || 'N/A',
+        daysByShift: Object.fromEntries(shiftTypes.map(s => [s, 0])),
+        offDutyDays: 0,
+        totalWorkDays: 0
+      };
+    }
+  };
+
   for (let day = 1; day <= daysInMonth; day++) {
     const dayData = monthRoster[day];
     if (!dayData) continue;
 
-    // Count morning shifts
-    dayData.morning?.forEach(nurse => {
-      if (!nurseWorkload[nurse.name]) {
-        nurseWorkload[nurse.name] = {
-          name: nurse.name,
-          qualification: nurse.qualification,
-          morningShifts: 0,
-          nightShifts: 0,
-          offDutyDays: 0,
-          totalWorkDays: 0
-        };
-      }
-      nurseWorkload[nurse.name].morningShifts++;
-      nurseWorkload[nurse.name].totalWorkDays++;
+    shiftTypes.forEach(s => {
+      dayData[s]?.forEach(nurse => {
+        ensureNurse(nurse);
+        nurseWorkload[nurse.name].daysByShift[s]++;
+        nurseWorkload[nurse.name].totalWorkDays++;
+      });
     });
 
-    // Count night shifts
-    dayData.night?.forEach(nurse => {
-      if (!nurseWorkload[nurse.name]) {
-        nurseWorkload[nurse.name] = {
-          name: nurse.name,
-          qualification: nurse.qualification,
-          morningShifts: 0,
-          nightShifts: 0,
-          offDutyDays: 0,
-          totalWorkDays: 0
-        };
-      }
-      nurseWorkload[nurse.name].nightShifts++;
-      nurseWorkload[nurse.name].totalWorkDays++;
-    });
-
-    // Count off-duty days
     dayData.offDuty?.forEach(nurse => {
-      if (!nurseWorkload[nurse.name]) {
-        nurseWorkload[nurse.name] = {
-          name: nurse.name,
-          qualification: nurse.qualification || 'N/A',
-          morningShifts: 0,
-          nightShifts: 0,
-          offDutyDays: 0,
-          totalWorkDays: 0
-        };
-      }
+      ensureNurse(nurse);
       nurseWorkload[nurse.name].offDutyDays++;
     });
   }
@@ -89,74 +63,75 @@ export const exportToExcel = (monthRoster, selectedMonth, selectedYear, rosterCo
   try {
     validateRosterData(monthRoster);
 
+    const shiftTypes = Object.keys(rosterConfig.shifts);
     const daysInMonth = getDaysInMonth(selectedMonth, selectedYear);
     const monthName = getMonthName(selectedMonth);
-    const workloadSummary = generateWorkloadSummary(monthRoster, selectedMonth, selectedYear);
-    
-    // Create CSV content with UTF-8 BOM for proper Excel encoding
+    const workloadSummary = generateWorkloadSummary(monthRoster, selectedMonth, selectedYear, shiftTypes);
+
     let csvContent = '\uFEFF'; // UTF-8 BOM
     csvContent += `병원 간호사 근무표 - ${selectedYear}년 ${monthName}\n`;
     csvContent += `생성일: ${new Date().toLocaleDateString()}\n\n`;
-    
-    // Add configuration info
+
+    // 근무표 설정
     csvContent += `근무표 설정\n`;
-    csvContent += `주간 근무 인원,${rosterConfig.morningShiftSize}\n`;
-    csvContent += `야간 근무 인원,${rosterConfig.nightShiftSize}\n`;
-    csvContent += `주간 근무 기간,${rosterConfig.morningShiftDays}일\n`;
-    csvContent += `야간 근무 기간,${rosterConfig.nightShiftDays}일\n`;
-    csvContent += `주간 근무 후 휴무,${rosterConfig.offDutyAfterMorning}일\n`;
-    csvContent += `야간 근무 후 휴무,${rosterConfig.offDutyAfterNight}일\n\n`;
-    
-    // Daily roster table
+    shiftTypes.forEach(s => {
+      const cfg = rosterConfig.shifts[s];
+      csvContent += `${shiftFullLabel(s)} 필요 인원,${cfg.size}\n`;
+      csvContent += `${shiftFullLabel(s)} 근무 기간,${cfg.shiftDays}일\n`;
+      csvContent += `${shiftFullLabel(s)} 근무 후 휴무,${cfg.offDutyAfter}일\n`;
+    });
+    csvContent += `\n`;
+
+    // 일별 근무표
     csvContent += `일별 근무표\n`;
-    csvContent += `일,날짜,요일,주간 근무,야간 근무,비번\n`;
-    
-    // Data rows
+    csvContent += `일,날짜,요일,${shiftTypes.map(s => shiftLabel(s)).join(',')},비번\n`;
+
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(selectedYear, selectedMonth, day);
       const dayName = date.toLocaleDateString('ko-KR', { weekday: 'long' });
       const formattedDate = date.toLocaleDateString();
       const dayData = monthRoster[day];
-      
-      const morningNurses = dayData?.morning?.map(n => `${n.name} (${n.qualification})`).join('; ') || '';
-      const nightNurses = dayData?.night?.map(n => `${n.name} (${n.qualification})`).join('; ') || '';
+
+      const shiftCells = shiftTypes.map(s =>
+        dayData?.[s]?.map(n => `${n.name} (${n.qualification})`).join('; ') || ''
+      );
       const offDutyNurses = dayData?.offDuty?.map(n => {
-        const status = n.daysRemaining > 0 ? `${n.daysRemaining}일 남음` : 
+        const status = n.daysRemaining > 0 ? `${n.daysRemaining}일 남음` :
                      n.status === 'Available' ? '근무 가능' : '';
         return `${n.name}${status ? ` (${status})` : ''}`;
       }).join('; ') || '';
-      
-      csvContent += `${day},"${formattedDate}","${dayName}","${morningNurses}","${nightNurses}","${offDutyNurses}"\n`;
+
+      csvContent += `${day},"${formattedDate}","${dayName}",${shiftCells.map(c => `"${c}"`).join(',')},"${offDutyNurses}"\n`;
     }
-    
-    // Add workload summary
+
+    // 업무량 요약
     csvContent += `\n\n업무량 요약\n`;
-    csvContent += `간호사 이름,자격,주간 근무,야간 근무,총 근무일,휴무일\n`;
-    
+    csvContent += `간호사 이름,자격,${shiftTypes.map(s => shiftLabel(s)).join(',')},총 근무일,휴무일\n`;
     workloadSummary.forEach(nurse => {
-      csvContent += `"${nurse.name}","${nurse.qualification}",${nurse.morningShifts},${nurse.nightShifts},${nurse.totalWorkDays},${nurse.offDutyDays}\n`;
+      csvContent += `"${nurse.name}","${nurse.qualification}",${shiftTypes.map(s => nurse.daysByShift[s]).join(',')},${nurse.totalWorkDays},${nurse.offDutyDays}\n`;
     });
-    
-    // Add summary statistics
+
+    // 월간 통계
     csvContent += `\n\n월간 통계\n`;
-    let totalMorningShifts = 0;
-    let totalNightShifts = 0;
+    const shiftTotals = {};
+    shiftTypes.forEach(s => { shiftTotals[s] = 0; });
     let totalOffDutyDays = 0;
-    
+
     for (let day = 1; day <= daysInMonth; day++) {
       const dayData = monthRoster[day];
-      totalMorningShifts += dayData?.morning?.length || 0;
-      totalNightShifts += dayData?.night?.length || 0;
+      shiftTypes.forEach(s => { shiftTotals[s] += dayData?.[s]?.length || 0; });
       totalOffDutyDays += dayData?.offDuty?.length || 0;
     }
-    
-    csvContent += `총 주간 근무,${totalMorningShifts}\n`;
-    csvContent += `총 야간 근무,${totalNightShifts}\n`;
+
+    shiftTypes.forEach(s => {
+      csvContent += `총 ${shiftLabel(s)} 근무,${shiftTotals[s]}\n`;
+    });
     csvContent += `총 휴무일,${totalOffDutyDays}\n`;
     csvContent += `근무표 내 전체 간호사,${workloadSummary.length}\n`;
-    csvContent += `간호사당 평균 근무일,${workloadSummary.length > 0 ? ((totalMorningShifts + totalNightShifts) / workloadSummary.length).toFixed(1) : 0}\n`;
-    
-    // Create and download file
+
+    const totalWorkDaysAll = shiftTypes.reduce((sum, s) => sum + shiftTotals[s], 0);
+    csvContent += `간호사당 평균 근무일,${workloadSummary.length > 0 ? (totalWorkDaysAll / workloadSummary.length).toFixed(1) : 0}\n`;
+
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -176,23 +151,24 @@ export const exportToExcel = (monthRoster, selectedMonth, selectedYear, rosterCo
   }
 };
 
+const SHIFT_BADGE_CLASS = { D: 'shift-d', E: 'shift-e', N: 'shift-n', M: 'shift-m' };
+
 // Export to PDF using HTML and print
 export const exportToPDF = (monthRoster, selectedMonth, selectedYear, rosterConfig, nurses) => {
   try {
     validateRosterData(monthRoster);
 
+    const shiftTypes = Object.keys(rosterConfig.shifts);
     const daysInMonth = getDaysInMonth(selectedMonth, selectedYear);
     const monthName = getMonthName(selectedMonth);
-    const workloadSummary = generateWorkloadSummary(monthRoster, selectedMonth, selectedYear);
-    
-    // Create a new window for printing
+    const workloadSummary = generateWorkloadSummary(monthRoster, selectedMonth, selectedYear, shiftTypes);
+
     const printWindow = window.open('', '_blank', 'width=1200,height=800');
-    
+
     if (!printWindow) {
       throw new Error('인쇄 창을 열 수 없습니다. 브라우저의 팝업 차단 설정을 확인해주세요.');
     }
-    
-    // Generate HTML content for PDF
+
     let htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -284,9 +260,6 @@ export const exportToPDF = (monthRoster, selectedMonth, selectedYear, rosterConf
           .roster-table tr:nth-child(even) {
             background-color: #f9fafb;
           }
-          .roster-table tr:hover {
-            background-color: #f0f9ff;
-          }
           
           .day-cell {
             font-weight: bold;
@@ -314,14 +287,10 @@ export const exportToPDF = (monthRoster, selectedMonth, selectedYear, rosterConf
             font-size: 10px;
             white-space: nowrap;
           }
-          .morning-shift {
-            background-color: #dbeafe;
-            color: #1e40af;
-          }
-          .night-shift {
-            background-color: #e0e7ff;
-            color: #5b21b6;
-          }
+          .shift-d { background-color: #fef3c7; color: #92400e; }
+          .shift-e { background-color: #dbeafe; color: #1e40af; }
+          .shift-n { background-color: #e0e7ff; color: #5b21b6; }
+          .shift-m { background-color: #d1fae5; color: #065f46; }
           .off-duty {
             background-color: #f3f4f6;
             color: #374151;
@@ -405,12 +374,10 @@ export const exportToPDF = (monthRoster, selectedMonth, selectedYear, rosterConf
         <div class="section no-break">
           <h3>📊 근무표 설정</h3>
           <div class="config-grid">
-            <div class="config-item"><strong>주간 근무 인원:</strong> ${rosterConfig.morningShiftSize}명</div>
-            <div class="config-item"><strong>야간 근무 인원:</strong> ${rosterConfig.nightShiftSize}명</div>
-            <div class="config-item"><strong>주간 근무 기간:</strong> ${rosterConfig.morningShiftDays}일</div>
-            <div class="config-item"><strong>야간 근무 기간:</strong> ${rosterConfig.nightShiftDays}일</div>
-            <div class="config-item"><strong>주간 근무 후 휴무:</strong> ${rosterConfig.offDutyAfterMorning}일</div>
-            <div class="config-item"><strong>야간 근무 후 휴무:</strong> ${rosterConfig.offDutyAfterNight}일</div>
+            ${shiftTypes.map(s => {
+              const cfg = rosterConfig.shifts[s];
+              return `<div class="config-item"><strong>${shiftFullLabel(s)}:</strong> ${cfg.size}명 / 연속 ${cfg.shiftDays}일 근무 / 휴무 ${cfg.offDutyAfter}일</div>`;
+            }).join('')}
           </div>
         </div>
         
@@ -421,70 +388,57 @@ export const exportToPDF = (monthRoster, selectedMonth, selectedYear, rosterConf
               <tr>
                 <th>일</th>
                 <th>날짜</th>
-                <th>주간 근무 (${rosterConfig.morningShiftSize})</th>
-                <th>야간 근무 (${rosterConfig.nightShiftSize})</th>
+                ${shiftTypes.map(s => `<th>${shiftFullLabel(s)} (${rosterConfig.shifts[s].size})</th>`).join('')}
                 <th>비번</th>
               </tr>
             </thead>
             <tbody>
     `;
-    
-    // Generate table rows
+
     const generateTableRows = () => {
       let tableRows = '';
-      
+
       for (let day = 1; day <= daysInMonth; day++) {
         const date = new Date(selectedYear, selectedMonth, day);
         const dayName = date.toLocaleDateString('ko-KR', { weekday: 'short' });
         const isWeekend = date.getDay() === 0 || date.getDay() === 6;
         const dayData = monthRoster[day];
-        
+
         tableRows += `
           <tr ${isWeekend ? 'class="weekend"' : ''}>
             <td class="day-cell">${day}</td>
             <td class="date-cell">${dayName}<br>${day}/${selectedMonth + 1}</td>
-            <td>
         `;
-        
-        // Morning shift nurses
-        if (dayData?.morning) {
-          const morningBadges = dayData.morning.map(nurse => 
-            `<span class="nurse-badge morning-shift">${nurse.name} (${nurse.qualification})</span>`
-          ).join(' ');
-          tableRows += morningBadges;
-        }
-        
-        tableRows += `</td><td>`;
-        
-        // Night shift nurses
-        if (dayData?.night) {
-          const nightBadges = dayData.night.map(nurse => 
-            `<span class="nurse-badge night-shift">${nurse.name} (${nurse.qualification})</span>`
-          ).join(' ');
-          tableRows += nightBadges;
-        }
-        
-        tableRows += `</td><td>`;
-        
-        // Off duty nurses
+
+        shiftTypes.forEach(s => {
+          tableRows += `<td>`;
+          if (dayData?.[s]) {
+            const badges = dayData[s].map(nurse =>
+              `<span class="nurse-badge ${SHIFT_BADGE_CLASS[s] || ''}">${nurse.name} (${nurse.qualification})</span>`
+            ).join(' ');
+            tableRows += badges;
+          }
+          tableRows += `</td>`;
+        });
+
+        tableRows += `<td>`;
         if (dayData?.offDuty) {
           const offDutyBadges = dayData.offDuty.map(nurse => {
             const badgeClass = nurse.status === 'Available' ? 'available' : 'off-duty';
-            const status = nurse.daysRemaining > 0 ? ` (${nurse.daysRemaining}일)` : 
+            const status = nurse.daysRemaining > 0 ? ` (${nurse.daysRemaining}일)` :
                          nurse.status === 'Available' ? ' (근무 가능)' : '';
             return `<span class="nurse-badge ${badgeClass}">${nurse.name}${status}</span>`;
           }).join(' ');
           tableRows += offDutyBadges;
         }
-        
         tableRows += `</td></tr>`;
       }
-      
+
       return tableRows;
     };
 
     htmlContent += generateTableRows();
-    
+
     htmlContent += `
             </tbody>
           </table>
@@ -499,44 +453,40 @@ export const exportToPDF = (monthRoster, selectedMonth, selectedYear, rosterConf
               <tr>
                 <th>간호사 이름</th>
                 <th>자격</th>
-                <th>주간 근무</th>
-                <th>야간 근무</th>
+                ${shiftTypes.map(s => `<th>${shiftLabel(s)}</th>`).join('')}
                 <th>총 근무일</th>
                 <th>휴무일</th>
               </tr>
             </thead>
             <tbody>
     `;
-    
-    // Generate workload summary rows
+
     const workloadRows = workloadSummary.map(nurse => `
       <tr>
         <td><strong>${nurse.name}</strong></td>
         <td>${nurse.qualification}</td>
-        <td>${nurse.morningShifts}</td>
-        <td>${nurse.nightShifts}</td>
+        ${shiftTypes.map(s => `<td>${nurse.daysByShift[s]}</td>`).join('')}
         <td><strong>${nurse.totalWorkDays}</strong></td>
         <td>${nurse.offDutyDays}</td>
       </tr>
     `).join('');
-    
+
     htmlContent += workloadRows;
-    
-    // Calculate summary statistics
-    let totalMorningShifts = 0;
-    let totalNightShifts = 0;
+
+    const shiftTotals = {};
+    shiftTypes.forEach(s => { shiftTotals[s] = 0; });
     let totalOffDutyDays = 0;
-    
+
     for (let day = 1; day <= daysInMonth; day++) {
       const dayData = monthRoster[day];
-      totalMorningShifts += dayData?.morning?.length || 0;
-      totalNightShifts += dayData?.night?.length || 0;
+      shiftTypes.forEach(s => { shiftTotals[s] += dayData?.[s]?.length || 0; });
       totalOffDutyDays += dayData?.offDuty?.length || 0;
     }
-    
-    const averageWorkDays = workloadSummary.length > 0 ? 
-      ((totalMorningShifts + totalNightShifts) / workloadSummary.length).toFixed(1) : 0;
-    
+
+    const totalWorkDaysAll = shiftTypes.reduce((sum, s) => sum + shiftTotals[s], 0);
+    const averageWorkDays = workloadSummary.length > 0 ?
+      (totalWorkDaysAll / workloadSummary.length).toFixed(1) : 0;
+
     htmlContent += `
             </tbody>
           </table>
@@ -545,14 +495,11 @@ export const exportToPDF = (monthRoster, selectedMonth, selectedYear, rosterConf
         <div class="section">
           <h3>📈 월간 통계</h3>
           <div class="summary-stats">
+            ${shiftTypes.map(s => `
             <div class="stat-card">
-              <div class="stat-number">${totalMorningShifts}</div>
-              <div class="stat-label">총 주간 근무</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-number">${totalNightShifts}</div>
-              <div class="stat-label">총 야간 근무</div>
-            </div>
+              <div class="stat-number">${shiftTotals[s]}</div>
+              <div class="stat-label">총 ${shiftLabel(s)} 근무</div>
+            </div>`).join('')}
             <div class="stat-card">
               <div class="stat-number">${totalOffDutyDays}</div>
               <div class="stat-label">총 휴무일</div>
@@ -579,12 +526,10 @@ export const exportToPDF = (monthRoster, selectedMonth, selectedYear, rosterConf
       </body>
       </html>
     `;
-    
-    // Write content to new window and trigger print
+
     printWindow.document.write(htmlContent);
     printWindow.document.close();
-    
-    // Wait for content to load, then print
+
     setTimeout(() => {
       printWindow.focus();
       printWindow.print();
