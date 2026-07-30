@@ -101,18 +101,45 @@
 
 
 // src/App.jsx (Updated with Export Support)
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from './components/Layout/Header';
 import Navigation from './components/Layout/Navigation';
 import Dashboard from './components/Dashboard/Dashboard';
 import NurseManagement from './components/NurseManagement/NurseManagement';
 import RosterView from './components/Roster/RosterView';
 import Settings from './components/Settings/Settings';
+import Login from './components/Auth/Login';
 import { useNurses } from './hooks/useNurses';
 import { useRoster } from './hooks/useRoster';
 import { useRosterConfig } from './hooks/useRosterConfig';
 
 const HospitalRosterSystem = () => {
+  // [추가] 로그인 상태 관리. 새로고침해도 로그인이 풀리지 않도록 localStorage에 저장해둔다.
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem('mediflow_user');
+    if (saved) {
+      try {
+        setCurrentUser(JSON.parse(saved));
+      } catch (e) {
+        window.localStorage.removeItem('mediflow_user');
+      }
+    }
+    setAuthChecked(true);
+  }, []);
+
+  const handleLoginSuccess = (user) => {
+    window.localStorage.setItem('mediflow_user', JSON.stringify(user));
+    setCurrentUser(user);
+  };
+
+  const handleLogout = () => {
+    window.localStorage.removeItem('mediflow_user');
+    setCurrentUser(null);
+  };
+
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -150,9 +177,19 @@ const HospitalRosterSystem = () => {
     getCurrentMonthRoster
   };
 
+  // 로그인 여부를 확인하는 동안 잠깐 빈 화면 (깜빡임 방지)
+  if (!authChecked) {
+    return null;
+  }
+
+  // [추가] 로그인 안 된 상태면 로그인/회원가입 화면만 보여준다.
+  if (!currentUser) {
+    return <Login onLoginSuccess={handleLoginSuccess} />;
+  }
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
-      <Header activeNurses={getActiveNurses()} />
+      <Header activeNurses={getActiveNurses()} currentUser={currentUser} onLogout={handleLogout} />
       
       <Navigation 
         activeTab={activeTab} 
