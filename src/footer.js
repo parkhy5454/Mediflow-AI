@@ -10,7 +10,7 @@ import React from 'react';
                     <>
                        
                          <div style={{ textAlign: 'center', padding: '20px', backgroundColor: 'grey' }}>
-      © 2025 Developed by Egwi U. Kelvin. All rights reserved.
+      © 2025 개발: Egwi U. Kelvin. All rights reserved.
     </div>
                     </>
                 );
