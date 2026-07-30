@@ -242,7 +242,7 @@ const RosterView = ({
       let alertMessage = result.message;
       
       if (result.continuityInfo && result.continuityInfo.nursesInTransition > 0) {
-        alertMessage += `\n\n🔄 CYCLE CONTINUITY: ${result.continuityInfo.nursesInTransition} nurse(s) will continue their current work cycles into next month.`;
+        alertMessage += `\n\n🔄 근무 주기 연속성: 간호사 ${result.continuityInfo.nursesInTransition}명이 현재 근무 주기를 다음 달로 이어서 계속합니다.`;
       }
       
       alert(alertMessage);
@@ -266,18 +266,18 @@ const RosterView = ({
       );
       
       if (nursesInTransition.length > 0) {
-        const confirmMessage = `You're switching to ${getMonthName(newMonth)} ${newYear}.\n\n` +
-          `${nursesInTransition.length} nurse(s) have incomplete cycles from the previous month:\n` +
+        const confirmMessage = `${getMonthName(newMonth)} ${newYear}년으로 전환합니다.\n\n` +
+          `${nursesInTransition.length}명의 간호사가 이전 달의 근무 주기를 완료하지 못했습니다:\n` +
           nursesInTransition.map(n => {
             if (n.lastOffDutyRemaining > 0) {
-              return `• ${n.name}: ${n.lastOffDutyRemaining} off-duty day(s) remaining`;
+              return `• ${n.name}: 휴무 ${n.lastOffDutyRemaining}일 남음`;
             } else {
               const totalDays = n.lastShiftType === 'morning' ? rosterConfig.morningShiftDays : rosterConfig.nightShiftDays;
               const remaining = totalDays - n.lastShiftCycleDay;
-              return `• ${n.name}: ${remaining} ${n.lastShiftType} shift day(s) remaining`;
+              return `• ${n.name}: ${n.lastShiftType === 'morning' ? '주간' : '야간'} 근무 ${remaining}일 남음`;
             }
           }).join('\n') +
-          `\n\nThese nurses will complete their cycles before new assignments. Continue?`;
+          `\n\n이 간호사들은 새로운 배정 전에 현재 주기를 완료합니다. 계속하시겠습니까?`;
         
         if (!window.confirm(confirmMessage)) {
           return;
@@ -300,7 +300,7 @@ const RosterView = ({
         gap: '15px'
       }}>
         <h2 style={{ color: '#1f2937', margin: 0 }}>
-          Roster - {getMonthName(selectedMonth)} {selectedYear}
+          근무표 - {selectedYear}년 {getMonthName(selectedMonth)}
         </h2>
         
         <div style={{ 
@@ -326,7 +326,7 @@ const RosterView = ({
             }}
           >
             <Calendar size={18} />
-            Generate Roster
+            근무표 생성
           </button>
         </div>
       </div>
@@ -404,8 +404,8 @@ const RosterView = ({
             display: 'block'
           }}>
             {hasRosterData 
-              ? `Roster generated for ${getMonthName(selectedMonth)} ${selectedYear}`
-              : `No roster generated for ${getMonthName(selectedMonth)} ${selectedYear}`
+              ? `${selectedYear}년 ${getMonthName(selectedMonth)} 근무표가 생성되었습니다`
+              : `${selectedYear}년 ${getMonthName(selectedMonth)} 근무표가 아직 생성되지 않았습니다`
             }
           </span>
           {hasRosterData ? (
@@ -415,7 +415,7 @@ const RosterView = ({
               marginTop: '4px',
               display: 'block'
             }}>
-              ✅ You can export this roster or generate a new one to update it.
+              ✅ 이 근무표를 내보내거나, 새로 생성해서 업데이트할 수 있습니다.
             </span>
           ) : (
             <span style={{ 
@@ -424,7 +424,7 @@ const RosterView = ({
               marginTop: '4px',
               display: 'block'
             }}>
-              Click "Generate Roster" to create a schedule with proper cycle continuity.
+              "근무표 생성" 버튼을 눌러 근무 주기 연속성을 반영한 근무표를 만드세요.
             </span>
           )}
         </div>
@@ -459,9 +459,9 @@ const RosterView = ({
             i
           </div>
           <div style={{ fontSize: '13px', color: '#0c4a6e', lineHeight: '1.4' }}>
-            <strong>Cycle Continuity Feature:</strong> When generating rosters for future months, 
-            nurses will automatically complete their current work cycles (morning shifts, night shifts, or off-duty periods) 
-            before being assigned new duties. This ensures proper rest periods and maintains work-life balance.
+            <strong>근무 주기 연속성 기능:</strong> 미래 달의 근무표를 생성할 때, 
+            간호사는 새로운 근무를 배정받기 전에 현재 진행 중인 근무 주기(주간 근무, 야간 근무, 휴무 기간)를 자동으로 완료합니다. 
+            이를 통해 적절한 휴식 기간을 보장하고 일과 삶의 균형을 유지합니다.
           </div>
         </div>
       </div>

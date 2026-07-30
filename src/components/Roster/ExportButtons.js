@@ -163,7 +163,7 @@ const ExportButtons = ({
 
   const handlePDFExport = async () => {
     if (Object.keys(monthRoster).length === 0) {
-      alert('No roster data to export. Please generate a roster first.');
+      alert('내보낼 근무표 데이터가 없습니다. 먼저 근무표를 생성해주세요.');
       return;
     }
 
@@ -180,7 +180,7 @@ const ExportButtons = ({
       }, 2000);
     } catch (error) {
       console.error('PDF export failed:', error);
-      alert('Failed to export PDF. Please try again.');
+      alert('PDF 내보내기에 실패했습니다. 다시 시도해주세요.');
       setIsExporting(false);
       setExportType('');
     }
@@ -188,7 +188,7 @@ const ExportButtons = ({
 
   const handleExcelExport = async () => {
     if (Object.keys(monthRoster).length === 0) {
-      alert('No roster data to export. Please generate a roster first.');
+      alert('내보낼 근무표 데이터가 없습니다. 먼저 근무표를 생성해주세요.');
       return;
     }
 
@@ -205,7 +205,7 @@ const ExportButtons = ({
       }, 1500);
     } catch (error) {
       console.error('Excel export failed:', error);
-      alert('Failed to export Excel file. Please try again.');
+      alert('엑셀 파일 내보내기에 실패했습니다. 다시 시도해주세요.');
       setIsExporting(false);
       setExportType('');
     }
@@ -260,7 +260,7 @@ const ExportButtons = ({
         fontWeight: '500'
       }}>
         <Download size={16} />
-        Export Roster:
+        근무표 내보내기:
       </div>
       
       <button
@@ -268,14 +268,14 @@ const ExportButtons = ({
         disabled={disabled || isExporting}
         className={getButtonClass('pdf')}
         style={pdfButtonStyle}
-        title="Export roster as PDF for printing"
+        title="근무표를 인쇄용 PDF로 내보내기"
       >
         {isExporting && exportType === 'pdf' ? (
           <Loader2 size={16} className="animate-spin" />
         ) : (
           <FileText size={16} />
         )}
-        {isExporting && exportType === 'pdf' ? 'Generating PDF...' : 'Export PDF'}
+        {isExporting && exportType === 'pdf' ? 'PDF 생성 중...' : 'PDF 내보내기'}
       </button>
       
       <button
@@ -283,14 +283,14 @@ const ExportButtons = ({
         disabled={disabled || isExporting}
         className={getButtonClass('excel')}
         style={excelButtonStyle}
-        title="Export roster as Excel/CSV file"
+        title="근무표를 엑셀/CSV 파일로 내보내기"
       >
         {isExporting && exportType === 'excel' ? (
           <Loader2 size={16} className="animate-spin" />
         ) : (
           <FileSpreadsheet size={16} />
         )}
-        {isExporting && exportType === 'excel' ? 'Generating Excel...' : 'Export Excel'}
+        {isExporting && exportType === 'excel' ? '엑셀 생성 중...' : '엑셀 내보내기'}
       </button>
     </div>
   );

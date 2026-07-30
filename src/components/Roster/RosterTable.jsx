@@ -21,16 +21,16 @@ const RosterTable = ({ selectedMonth, selectedYear, getCurrentMonthRoster, roste
                 backgroundColor: '#f9fafb',
                 zIndex: 10
               }}>
-                Day
+                날짜
               </th>
               <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>
-                Morning Shift
+                주간 근무
               </th>
               <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>
-                Night Shift
+                야간 근무
               </th>
               <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>
-                Off Duty
+                비번
               </th>
             </tr>
           </thead>
@@ -89,7 +89,7 @@ const RosterTable = ({ selectedMonth, selectedYear, getCurrentMonthRoster, roste
                         borderRadius: '4px',
                         fontSize: '12px'
                       }}>
-                        {nurse.name} {nurse.daysRemaining > 0 ? `(${nurse.daysRemaining} days)` : nurse.status === 'Available' ? '(Available)' : ''}
+                        {nurse.name} {nurse.daysRemaining > 0 ? `(${nurse.daysRemaining}일)` : nurse.status === 'Available' ? '(근무 가능)' : ''}
                       </div>
                     ))}
                   </td>

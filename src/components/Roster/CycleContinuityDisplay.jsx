@@ -35,10 +35,10 @@ const CycleContinuityDisplay = ({ nurses, rosterConfig }) => {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
           <UserCheck size={20} style={{ color: '#0ea5e9' }} />
-          <h3 style={{ margin: 0, color: '#0c4a6e', fontSize: '16px' }}>Month Transition Status</h3>
+          <h3 style={{ margin: 0, color: '#0c4a6e', fontSize: '16px' }}>월 전환 상태</h3>
         </div>
         <p style={{ margin: 0, color: '#0369a1' }}>
-          ✅ All nurses will be available at the start of next month. No cycle continuity required.
+          ✅ 다음 달 시작 시 모든 간호사가 근무 가능합니다. 근무 주기 연속성 처리가 필요 없습니다.
         </p>
       </div>
     );
@@ -54,7 +54,7 @@ const CycleContinuityDisplay = ({ nurses, rosterConfig }) => {
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '15px' }}>
         <Clock size={20} style={{ color: '#d97706' }} />
-        <h3 style={{ margin: 0, color: '#92400e', fontSize: '16px' }}>Month Transition - Cycle Continuity</h3>
+        <h3 style={{ margin: 0, color: '#92400e', fontSize: '16px' }}>월 전환 - 근무 주기 연속성</h3>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px' }}>
@@ -69,7 +69,7 @@ const CycleContinuityDisplay = ({ nurses, rosterConfig }) => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
               <UserX size={16} style={{ color: '#d97706' }} />
               <strong style={{ color: '#92400e', fontSize: '14px' }}>
-                Continuing Off-Duty ({nursesOffDuty.length})
+                휴무 계속 ({nursesOffDuty.length}명)
               </strong>
             </div>
             {nursesOffDuty.map(nurse => (
@@ -79,7 +79,7 @@ const CycleContinuityDisplay = ({ nurses, rosterConfig }) => {
                 marginBottom: '4px',
                 paddingLeft: '8px'
               }}>
-                • {nurse.name}: {nurse.lastOffDutyRemaining} day{nurse.lastOffDutyRemaining !== 1 ? 's' : ''} remaining
+                • {nurse.name}: {nurse.lastOffDutyRemaining}일 남음
               </div>
             ))}
           </div>
@@ -101,7 +101,7 @@ const CycleContinuityDisplay = ({ nurses, rosterConfig }) => {
                 color: nursesInShiftCycle[0]?.lastShiftType === 'morning' ? '#1e3a8a' : '#4c1d95',
                 fontSize: '14px' 
               }}>
-                Continuing {nursesInShiftCycle[0]?.lastShiftType === 'morning' ? 'Morning' : 'Night'} Shifts ({nursesInShiftCycle.length})
+                {nursesInShiftCycle[0]?.lastShiftType === 'morning' ? '주간' : '야간'} 근무 계속 ({nursesInShiftCycle.length}명)
               </strong>
             </div>
             {nursesInShiftCycle.map(nurse => {
@@ -115,7 +115,7 @@ const CycleContinuityDisplay = ({ nurses, rosterConfig }) => {
                   marginBottom: '4px',
                   paddingLeft: '8px'
                 }}>
-                  • {nurse.name}: Day {nurse.lastShiftCycleDay} of {totalDays} ({remaining} day{remaining !== 1 ? 's' : ''} left)
+                  • {nurse.name}: {totalDays}일 중 {nurse.lastShiftCycleDay}일차 ({remaining}일 남음)
                 </div>
               );
             })}
@@ -133,7 +133,7 @@ const CycleContinuityDisplay = ({ nurses, rosterConfig }) => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
               <Users size={16} style={{ color: '#15803d' }} />
               <strong style={{ color: '#14532d', fontSize: '14px' }}>
-                Available Immediately ({nursesAvailable.length})
+                즉시 근무 가능 ({nursesAvailable.length}명)
               </strong>
             </div>
             <div style={{
@@ -142,7 +142,7 @@ const CycleContinuityDisplay = ({ nurses, rosterConfig }) => {
               paddingLeft: '8px'
             }}>
               {nursesAvailable.slice(0, 3).map(nurse => nurse.name).join(', ')}
-              {nursesAvailable.length > 3 && ` and ${nursesAvailable.length - 3} more`}
+              {nursesAvailable.length > 3 && ` 외 ${nursesAvailable.length - 3}명`}
             </div>
           </div>
         )}
@@ -156,8 +156,8 @@ const CycleContinuityDisplay = ({ nurses, rosterConfig }) => {
         fontSize: '12px',
         color: '#78350f'
       }}>
-        <strong>🔄 Cycle Continuity:</strong> Nurses will complete their current work cycles before being assigned new duties in the next month.
-        This ensures proper rest periods and maintains work-life balance.
+        <strong>🔄 근무 주기 연속성:</strong> 간호사는 다음 달 새로운 근무를 배정받기 전에 현재 진행 중인 근무 주기를 완료합니다.
+        이를 통해 적절한 휴식 기간을 보장하고 일과 삶의 균형을 유지합니다.
       </div>
     </div>
   );
