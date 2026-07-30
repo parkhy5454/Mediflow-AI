@@ -28,7 +28,7 @@ export const useNurses = () => {
   };
 
   const deleteNurse = (id) => {
-    if (window.confirm('Are you sure you want to delete this nurse?')) {
+    if (window.confirm('정말 이 간호사를 삭제하시겠습니까?')) {
       setNurses(prev => prev.filter(nurse => nurse.id !== id));
       return true;
     }
