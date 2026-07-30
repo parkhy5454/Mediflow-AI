@@ -3,19 +3,19 @@ import React from 'react';
 
 const Settings = ({ rosterConfig, updateRosterConfig }) => {
   const configFields = [
-    { key: 'morningShiftSize', label: 'Morning Shift Size', min: 1, max: 10 },
-    { key: 'nightShiftSize', label: 'Night Shift Size', min: 1, max: 10 },
-    { key: 'morningShiftDays', label: 'Morning Shift Duration (days)', min: 3, max: 7 },
-    { key: 'nightShiftDays', label: 'Night Shift Duration (days)', min: 3, max: 7 },
-    { key: 'offDutyAfterMorning', label: 'Off-Duty After Morning (days)', min: 1, max: 5 },
-    { key: 'offDutyAfterNight', label: 'Off-Duty After Night (days)', min: 1, max: 5 },
-    { key: 'minRNPerShift', label: 'Min RN per Shift', min: 1, max: 5 },
-    { key: 'minMWPerShift', label: 'Min MW per Shift', min: 1, max: 5 }
+    { key: 'morningShiftSize', label: '주간 근무 인원', min: 1, max: 10 },
+    { key: 'nightShiftSize', label: '야간 근무 인원', min: 1, max: 10 },
+    { key: 'morningShiftDays', label: '주간 근무 기간 (일)', min: 3, max: 7 },
+    { key: 'nightShiftDays', label: '야간 근무 기간 (일)', min: 3, max: 7 },
+    { key: 'offDutyAfterMorning', label: '주간 근무 후 휴무 (일)', min: 1, max: 5 },
+    { key: 'offDutyAfterNight', label: '야간 근무 후 휴무 (일)', min: 1, max: 5 },
+    { key: 'minRNPerShift', label: '근무당 최소 정간호사(RN) 수', min: 1, max: 5 },
+    { key: 'minMWPerShift', label: '근무당 최소 조산사(MW) 수', min: 1, max: 5 }
   ];
 
   return (
     <div style={{ padding: '20px' }}>
-      <h2 style={{ marginBottom: '20px', color: '#1f2937' }}>Roster Configuration</h2>
+      <h2 style={{ marginBottom: '20px', color: '#1f2937' }}>근무표 설정</h2>
       
       <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
         <div style={{ 
