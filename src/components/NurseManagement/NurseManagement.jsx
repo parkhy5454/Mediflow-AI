@@ -15,6 +15,7 @@ const NurseManagement = ({
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterDepartment, setFilterDepartment] = useState('all');
 
   const handleAddNurse = (nurseData) => {
     const success = addNurse(nurseData);
@@ -24,12 +25,18 @@ const NurseManagement = ({
     return success;
   };
 
+  // 실제 등록된 부서 목록 (가나다순)
+  const departments = Array.from(
+    new Set(nurses.map(n => (n.department || '').trim()).filter(Boolean))
+  ).sort((a, b) => a.localeCompare(b, 'ko'));
+
   const filteredNurses = nurses.filter(nurse => {
     const matchesSearch = nurse.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          nurse.qualification.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          nurse.department.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' || nurse.status === filterStatus;
-    return matchesSearch && matchesStatus;
+    const matchesDepartment = filterDepartment === 'all' || nurse.department === filterDepartment;
+    return matchesSearch && matchesStatus && matchesDepartment;
   });
 
   return (
@@ -73,6 +80,9 @@ const NurseManagement = ({
         setSearchTerm={setSearchTerm}
         filterStatus={filterStatus}
         setFilterStatus={setFilterStatus}
+        filterDepartment={filterDepartment}
+        setFilterDepartment={setFilterDepartment}
+        departments={departments}
       />
 
       <NurseTable 
