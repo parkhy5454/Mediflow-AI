@@ -109,6 +109,7 @@ import NurseManagement from './components/NurseManagement/NurseManagement';
 import RosterView from './components/Roster/RosterView';
 import Settings from './components/Settings/Settings';
 import Login from './components/Auth/Login';
+import MemberManagement from './components/Members/MemberManagement';
 import { useNurses } from './hooks/useNurses';
 import { useRoster } from './hooks/useRoster';
 import { useRosterConfig } from './hooks/useRosterConfig';
@@ -220,6 +221,10 @@ const HospitalRosterSystem = () => {
             {...sharedProps}
             generateBalancedRoster={() => generateBalancedRoster(rosterConfig)}
           />
+        )}
+
+        {activeTab === 'members' && (
+          <MemberManagement currentUser={currentUser} />
         )}
         
         {activeTab === 'settings' && (
