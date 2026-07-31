@@ -10,6 +10,7 @@ const NurseManagement = ({
   nurses, 
   addNurse, 
   updateNurseStatus, 
+  updateNurse,
   deleteNurse, 
   getFilteredNurses 
 }) => {
@@ -92,6 +93,7 @@ const NurseManagement = ({
       <NurseTable 
         nurses={filteredNurses}
         updateNurseStatus={updateNurseStatus}
+        updateNurse={updateNurse}
         deleteNurse={deleteNurse}
       />
     </div>
