@@ -154,7 +154,7 @@ const HospitalRosterSystem = () => {
     getActiveNurses,
     getFilteredNurses,
     updateNurses
-  } = useNurses();
+  } = useNurses(currentUser);
 
   const {
     roster,
@@ -164,9 +164,9 @@ const HospitalRosterSystem = () => {
     generateNurseAssignmentChart,
     clearRoster,
     hasRosterData
-  } = useRoster(nurses, selectedMonth, selectedYear, updateNurses);
+  } = useRoster(nurses, selectedMonth, selectedYear, updateNurses, currentUser);
 
-  const { rosterConfig, updateRosterConfig } = useRosterConfig();
+  const { rosterConfig, updateRosterConfig } = useRosterConfig(currentUser);
 
   const sharedProps = {
     nurses,
