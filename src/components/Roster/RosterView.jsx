@@ -231,10 +231,21 @@ const RosterView = ({
   generateBalancedRoster,
   getCurrentMonthRoster,
   rosterConfig,
-  nurses
+  nurses,
+  clearRoster
 }) => {
   const monthRoster = getCurrentMonthRoster();
   const hasRosterData = Object.keys(monthRoster).length > 0;
+
+  // [추가] 예전(간호사 명단이 바뀌기 전) 근무표를 지우는 기능. 되돌릴 수 없어 확인창을 띄운다.
+  const handleClearRoster = () => {
+    const confirmed = window.confirm(
+      `${selectedYear}년 ${getMonthName(selectedMonth)} 근무표를 초기화하시겠습니까?\n\n저장된 근무표 데이터가 완전히 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`
+    );
+    if (confirmed && clearRoster) {
+      clearRoster();
+    }
+  };
 
   const handleGenerateRoster = () => {
     const result = generateBalancedRoster();
@@ -330,6 +341,24 @@ const RosterView = ({
             <Calendar size={18} />
             근무표 생성
           </button>
+          {hasRosterData && (
+            <button
+              onClick={handleClearRoster}
+              style={{
+                backgroundColor: 'white',
+                color: '#dc2626',
+                padding: '10px 20px',
+                border: '1px solid #fecaca',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '500'
+              }}
+              title="이번 달 저장된 근무표 데이터를 삭제합니다"
+            >
+              근무표 초기화
+            </button>
+          )}
         </div>
       </div>
 
