@@ -150,6 +150,7 @@ const HospitalRosterSystem = () => {
     nurses,
     addNurse,
     updateNurseStatus,
+    updateNurse,
     deleteNurse,
     getActiveNurses,
     getFilteredNurses,
@@ -213,6 +214,7 @@ const HospitalRosterSystem = () => {
             nurses={nurses}
             addNurse={addNurse}
             updateNurseStatus={updateNurseStatus}
+            updateNurse={updateNurse}
             deleteNurse={deleteNurse}
             getFilteredNurses={getFilteredNurses}
           />
