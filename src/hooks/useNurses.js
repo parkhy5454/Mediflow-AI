@@ -1,11 +1,34 @@
 // src/hooks/useNurses.js
-import { useState } from 'react';
+// [수정] 간호사 목록을 브라우저(localStorage)에 저장해서 새로고침/재로그인해도 유지되게 함.
+import { useState, useEffect } from 'react';
 import { initialNurses } from '../constants/nurseData';
 
+const STORAGE_KEY = 'mediflow_nurses';
+
+const loadSavedNurses = () => {
+  try {
+    const saved = window.localStorage.getItem(STORAGE_KEY);
+    if (!saved) return initialNurses;
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : initialNurses;
+  } catch (e) {
+    return initialNurses;
+  }
+};
+
 export const useNurses = () => {
-  const [nurses, setNurses] = useState(initialNurses);
+  const [nurses, setNurses] = useState(loadSavedNurses);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+
+  // 간호사 목록이 바뀔 때마다 자동 저장 (추가/수정/삭제/근무표 생성 후 상태 갱신 전부 포함)
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nurses));
+    } catch (e) {
+      console.error('간호사 목록 저장 실패:', e);
+    }
+  }, [nurses]);
 
   const addNurse = (newNurseData) => {
     if (!newNurseData.name.trim()) return false;

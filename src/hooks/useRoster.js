@@ -103,12 +103,32 @@
 // };
 
 // src/hooks/useRoster.js (4교대 D/E/N/M 시스템 대응)
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { generateRoster } from '../services/rosterGenerator';
 import { getDaysInMonth } from '../utils/dateUtils';
 
+const STORAGE_KEY = 'mediflow_roster';
+
+const loadSavedRoster = () => {
+  try {
+    const saved = window.localStorage.getItem(STORAGE_KEY);
+    return saved ? JSON.parse(saved) : {};
+  } catch (e) {
+    return {};
+  }
+};
+
 export const useRoster = (nurses, selectedMonth, selectedYear, updateNurses) => {
-  const [roster, setRoster] = useState({});
+  const [roster, setRoster] = useState(loadSavedRoster);
+
+  // 근무표가 바뀔 때마다(생성/초기화) 자동 저장 → 새로고침/재로그인해도 유지
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(roster));
+    } catch (e) {
+      console.error('근무표 저장 실패:', e);
+    }
+  }, [roster]);
 
   const generateBalancedRoster = (rosterConfig) => {
     const activeNurses = nurses.filter(nurse => nurse.status === 'active');
