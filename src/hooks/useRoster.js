@@ -1,144 +1,50 @@
-// // src/hooks/useRoster.js
-// import { useState } from 'react';
-// import { generateRoster } from '../services/rosterGenerator';
-// import { getDaysInMonth } from '../utils/dateUtils';
-
-// export const useRoster = (nurses, selectedMonth, selectedYear) => {
-//   const [roster, setRoster] = useState({});
-
-//   const generateBalancedRoster = (rosterConfig) => {
-//     const activeNurses = nurses.filter(nurse => nurse.status === 'active');
-//     const daysInMonth = getDaysInMonth(selectedMonth, selectedYear);
-//     const monthKey = `${selectedYear}-${selectedMonth}`;
-    
-//     const result = generateRoster(activeNurses, daysInMonth, rosterConfig);
-    
-//     if (result.success) {
-//       setRoster(prev => ({ ...prev, [monthKey]: result.roster }));
-//       // Update nurses with new lastShiftType information
-//       // This would typically be handled by the parent component
-//       return { success: true, message: result.message, updatedNurses: result.updatedNurses };
-//     } else {
-//       return { success: false, message: result.message };
-//     }
-//   };
-
-//   const getCurrentMonthRoster = () => {
-//     const monthKey = `${selectedYear}-${selectedMonth}`;
-//     return roster[monthKey] || {};
-//   };
-
-//   const getRosterStats = () => {
-//     const monthRoster = getCurrentMonthRoster();
-//     const daysInMonth = getDaysInMonth(selectedMonth, selectedYear);
-//     let totalMorningAssignments = 0;
-//     let totalNightAssignments = 0;
-//     let totalOffDutyDays = 0;
-
-//     for (let day = 1; day <= daysInMonth; day++) {
-//       if (monthRoster[day]) {
-//         totalMorningAssignments += monthRoster[day].morning?.length || 0;
-//         totalNightAssignments += monthRoster[day].night?.length || 0;
-//         totalOffDutyDays += monthRoster[day].offDuty?.length || 0;
-//       }
-//     }
-
-//     return {
-//       totalMorningAssignments,
-//       totalNightAssignments,
-//       totalOffDutyDays,
-//       daysInMonth
-//     };
-//   };
-
-//   const generateNurseAssignmentChart = () => {
-//     const monthRoster = getCurrentMonthRoster();
-//     const daysInMonth = getDaysInMonth(selectedMonth, selectedYear);
-//     const activeNurses = nurses.filter(nurse => nurse.status === 'active');
-//     const nurseAssignments = {};
-
-//     // Initialize all active nurses
-//     activeNurses.forEach(nurse => {
-//       nurseAssignments[nurse.name] = {
-//         name: nurse.name,
-//         morningDays: 0,
-//         nightDays: 0,
-//         offDutyDays: 0
-//       };
-//     });
-
-//     // Count assignments for each nurse
-//     for (let day = 1; day <= daysInMonth; day++) {
-//       if (monthRoster[day]) {
-//         monthRoster[day].morning?.forEach(nurse => {
-//           if (nurseAssignments[nurse.name]) {
-//             nurseAssignments[nurse.name].morningDays++;
-//           }
-//         });
-        
-//         monthRoster[day].night?.forEach(nurse => {
-//           if (nurseAssignments[nurse.name]) {
-//             nurseAssignments[nurse.name].nightDays++;
-//           }
-//         });
-        
-//         monthRoster[day].offDuty?.forEach(nurse => {
-//           if (nurseAssignments[nurse.name]) {
-//             nurseAssignments[nurse.name].offDutyDays++;
-//           }
-//         });
-//       }
-//     }
-
-//     return Object.values(nurseAssignments);
-//   };
-
-//   return {
-//     roster,
-//     generateBalancedRoster,
-//     getCurrentMonthRoster,
-//     getRosterStats,
-//     generateNurseAssignmentChart
-//   };
-// };
-
-// src/hooks/useRoster.js (4교대 D/E/N/M 시스템 대응)
+// src/hooks/useRoster.js (4교대 D/E/N/M 시스템, 서버 API 기반 저장)
+// [수정] localStorage 대신 서버 API(Supabase)를 통해 병원별로 근무표를 저장/조회한다.
 import { useState, useEffect } from 'react';
 import { generateRoster } from '../services/rosterGenerator';
 import { getDaysInMonth } from '../utils/dateUtils';
 
-const STORAGE_KEY = 'mediflow_roster';
+export const useRoster = (nurses, selectedMonth, selectedYear, updateNurses, currentUser) => {
+  const [roster, setRoster] = useState({});
+  const monthKey = `${selectedYear}-${selectedMonth}`;
 
-const loadSavedRoster = () => {
-  try {
-    const saved = window.localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : {};
-  } catch (e) {
-    return {};
-  }
-};
-
-export const useRoster = (nurses, selectedMonth, selectedYear, updateNurses) => {
-  const [roster, setRoster] = useState(loadSavedRoster);
-
-  // 근무표가 바뀔 때마다(생성/초기화) 자동 저장 → 새로고침/재로그인해도 유지
+  // 선택된 달이 바뀌면 그 달의 근무표를 서버에서 불러온다 (이미 불러온 적 있으면 캐시된 값 유지)
   useEffect(() => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(roster));
-    } catch (e) {
-      console.error('근무표 저장 실패:', e);
-    }
-  }, [roster]);
+    if (!currentUser) return;
+    (async () => {
+      try {
+        const res = await fetch(`/api/roster/${monthKey}`, {
+          headers: { 'x-user-id': currentUser.id }
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setRoster(prev => ({ ...prev, [monthKey]: data.roster || {} }));
+        }
+      } catch (err) {
+        console.error('근무표 조회 실패:', err);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monthKey, currentUser?.id]);
+
+  const saveRosterToServer = (key, rosterData) => {
+    if (!currentUser) return;
+    fetch(`/api/roster/${key}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+      body: JSON.stringify({ roster: rosterData })
+    }).catch(err => console.error('근무표 저장 실패:', err));
+  };
 
   const generateBalancedRoster = (rosterConfig) => {
     const activeNurses = nurses.filter(nurse => nurse.status === 'active');
     const daysInMonth = getDaysInMonth(selectedMonth, selectedYear);
-    const monthKey = `${selectedYear}-${selectedMonth}`;
     
     const result = generateRoster(activeNurses, daysInMonth, rosterConfig);
     
     if (result.success) {
       setRoster(prev => ({ ...prev, [monthKey]: result.roster }));
+      saveRosterToServer(monthKey, result.roster);
       
       // Update nurses with new lastShiftType information
       if (result.updatedNurses && updateNurses) {
@@ -159,7 +65,6 @@ export const useRoster = (nurses, selectedMonth, selectedYear, updateNurses) => 
   };
 
   const getCurrentMonthRoster = () => {
-    const monthKey = `${selectedYear}-${selectedMonth}`;
     return roster[monthKey] || {};
   };
 
@@ -225,17 +130,23 @@ export const useRoster = (nurses, selectedMonth, selectedYear, updateNurses) => 
   };
 
   const clearRoster = (month, year) => {
-    const monthKey = `${year}-${month}`;
+    const key = `${year}-${month}`;
     setRoster(prev => {
       const newRoster = { ...prev };
-      delete newRoster[monthKey];
+      delete newRoster[key];
       return newRoster;
     });
+    if (currentUser) {
+      fetch(`/api/roster/${key}`, {
+        method: 'DELETE',
+        headers: { 'x-user-id': currentUser.id }
+      }).catch(err => console.error('근무표 삭제 실패:', err));
+    }
   };
 
   const hasRosterData = (month = selectedMonth, year = selectedYear) => {
-    const monthKey = `${year}-${month}`;
-    return roster[monthKey] && Object.keys(roster[monthKey]).length > 0;
+    const key = `${year}-${month}`;
+    return roster[key] && Object.keys(roster[key]).length > 0;
   };
 
   return {

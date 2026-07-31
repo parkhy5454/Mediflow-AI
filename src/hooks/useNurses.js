@@ -1,65 +1,97 @@
 // src/hooks/useNurses.js
-// [수정] 간호사 목록을 브라우저(localStorage)에 저장해서 새로고침/재로그인해도 유지되게 함.
+// [수정] localStorage 대신 서버 API(Supabase)를 통해 병원별로 간호사 데이터를 저장/조회한다.
 import { useState, useEffect } from 'react';
-import { initialNurses } from '../constants/nurseData';
 
-const STORAGE_KEY = 'mediflow_nurses';
-
-const loadSavedNurses = () => {
-  try {
-    const saved = window.localStorage.getItem(STORAGE_KEY);
-    if (!saved) return initialNurses;
-    const parsed = JSON.parse(saved);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : initialNurses;
-  } catch (e) {
-    return initialNurses;
-  }
+const authHeaders = (currentUser, withBody = false) => {
+  const headers = { 'x-user-id': currentUser?.id };
+  if (withBody) headers['Content-Type'] = 'application/json';
+  return headers;
 };
 
-export const useNurses = () => {
-  const [nurses, setNurses] = useState(loadSavedNurses);
+export const useNurses = (currentUser) => {
+  const [nurses, setNurses] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
 
-  // 간호사 목록이 바뀔 때마다 자동 저장 (추가/수정/삭제/근무표 생성 후 상태 갱신 전부 포함)
-  useEffect(() => {
+  const fetchNurses = async () => {
+    if (!currentUser) return;
+    setLoading(true);
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nurses));
-    } catch (e) {
-      console.error('간호사 목록 저장 실패:', e);
+      const res = await fetch('/api/nurses', { headers: authHeaders(currentUser) });
+      const data = await res.json();
+      if (res.ok) setNurses(data);
+    } catch (err) {
+      console.error('간호사 목록 조회 실패:', err);
+    } finally {
+      setLoading(false);
     }
-  }, [nurses]);
+  };
 
-  const addNurse = (newNurseData) => {
+  useEffect(() => {
+    fetchNurses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id]);
+
+  const addNurse = async (newNurseData) => {
     if (!newNurseData.name.trim()) return false;
-    
-    const nurse = {
-      id: Date.now(),
-      ...newNurseData,
-      status: 'active',
-      lastShiftType: null
-    };
-    
-    setNurses(prev => [...prev, nurse]);
+    try {
+      const res = await fetch('/api/nurses', {
+        method: 'POST',
+        headers: authHeaders(currentUser, true),
+        body: JSON.stringify(newNurseData)
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || '간호사 추가에 실패했습니다.');
+        return false;
+      }
+      setNurses(prev => [...prev, data]);
+      return true;
+    } catch (err) {
+      console.error('간호사 추가 실패:', err);
+      alert('간호사 추가 중 오류가 발생했습니다.');
+      return false;
+    }
+  };
+
+  const updateNurseStatus = async (id, status) => {
+    // 화면은 즉시 반영(낙관적 업데이트), 서버 저장은 뒤에서 진행
+    setNurses(prev => prev.map(nurse => (nurse.id === id ? { ...nurse, status } : nurse)));
+    try {
+      await fetch(`/api/nurses/${id}`, {
+        method: 'PUT',
+        headers: authHeaders(currentUser, true),
+        body: JSON.stringify({ status })
+      });
+    } catch (err) {
+      console.error('간호사 상태 변경 실패:', err);
+    }
+  };
+
+  const deleteNurse = async (id) => {
+    if (!window.confirm('정말 이 간호사를 삭제하시겠습니까?')) return false;
+    setNurses(prev => prev.filter(nurse => nurse.id !== id));
+    try {
+      await fetch(`/api/nurses/${id}`, { method: 'DELETE', headers: authHeaders(currentUser) });
+    } catch (err) {
+      console.error('간호사 삭제 실패:', err);
+    }
     return true;
   };
 
-  const updateNurseStatus = (id, status) => {
-    setNurses(prev => prev.map(nurse => 
-      nurse.id === id ? { ...nurse, status } : nurse
-    ));
-  };
-
-  const deleteNurse = (id) => {
-    if (window.confirm('정말 이 간호사를 삭제하시겠습니까?')) {
-      setNurses(prev => prev.filter(nurse => nurse.id !== id));
-      return true;
-    }
-    return false;
-  };
-
-  const updateNurses = (updatedNurses) => {
+  // 근무표 생성 후 여러 간호사의 상태(lastShiftType 등)를 한 번에 갱신할 때 사용
+  const updateNurses = async (updatedNurses) => {
     setNurses(updatedNurses);
+    try {
+      await fetch('/api/nurses/bulk', {
+        method: 'PUT',
+        headers: authHeaders(currentUser, true),
+        body: JSON.stringify({ nurses: updatedNurses })
+      });
+    } catch (err) {
+      console.error('간호사 일괄 저장 실패:', err);
+    }
   };
 
   const getActiveNurses = () => {
@@ -78,6 +110,7 @@ export const useNurses = () => {
 
   return {
     nurses,
+    loading,
     searchTerm,
     setSearchTerm,
     filterStatus,
