@@ -161,7 +161,9 @@ const HospitalRosterSystem = () => {
     generateBalancedRoster,
     getCurrentMonthRoster,
     getRosterStats,
-    generateNurseAssignmentChart
+    generateNurseAssignmentChart,
+    clearRoster,
+    hasRosterData
   } = useRoster(nurses, selectedMonth, selectedYear, updateNurses);
 
   const { rosterConfig, updateRosterConfig } = useRosterConfig();
@@ -220,6 +222,7 @@ const HospitalRosterSystem = () => {
           <RosterView 
             {...sharedProps}
             generateBalancedRoster={() => generateBalancedRoster(rosterConfig)}
+            clearRoster={() => clearRoster(selectedMonth, selectedYear)}
           />
         )}
 
