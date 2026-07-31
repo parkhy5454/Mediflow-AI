@@ -14,6 +14,7 @@ const cors = require('cors');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 const { createClient } = require('@supabase/supabase-js');
+const crypto = require('crypto');
 
 const app = express();
 app.use(cors());
@@ -216,6 +217,302 @@ app.put('/api/auth/users/:targetId', async (req, res) => {
   } catch (err) {
     console.error('role update error:', err);
     res.status(500).json({ error: '역할 변경 중 오류가 발생했습니다.' });
+  }
+});
+
+
+// ------------------------------------------------------------------
+// 공용 헬퍼: x-user-id 헤더로 요청자를 찾고, 그 사람의 병원 코드(hospital_code)를 반환한다.
+// 모든 병원 데이터(간호사/근무표/설정) API는 이 병원 코드로 완전히 분리된다.
+// ------------------------------------------------------------------
+const getRequesterHospital = async (req) => {
+  const userId = req.headers['x-user-id'];
+  if (!userId) return null;
+  const { data: requester, error } = await supabase
+    .from('mediflow_users')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error || !requester) return null;
+  return requester;
+};
+
+const toPublicNurse = (n) => ({
+  id: n.id,
+  name: n.name,
+  qualification: n.qualification,
+  experience: n.experience,
+  department: n.department,
+  status: n.status,
+  lastShiftType: n.last_shift_type,
+  lastShiftCycleDay: n.last_shift_cycle_day,
+  lastOffDutyRemaining: n.last_off_duty_remaining,
+  lastShiftPreference: n.last_shift_preference,
+  historicalDaysByShift: n.historical_days_by_shift || {}
+});
+
+// ------------------------------------------------------------------
+// 간호사 목록 조회 (같은 병원 소속만)
+// ------------------------------------------------------------------
+app.get('/api/nurses', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+    const { data, error } = await supabase
+      .from('mediflow_nurses')
+      .select('*')
+      .eq('hospital_code', requester.hospital_code)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    res.json(data.map(toPublicNurse));
+  } catch (err) {
+    console.error('nurses list error:', err);
+    res.status(500).json({ error: '간호사 목록 조회 중 오류가 발생했습니다.' });
+  }
+});
+
+// 간호사 추가
+app.post('/api/nurses', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+    const { name, qualification, experience, department } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: '간호사 이름을 입력해주세요.' });
+    }
+
+    const { data, error } = await supabase
+      .from('mediflow_nurses')
+      .insert({
+        id: crypto.randomUUID(),
+        hospital_code: requester.hospital_code,
+        name: name.trim(),
+        qualification: qualification || 'RN',
+        experience: experience || '주니어',
+        department: department || '',
+        status: 'active'
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.status(201).json(toPublicNurse(data));
+  } catch (err) {
+    console.error('nurse create error:', err);
+    res.status(500).json({ error: '간호사 추가 중 오류가 발생했습니다.' });
+  }
+});
+
+// 간호사 정보/상태 수정 (같은 병원 소속만)
+app.put('/api/nurses/:id', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+    const updates = {};
+    const body = req.body;
+    if (body.status !== undefined) updates.status = body.status;
+    if (body.name !== undefined) updates.name = body.name;
+    if (body.qualification !== undefined) updates.qualification = body.qualification;
+    if (body.experience !== undefined) updates.experience = body.experience;
+    if (body.department !== undefined) updates.department = body.department;
+    if (body.lastShiftType !== undefined) updates.last_shift_type = body.lastShiftType;
+    if (body.lastShiftCycleDay !== undefined) updates.last_shift_cycle_day = body.lastShiftCycleDay;
+    if (body.lastOffDutyRemaining !== undefined) updates.last_off_duty_remaining = body.lastOffDutyRemaining;
+    if (body.lastShiftPreference !== undefined) updates.last_shift_preference = body.lastShiftPreference;
+    if (body.historicalDaysByShift !== undefined) updates.historical_days_by_shift = body.historicalDaysByShift;
+    updates.updated_at = new Date().toISOString();
+
+    const { data, error } = await supabase
+      .from('mediflow_nurses')
+      .update(updates)
+      .eq('id', req.params.id)
+      .eq('hospital_code', requester.hospital_code)
+      .select()
+      .single();
+
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: '간호사를 찾을 수 없습니다.' });
+    res.json(toPublicNurse(data));
+  } catch (err) {
+    console.error('nurse update error:', err);
+    res.status(500).json({ error: '간호사 정보 수정 중 오류가 발생했습니다.' });
+  }
+});
+
+// 간호사 여러 명을 한 번에 upsert (근무표 생성 후 lastShiftType 등을 일괄 갱신할 때 사용)
+app.put('/api/nurses/bulk', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+    const nurses = req.body.nurses;
+    if (!Array.isArray(nurses)) {
+      return res.status(400).json({ error: 'nurses 배열이 필요합니다.' });
+    }
+
+    const rows = nurses.map(n => ({
+      id: n.id,
+      hospital_code: requester.hospital_code,
+      name: n.name,
+      qualification: n.qualification,
+      experience: n.experience,
+      department: n.department,
+      status: n.status,
+      last_shift_type: n.lastShiftType ?? null,
+      last_shift_cycle_day: n.lastShiftCycleDay ?? 0,
+      last_off_duty_remaining: n.lastOffDutyRemaining ?? 0,
+      last_shift_preference: n.lastShiftPreference ?? null,
+      historical_days_by_shift: n.historicalDaysByShift || {},
+      updated_at: new Date().toISOString()
+    }));
+
+    const { data, error } = await supabase
+      .from('mediflow_nurses')
+      .upsert(rows, { onConflict: 'id' })
+      .select();
+
+    if (error) throw error;
+    res.json((data || []).map(toPublicNurse));
+  } catch (err) {
+    console.error('nurse bulk update error:', err);
+    res.status(500).json({ error: '간호사 일괄 수정 중 오류가 발생했습니다.' });
+  }
+});
+
+// 간호사 삭제 (같은 병원 소속만)
+app.delete('/api/nurses/:id', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+    const { error } = await supabase
+      .from('mediflow_nurses')
+      .delete()
+      .eq('id', req.params.id)
+      .eq('hospital_code', requester.hospital_code);
+
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (err) {
+    console.error('nurse delete error:', err);
+    res.status(500).json({ error: '간호사 삭제 중 오류가 발생했습니다.' });
+  }
+});
+
+// ------------------------------------------------------------------
+// 근무표 설정 (병원 하나당 한 줄, 없으면 null 반환 → 프론트에서 기본값 사용)
+// ------------------------------------------------------------------
+app.get('/api/roster-config', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+    const { data, error } = await supabase
+      .from('mediflow_roster_config')
+      .select('config')
+      .eq('hospital_code', requester.hospital_code)
+      .maybeSingle();
+
+    if (error) throw error;
+    res.json({ config: data ? data.config : null });
+  } catch (err) {
+    console.error('roster-config get error:', err);
+    res.status(500).json({ error: '근무표 설정 조회 중 오류가 발생했습니다.' });
+  }
+});
+
+app.put('/api/roster-config', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+    const { config } = req.body;
+    if (!config) return res.status(400).json({ error: 'config가 필요합니다.' });
+
+    const { error } = await supabase
+      .from('mediflow_roster_config')
+      .upsert({
+        hospital_code: requester.hospital_code,
+        config,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'hospital_code' });
+
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (err) {
+    console.error('roster-config update error:', err);
+    res.status(500).json({ error: '근무표 설정 저장 중 오류가 발생했습니다.' });
+  }
+});
+
+// ------------------------------------------------------------------
+// 월별 근무표 데이터
+// ------------------------------------------------------------------
+app.get('/api/roster/:monthKey', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+    const { data, error } = await supabase
+      .from('mediflow_roster')
+      .select('roster_data')
+      .eq('hospital_code', requester.hospital_code)
+      .eq('month_key', req.params.monthKey)
+      .maybeSingle();
+
+    if (error) throw error;
+    res.json({ roster: data ? data.roster_data : {} });
+  } catch (err) {
+    console.error('roster get error:', err);
+    res.status(500).json({ error: '근무표 조회 중 오류가 발생했습니다.' });
+  }
+});
+
+app.put('/api/roster/:monthKey', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+    const { roster } = req.body;
+    if (!roster) return res.status(400).json({ error: 'roster 데이터가 필요합니다.' });
+
+    const { error } = await supabase
+      .from('mediflow_roster')
+      .upsert({
+        hospital_code: requester.hospital_code,
+        month_key: req.params.monthKey,
+        roster_data: roster,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'hospital_code,month_key' });
+
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (err) {
+    console.error('roster save error:', err);
+    res.status(500).json({ error: '근무표 저장 중 오류가 발생했습니다.' });
+  }
+});
+
+app.delete('/api/roster/:monthKey', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+    const { error } = await supabase
+      .from('mediflow_roster')
+      .delete()
+      .eq('hospital_code', requester.hospital_code)
+      .eq('month_key', req.params.monthKey);
+
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (err) {
+    console.error('roster delete error:', err);
+    res.status(500).json({ error: '근무표 삭제 중 오류가 발생했습니다.' });
   }
 });
 
