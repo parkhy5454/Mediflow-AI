@@ -69,6 +69,28 @@ export const useNurses = (currentUser) => {
     }
   };
 
+  // [추가] 이름/자격/경력/부서 등 여러 필드를 한 번에 수정할 때 사용 (입력 실수 정정용)
+  const updateNurse = async (id, updates) => {
+    setNurses(prev => prev.map(nurse => (nurse.id === id ? { ...nurse, ...updates } : nurse)));
+    try {
+      const res = await fetch(`/api/nurses/${id}`, {
+        method: 'PUT',
+        headers: authHeaders(currentUser, true),
+        body: JSON.stringify(updates)
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || '간호사 정보 수정에 실패했습니다.');
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.error('간호사 정보 수정 실패:', err);
+      alert('간호사 정보 수정 중 오류가 발생했습니다.');
+      return false;
+    }
+  };
+
   const deleteNurse = async (id) => {
     if (!window.confirm('정말 이 간호사를 삭제하시겠습니까?')) return false;
     setNurses(prev => prev.filter(nurse => nurse.id !== id));
@@ -117,6 +139,7 @@ export const useNurses = (currentUser) => {
     setFilterStatus,
     addNurse,
     updateNurseStatus,
+    updateNurse,
     deleteNurse,
     updateNurses,
     getActiveNurses,
