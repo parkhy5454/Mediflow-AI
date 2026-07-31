@@ -18,8 +18,8 @@ const NurseManagement = ({
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterDepartment, setFilterDepartment] = useState('all');
 
-  const handleAddNurse = (nurseData) => {
-    const success = addNurse(nurseData);
+  const handleAddNurse = async (nurseData) => {
+    const success = await addNurse(nurseData);
     if (success) {
       setShowAddForm(false);
     }

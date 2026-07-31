@@ -73,13 +73,13 @@ const AddNurseForm = ({ onAddNurse, onCancel }) => {
     department: '중환자실'
   });
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!newNurse.name.trim()) {
       alert('간호사 이름을 입력해주세요');
       return;
     }
     
-    const success = onAddNurse(newNurse);
+    const success = await onAddNurse(newNurse);
     if (success) {
       setNewNurse({ 
         name: '', 
