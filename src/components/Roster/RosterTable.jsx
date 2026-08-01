@@ -40,7 +40,7 @@ const RosterTable = ({ selectedMonth, selectedYear, getCurrentMonthRoster, roste
                 </th>
               ))}
               <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>
-                비번
+                비번 (OFF)
               </th>
             </tr>
           </thead>
