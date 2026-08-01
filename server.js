@@ -41,13 +41,42 @@ const toPublicUser = (u) => ({
 });
 
 // ------------------------------------------------------------------
+// 병원 코드 상태 조회 (회원가입 화면에서 "관리자로 가입" 선택지를 보여줄지 판단용)
+// 그 병원 코드로 가입된 관리자가 1명이라도 있으면 hasAdmin: true를 내려준다.
+// (관리자가 있는 병원에서는 새 가입자가 관리자를 자칭할 수 없도록 프론트에서 이 값으로 선택지를 숨김)
+// ------------------------------------------------------------------
+app.get('/api/auth/hospital-status', async (req, res) => {
+  try {
+    const code = (req.query.code || '').trim().toLowerCase();
+    if (!code) {
+      return res.status(400).json({ error: '병원 코드가 필요합니다.' });
+    }
+
+    const { data: admins, error } = await supabase
+      .from('mediflow_users')
+      .select('id')
+      .eq('hospital_code', code)
+      .eq('role', 'admin')
+      .limit(1);
+
+    if (error) throw error;
+
+    res.json({ hasAdmin: !!(admins && admins.length > 0) });
+  } catch (err) {
+    console.error('hospital-status error:', err);
+    res.status(500).json({ error: '병원 코드 확인 중 오류가 발생했습니다.' });
+  }
+});
+
+// ------------------------------------------------------------------
 // 회원가입
-// 같은 병원(hospitalCode, 대소문자/공백 무시하고 비교)으로 가입된 사람이 없으면 자동으로 admin,
-// 이미 있으면 자동으로 member로 배정한다. (역할을 직접 선택하지 않음)
+// [수정] 최초 가입자에게 관리자를 자동 배정하던 방식 → 가입자가 "일반 사용자/관리자"를 직접 선택.
+// 단, 그 병원(hospitalCode)에 관리자가 이미 1명이라도 있으면 wantsAdmin 값과 무관하게
+// 서버에서 강제로 member로 배정한다. (관리자가 정해진 뒤에는 기존 관리자만 새 관리자를 지정 가능)
 // ------------------------------------------------------------------
 app.post('/api/auth/signup', async (req, res) => {
   try {
-    const { email, password, name, hospitalName, hospitalCode } = req.body;
+    const { email, password, name, hospitalName, hospitalCode, wantsAdmin } = req.body;
 
     if (!email || !password || !name || !hospitalName || !hospitalCode) {
       return res.status(400).json({ error: '이메일, 비밀번호, 이름, 병원명, 병원 코드를 모두 입력해주세요.' });
@@ -71,15 +100,18 @@ app.post('/api/auth/signup', async (req, res) => {
       return res.status(409).json({ error: '이미 가입된 이메일입니다.' });
     }
 
-    // 같은 병원(hospitalCode) 소속 가입자가 있는지 확인 → 있으면 member, 없으면 admin
-    const { data: hospitalMembers, error: hospitalCheckError } = await supabase
+    // 그 병원(hospitalCode)에 관리자가 이미 있는지 확인.
+    // 있으면 wantsAdmin이 true여도 무시하고 무조건 member로 배정 (프론트 조작/레이스 컨디션 방지용 서버측 최종 검증)
+    const { data: existingAdmins, error: adminCheckError } = await supabase
       .from('mediflow_users')
       .select('id')
       .eq('hospital_code', normalizedHospitalCode)
+      .eq('role', 'admin')
       .limit(1);
 
-    if (hospitalCheckError) throw hospitalCheckError;
-    const role = (hospitalMembers && hospitalMembers.length > 0) ? 'member' : 'admin';
+    if (adminCheckError) throw adminCheckError;
+    const hospitalHasAdmin = existingAdmins && existingAdmins.length > 0;
+    const role = (!hospitalHasAdmin && wantsAdmin === true) ? 'admin' : 'member';
 
     const passwordHash = bcrypt.hashSync(password, 10);
 
