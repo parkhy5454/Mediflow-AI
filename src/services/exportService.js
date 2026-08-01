@@ -342,8 +342,11 @@ export const exportToPDF = (monthRoster, selectedMonth, selectedYear, rosterConf
           }
           
           @media print {
+            @page {
+              margin: 10mm 8mm;
+            }
             body { 
-              margin: 10px; 
+              margin: 0; 
               -webkit-print-color-adjust: exact;
               print-color-adjust: exact;
             }
@@ -351,6 +354,18 @@ export const exportToPDF = (monthRoster, selectedMonth, selectedYear, rosterConf
             .section { 
               break-inside: avoid; 
               margin-bottom: 15px;
+            }
+            /* 근무표 같은 긴 표는 섹션 전체를 한 페이지에 욱여넣을 수 없으므로
+               섹션 자체는 break-inside를 걸지 않되, 표의 각 행(하루치)은
+               페이지 중간에서 반으로 잘리지 않도록 해서 빈 여백이 크게 생기는 걸 방지한다. */
+            .roster-table tr,
+            .workload-table tr {
+              page-break-inside: avoid;
+              break-inside: avoid;
+            }
+            .roster-table thead,
+            .workload-table thead {
+              display: table-header-group; /* 페이지가 바뀌어도 헤더 행이 다시 보이도록 */
             }
           }
           
@@ -365,6 +380,9 @@ export const exportToPDF = (monthRoster, selectedMonth, selectedYear, rosterConf
         </style>
       </head>
       <body>
+        <div class="no-print" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;padding:10px 14px;border-radius:8px;margin-bottom:16px;font-size:13px;">
+          💡 인쇄 대화상자에서 <strong>"추가 설정" → "머리글 및 바닥글"</strong> 체크를 해제하면, 페이지마다 뜨는 날짜/URL/페이지 번호 없이 표가 더 깔끔하게 이어져 보입니다.
+        </div>
         <div class="header no-break">
           <h1>🏥 병원 간호사 근무표 시스템</h1>
           <h2>${selectedYear}년 ${monthName}</h2>
