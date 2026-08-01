@@ -598,6 +598,114 @@ app.get('/api/admin/platform-stats', async (req, res) => {
 });
 
 // ------------------------------------------------------------------
+// 📮 사용자 문의(버그신고/기능제안/기타) — 누구나 접수 가능, 개발자만 전체 열람/처리
+// ------------------------------------------------------------------
+app.post('/api/feedback', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+    const { type, title, message, phone } = req.body;
+    if (!title || !title.trim() || !message || !message.trim()) {
+      return res.status(400).json({ error: '제목과 내용을 입력해주세요.' });
+    }
+    if (!['bug', 'feature', 'other'].includes(type)) {
+      return res.status(400).json({ error: '올바르지 않은 문의 유형입니다.' });
+    }
+
+    const { data, error } = await supabase
+      .from('mediflow_feedback')
+      .insert({
+        hospital_code: requester.hospital_code,
+        hospital_name: requester.hospital_name,
+        user_id: requester.id,
+        user_name: requester.name,
+        user_email: requester.email,
+        user_phone: phone || null,
+        type,
+        title: title.trim(),
+        message: message.trim(),
+        status: 'new'
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.status(201).json({ success: true, feedback: data });
+  } catch (err) {
+    console.error('feedback submit error:', err);
+    res.status(500).json({ error: '문의 접수 중 오류가 발생했습니다.' });
+  }
+});
+
+// 개발자 전용: 전체 병원의 문의 목록 조회
+app.get('/api/feedback', async (req, res) => {
+  try {
+    const userId = req.headers['x-user-id'];
+    const { data: requester } = await supabase
+      .from('mediflow_users')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (!requester || requester.email !== ADMIN_EMAIL) {
+      return res.status(403).json({ error: '접근 권한이 없습니다.' });
+    }
+
+    const { data, error } = await supabase
+      .from('mediflow_feedback')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    console.error('feedback list error:', err);
+    res.status(500).json({ error: '문의 목록 조회 중 오류가 발생했습니다.' });
+  }
+});
+
+// 개발자 전용: 문의 상태/답변 업데이트
+app.put('/api/feedback/:id', async (req, res) => {
+  try {
+    const userId = req.headers['x-user-id'];
+    const { data: requester } = await supabase
+      .from('mediflow_users')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (!requester || requester.email !== ADMIN_EMAIL) {
+      return res.status(403).json({ error: '접근 권한이 없습니다.' });
+    }
+
+    const { status, resolutionNote } = req.body;
+    const updates = {};
+    if (status !== undefined) {
+      if (!['new', 'in_progress', 'resolved'].includes(status)) {
+        return res.status(400).json({ error: '올바르지 않은 상태입니다.' });
+      }
+      updates.status = status;
+      if (status === 'resolved') updates.resolved_at = new Date().toISOString();
+    }
+    if (resolutionNote !== undefined) updates.resolution_note = resolutionNote;
+
+    const { data, error } = await supabase
+      .from('mediflow_feedback')
+      .update(updates)
+      .eq('id', req.params.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json({ success: true, feedback: data });
+  } catch (err) {
+    console.error('feedback update error:', err);
+    res.status(500).json({ error: '문의 상태 변경 중 오류가 발생했습니다.' });
+  }
+});
+
+// ------------------------------------------------------------------
 // 프로덕션 배포 시: React 빌드 결과물(build 폴더)을 정적으로 서빙
 // (Render Web Service에서 "npm run build" 후 "node server.js"로 실행)
 // ------------------------------------------------------------------
