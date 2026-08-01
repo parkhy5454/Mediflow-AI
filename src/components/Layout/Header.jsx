@@ -25,13 +25,8 @@ const Header = ({ activeNurses, currentUser, onLogout }) => {
             fontWeight: 'bold', 
             color: '#1f2937' 
           }}>
-            병원 간호사 근무 관리 시스템
+            {currentUser?.hospitalName ? `${currentUser.hospitalName} 간호사 근무 관리 시스템` : '병원 간호사 근무 관리 시스템'}
           </h1>
-          {currentUser?.hospitalName && (
-            <p style={{ margin: 0, fontSize: '12px', color: '#6b7280' }}>
-              {currentUser.hospitalName}
-            </p>
-          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <span style={{ fontSize: '14px', color: '#6b7280' }}>
