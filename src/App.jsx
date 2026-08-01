@@ -110,6 +110,7 @@ import RosterView from './components/Roster/RosterView';
 import Settings from './components/Settings/Settings';
 import Login from './components/Auth/Login';
 import MemberManagement from './components/Members/MemberManagement';
+import SwapRequests from './components/Roster/SwapRequests';
 import AdminDashboard from './components/Admin/AdminDashboard';
 import FeedbackButton from './components/Feedback/FeedbackButton';
 import { useNurses } from './hooks/useNurses';
@@ -240,6 +241,13 @@ const HospitalRosterSystem = () => {
             {...sharedProps}
             generateBalancedRoster={() => generateBalancedRoster(rosterConfig)}
             clearRoster={() => clearRoster(selectedMonth, selectedYear)}
+          />
+        )}
+
+        {activeTab === 'swap-requests' && (
+          <SwapRequests
+            {...sharedProps}
+            currentUser={currentUser}
           />
         )}
 
