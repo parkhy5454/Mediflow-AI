@@ -23,7 +23,16 @@ const Navigation = ({ activeTab, setActiveTab, currentUser }) => {
       borderBottom: '1px solid #e5e7eb',
       padding: '0 20px'
     }}>
-      <div style={{ display: 'flex', gap: '0' }}>
+      <div
+        style={{
+          display: 'flex',
+          gap: '0',
+          overflowX: 'auto',
+          overflowY: 'hidden',
+          WebkitOverflowScrolling: 'touch',
+          scrollbarWidth: 'thin'
+        }}
+      >
         {tabs.map(tab => {
           const Icon = tab.icon;
           return (
@@ -41,7 +50,9 @@ const Navigation = ({ activeTab, setActiveTab, currentUser }) => {
                 cursor: 'pointer',
                 borderBottom: activeTab === tab.id ? '2px solid #3b82f6' : '2px solid transparent',
                 fontSize: '14px',
-                fontWeight: '500'
+                fontWeight: '500',
+                whiteSpace: 'nowrap',
+                flexShrink: 0
               }}
             >
               <Icon size={18} />
