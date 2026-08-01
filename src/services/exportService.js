@@ -1,4 +1,5 @@
 // src/services/exportService.js (4교대 D/E/N/M 시스템 대응)
+import ExcelJS from 'exceljs';
 import { getDaysInMonth, getMonthName } from '../utils/dateUtils';
 import { shiftLabel, shiftFullLabel } from '../constants/shiftTypes';
 
@@ -58,8 +59,46 @@ const generateWorkloadSummary = (monthRoster, selectedMonth, selectedYear, shift
   return Object.values(nurseWorkload).sort((a, b) => a.name.localeCompare(b.name));
 };
 
-// Export to Excel using CSV format (compatible with Excel)
-export const exportToExcel = (monthRoster, selectedMonth, selectedYear, rosterConfig) => {
+// PDF 내보내기(exportToPDF)에서 쓰는 것과 동일한 색상을 엑셀 셀 배경/글자색(ARGB)으로 사용해
+// 두 내보내기 결과물의 색감이 서로 일치하도록 맞춘다.
+const EXCEL_COLORS = {
+  titleBg: 'FF3B82F6',
+  titleText: 'FFFFFFFF',
+  sectionHeaderText: 'FF1F2937',
+  tableHeaderBg: 'FFF3F4F6',
+  tableHeaderText: 'FF1F2937',
+  workloadHeaderBg: 'FF3B82F6',
+  workloadHeaderText: 'FFFFFFFF',
+  zebra: 'FFF9FAFB',
+  weekendBg: 'FFFEE2E2',
+  weekendText: 'FFDC2626',
+  offDutyBg: 'FFF3F4F6',
+  offDutyText: 'FF374151',
+  availableBg: 'FFDCFCE7',
+  availableText: 'FF166534',
+  border: 'FFD1D5DB',
+  muted: 'FF6B7280'
+};
+
+const SHIFT_EXCEL_STYLE = {
+  D: { bg: 'FFFEF3C7', text: 'FF92400E' },
+  E: { bg: 'FFDBEAFE', text: 'FF1E40AF' },
+  N: { bg: 'FFE0E7FF', text: 'FF5B21B6' },
+  M: { bg: 'FFD1FAE5', text: 'FF065F46' }
+};
+
+const thinBorder = {
+  top: { style: 'thin', color: { argb: EXCEL_COLORS.border } },
+  left: { style: 'thin', color: { argb: EXCEL_COLORS.border } },
+  bottom: { style: 'thin', color: { argb: EXCEL_COLORS.border } },
+  right: { style: 'thin', color: { argb: EXCEL_COLORS.border } }
+};
+
+const solidFill = (argb) => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
+
+
+// Export to Excel (.xlsx) — PDF 내보내기와 동일한 색상/구조로 서식 있는 실제 엑셀 파일 생성
+export const exportToExcel = async (monthRoster, selectedMonth, selectedYear, rosterConfig) => {
   try {
     validateRosterData(monthRoster);
 
@@ -68,75 +107,235 @@ export const exportToExcel = (monthRoster, selectedMonth, selectedYear, rosterCo
     const monthName = getMonthName(selectedMonth);
     const workloadSummary = generateWorkloadSummary(monthRoster, selectedMonth, selectedYear, shiftTypes);
 
-    let csvContent = '\uFEFF'; // UTF-8 BOM
-    csvContent += `병원 간호사 근무표 - ${selectedYear}년 ${monthName}\n`;
-    csvContent += `생성일: ${new Date().toLocaleDateString()}\n\n`;
+    // 일별 근무표 테이블의 총 열 수(일/날짜/요일 + 교대별 열 + 비번) = 병합 범위 계산에 사용
+    const totalCols = 3 + shiftTypes.length + 1;
 
-    // 근무표 설정
-    csvContent += `근무표 설정\n`;
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = '병원 간호사 근무 관리 시스템';
+    workbook.created = new Date();
+    const sheet = workbook.addWorksheet(`${selectedYear}년 ${monthName}`, {
+      views: [{ showGridLines: false }]
+    });
+
+    let r = 1; // 현재 작성 중인 행 번호
+
+    // ── 제목 ─────────────────────────────────────────
+    sheet.mergeCells(r, 1, r, totalCols);
+    const titleCell = sheet.getCell(r, 1);
+    titleCell.value = '🏥 병원 간호사 근무표 시스템';
+    titleCell.font = { size: 18, bold: true, color: { argb: EXCEL_COLORS.titleText } };
+    titleCell.fill = solidFill(EXCEL_COLORS.titleBg);
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    sheet.getRow(r).height = 28;
+    r++;
+
+    sheet.mergeCells(r, 1, r, totalCols);
+    const subtitleCell = sheet.getCell(r, 1);
+    subtitleCell.value = `${selectedYear}년 ${monthName}   |   생성일: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`;
+    subtitleCell.font = { size: 11, italic: true, color: { argb: EXCEL_COLORS.muted } };
+    subtitleCell.alignment = { horizontal: 'center' };
+    r += 2;
+
+    // ── 근무표 설정 ─────────────────────────────────────
+    sheet.mergeCells(r, 1, r, totalCols);
+    sheet.getCell(r, 1).value = '📊 근무표 설정';
+    sheet.getCell(r, 1).font = { size: 13, bold: true, color: { argb: EXCEL_COLORS.sectionHeaderText } };
+    r++;
+
+    const configHeaderRow = sheet.getRow(r);
+    ['교대', '필요 인원', '연속 근무(일)', '휴무(일)'].forEach((label, i) => {
+      const cell = configHeaderRow.getCell(i + 1);
+      cell.value = label;
+      cell.font = { bold: true, color: { argb: EXCEL_COLORS.tableHeaderText } };
+      cell.fill = solidFill(EXCEL_COLORS.tableHeaderBg);
+      cell.border = thinBorder;
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    });
+    r++;
+
     shiftTypes.forEach(s => {
       const cfg = rosterConfig.shifts[s];
-      csvContent += `${shiftFullLabel(s)} 필요 인원,${cfg.size}\n`;
-      csvContent += `${shiftFullLabel(s)} 근무 기간,${cfg.shiftDays}일\n`;
-      csvContent += `${shiftFullLabel(s)} 근무 후 휴무,${cfg.offDutyAfter}일\n`;
+      const style = SHIFT_EXCEL_STYLE[s];
+      const row = sheet.getRow(r);
+      const nameCell = row.getCell(1);
+      nameCell.value = shiftFullLabel(s);
+      nameCell.font = { bold: true, color: { argb: style?.text || EXCEL_COLORS.sectionHeaderText } };
+      nameCell.fill = solidFill(style?.bg || 'FFFFFFFF');
+      [cfg.size, `${cfg.shiftDays}일`, `${cfg.offDutyAfter}일`].forEach((val, i) => {
+        row.getCell(i + 2).value = val;
+        row.getCell(i + 2).alignment = { horizontal: 'center' };
+      });
+      for (let c = 1; c <= 4; c++) row.getCell(c).border = thinBorder;
+      r++;
     });
-    csvContent += `\n`;
+    r += 1;
 
-    // 일별 근무표
-    csvContent += `일별 근무표\n`;
-    csvContent += `일,날짜,요일,${shiftTypes.map(s => shiftLabel(s)).join(',')},비번 (OFF)\n`;
+    // ── 일별 근무표 ─────────────────────────────────────
+    sheet.mergeCells(r, 1, r, totalCols);
+    sheet.getCell(r, 1).value = '📅 일별 근무표';
+    sheet.getCell(r, 1).font = { size: 13, bold: true, color: { argb: EXCEL_COLORS.sectionHeaderText } };
+    r++;
+
+    const rosterHeaderRowNum = r;
+    const rosterHeaderRow = sheet.getRow(r);
+    const rosterHeaders = ['일', '날짜', '요일', ...shiftTypes.map(s => `${shiftFullLabel(s)} (${rosterConfig.shifts[s].size})`), '비번 (OFF)'];
+    rosterHeaders.forEach((label, i) => {
+      const cell = rosterHeaderRow.getCell(i + 1);
+      cell.value = label;
+      cell.font = { bold: true, color: { argb: EXCEL_COLORS.tableHeaderText } };
+      cell.fill = solidFill(EXCEL_COLORS.tableHeaderBg);
+      cell.border = thinBorder;
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    });
+    r++;
 
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(selectedYear, selectedMonth, day);
-      const dayName = date.toLocaleDateString('ko-KR', { weekday: 'long' });
-      const formattedDate = date.toLocaleDateString();
+      const dow = date.getDay();
+      const isWeekend = dow === 0 || dow === 6;
+      const dayName = date.toLocaleDateString('ko-KR', { weekday: 'short' });
       const dayData = monthRoster[day];
+      const row = sheet.getRow(r);
 
-      const shiftCells = shiftTypes.map(s =>
-        dayData?.[s]?.map(n => `${n.name} (${n.qualification})`).join('; ') || ''
-      );
-      const offDutyNurses = dayData?.offDuty?.map(n => {
-        const status = n.daysRemaining > 0 ? `${n.daysRemaining}일 남음` :
-                     n.status === 'Available' ? '근무 가능' : '';
+      const dayCell = row.getCell(1);
+      dayCell.value = day;
+      dayCell.alignment = { horizontal: 'center', vertical: 'middle' };
+      dayCell.font = { bold: true, color: { argb: isWeekend ? EXCEL_COLORS.weekendText : EXCEL_COLORS.sectionHeaderText } };
+      dayCell.fill = solidFill(isWeekend ? EXCEL_COLORS.weekendBg : 'FFFFFFFF');
+
+      const dateCell = row.getCell(2);
+      dateCell.value = `${day}/${selectedMonth + 1}`;
+      const dowCell = row.getCell(3);
+      dowCell.value = dayName;
+      [dateCell, dowCell].forEach(c => {
+        c.alignment = { horizontal: 'center', vertical: 'middle' };
+        c.fill = solidFill(isWeekend ? 'FFFEF2F2' : 'FFFFFFFF');
+        if (isWeekend) c.font = { color: { argb: EXCEL_COLORS.weekendText } };
+      });
+
+      shiftTypes.forEach((s, si) => {
+        const cell = row.getCell(4 + si);
+        const nurses = dayData?.[s] || [];
+        cell.value = nurses.map(n => `${n.name} (${n.qualification})`).join('\n');
+        const style = SHIFT_EXCEL_STYLE[s];
+        cell.fill = solidFill(style?.bg || 'FFFFFFFF');
+        cell.font = { color: { argb: style?.text || 'FF000000' }, size: 10 };
+        cell.alignment = { horizontal: 'left', vertical: 'top', wrapText: true };
+      });
+
+      const offCell = row.getCell(4 + shiftTypes.length);
+      const offNurses = dayData?.offDuty || [];
+      offCell.value = offNurses.map(n => {
+        const status = n.daysRemaining > 0 ? `${n.daysRemaining}일 남음` : n.status === 'Available' ? '근무 가능' : '';
         return `${n.name}${status ? ` (${status})` : ''}`;
-      }).join('; ') || '';
+      }).join('\n');
+      offCell.fill = solidFill(EXCEL_COLORS.offDutyBg);
+      offCell.font = { color: { argb: EXCEL_COLORS.offDutyText }, size: 10 };
+      offCell.alignment = { horizontal: 'left', vertical: 'top', wrapText: true };
 
-      csvContent += `${day},"${formattedDate}","${dayName}",${shiftCells.map(c => `"${c}"`).join(',')},"${offDutyNurses}"\n`;
+      for (let c = 1; c <= totalCols; c++) row.getCell(c).border = thinBorder;
+
+      // 배정 인원이 여러 명이라 줄바꿈이 필요한 행은 살짝 높게
+      const maxLines = Math.max(1, ...shiftTypes.map(s => (dayData?.[s]?.length || 0)), offNurses.length);
+      row.height = Math.max(18, maxLines * 14);
+      r++;
     }
+    // 스크롤해도 근무표 헤더가 보이도록 틀 고정
+    sheet.views = [{ state: 'frozen', ySplit: rosterHeaderRowNum, showGridLines: false }];
+    r += 1;
 
-    // 업무량 요약
-    csvContent += `\n\n업무량 요약\n`;
-    csvContent += `간호사 이름,자격,${shiftTypes.map(s => shiftLabel(s)).join(',')},총 근무일,휴무일\n`;
-    workloadSummary.forEach(nurse => {
-      csvContent += `"${nurse.name}","${nurse.qualification}",${shiftTypes.map(s => nurse.daysByShift[s]).join(',')},${nurse.totalWorkDays},${nurse.offDutyDays}\n`;
+    // ── 간호사 업무량 요약 ────────────────────────────────
+    sheet.mergeCells(r, 1, r, totalCols);
+    sheet.getCell(r, 1).value = '👥 간호사 업무량 요약';
+    sheet.getCell(r, 1).font = { size: 13, bold: true, color: { argb: EXCEL_COLORS.sectionHeaderText } };
+    r++;
+
+    const workloadHeaderRow = sheet.getRow(r);
+    const workloadHeaders = ['간호사 이름', '자격', ...shiftTypes.map(s => shiftLabel(s)), '총 근무일', '휴무일'];
+    workloadHeaders.forEach((label, i) => {
+      const cell = workloadHeaderRow.getCell(i + 1);
+      cell.value = label;
+      cell.font = { bold: true, color: { argb: EXCEL_COLORS.workloadHeaderText } };
+      cell.fill = solidFill(EXCEL_COLORS.workloadHeaderBg);
+      cell.border = thinBorder;
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
     });
+    r++;
 
-    // 월간 통계
-    csvContent += `\n\n월간 통계\n`;
+    workloadSummary.forEach((nurse, idx) => {
+      const row = sheet.getRow(r);
+      const values = [nurse.name, nurse.qualification, ...shiftTypes.map(s => nurse.daysByShift[s]), nurse.totalWorkDays, nurse.offDutyDays];
+      values.forEach((val, i) => {
+        const cell = row.getCell(i + 1);
+        cell.value = val;
+        cell.border = thinBorder;
+        cell.alignment = { horizontal: i <= 1 ? 'left' : 'center', vertical: 'middle' };
+        cell.fill = solidFill(idx % 2 === 1 ? EXCEL_COLORS.zebra : 'FFFFFFFF');
+        if (i === values.length - 2) cell.font = { bold: true }; // 총 근무일 강조
+      });
+      r++;
+    });
+    r += 1;
+
+    // ── 월간 통계 ───────────────────────────────────────
+    sheet.mergeCells(r, 1, r, totalCols);
+    sheet.getCell(r, 1).value = '📈 월간 통계';
+    sheet.getCell(r, 1).font = { size: 13, bold: true, color: { argb: EXCEL_COLORS.sectionHeaderText } };
+    r++;
+
     const shiftTotals = {};
     shiftTypes.forEach(s => { shiftTotals[s] = 0; });
     let totalOffDutyDays = 0;
-
     for (let day = 1; day <= daysInMonth; day++) {
       const dayData = monthRoster[day];
       shiftTypes.forEach(s => { shiftTotals[s] += dayData?.[s]?.length || 0; });
       totalOffDutyDays += dayData?.offDuty?.length || 0;
     }
-
-    shiftTypes.forEach(s => {
-      csvContent += `총 ${shiftLabel(s)} 근무,${shiftTotals[s]}\n`;
-    });
-    csvContent += `총 휴무일,${totalOffDutyDays}\n`;
-    csvContent += `근무표 내 전체 간호사,${workloadSummary.length}\n`;
-
     const totalWorkDaysAll = shiftTypes.reduce((sum, s) => sum + shiftTotals[s], 0);
-    csvContent += `간호사당 평균 근무일,${workloadSummary.length > 0 ? (totalWorkDaysAll / workloadSummary.length).toFixed(1) : 0}\n`;
+    const averageWorkDays = workloadSummary.length > 0 ? (totalWorkDaysAll / workloadSummary.length).toFixed(1) : 0;
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const stats = [
+      ...shiftTypes.map(s => [`총 ${shiftLabel(s)} 근무`, shiftTotals[s]]),
+      ['총 휴무일', totalOffDutyDays],
+      ['근무 중인 간호사', workloadSummary.length],
+      ['간호사당 평균 근무일', averageWorkDays],
+      ['이번 달 일수', daysInMonth]
+    ];
+    stats.forEach(([label, value], idx) => {
+      const row = sheet.getRow(r);
+      const labelCell = row.getCell(1);
+      labelCell.value = label;
+      labelCell.font = { color: { argb: EXCEL_COLORS.sectionHeaderText } };
+      const valueCell = row.getCell(2);
+      valueCell.value = value;
+      valueCell.font = { bold: true, color: { argb: EXCEL_COLORS.titleBg } };
+      [labelCell, valueCell].forEach(c => {
+        c.border = thinBorder;
+        c.fill = solidFill(idx % 2 === 1 ? EXCEL_COLORS.zebra : 'FFFFFFFF');
+      });
+      r++;
+    });
+    r += 1;
+
+    sheet.mergeCells(r, 1, r, totalCols);
+    const footerCell = sheet.getCell(r, 1);
+    footerCell.value = '이 근무표는 병원 간호사 근무 관리 시스템에 의해 자동으로 생성되었습니다.';
+    footerCell.font = { italic: true, size: 10, color: { argb: EXCEL_COLORS.muted } };
+    footerCell.alignment = { horizontal: 'center' };
+
+    // ── 열 너비 ────────────────────────────────────────
+    sheet.getColumn(1).width = 14;
+    sheet.getColumn(2).width = 10;
+    sheet.getColumn(3).width = 8;
+    shiftTypes.forEach((s, i) => { sheet.getColumn(4 + i).width = 24; });
+    sheet.getColumn(4 + shiftTypes.length).width = 26;
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `병원_근무표_${selectedYear}년_${monthName}.csv`);
+    link.setAttribute('download', `병원_근무표_${selectedYear}년_${monthName}.xlsx`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
