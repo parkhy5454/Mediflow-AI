@@ -517,6 +517,87 @@ app.delete('/api/roster/:monthKey', async (req, res) => {
 });
 
 // ------------------------------------------------------------------
+// 🔧 운영자(개발자) 전용 대시보드 — 모든 병원의 현황을 한눈에 보기 위한 통계 API.
+// 병원별 회원/간호사 규모까지 노출되는 민감한 정보라, 개발자 계정에서만 접근 가능하도록 제한한다.
+// ------------------------------------------------------------------
+const ADMIN_EMAIL = 'parkhy5454@gmail.com';
+
+app.get('/api/admin/platform-stats', async (req, res) => {
+  try {
+    const userId = req.headers['x-user-id'];
+    const { data: requester } = await supabase
+      .from('mediflow_users')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (!requester || requester.email !== ADMIN_EMAIL) {
+      return res.status(403).json({ error: '접근 권한이 없습니다.' });
+    }
+
+    const [{ data: allUsers, error: usersError }, { data: allNurses, error: nursesError }, { data: allRosters, error: rosterError }] = await Promise.all([
+      supabase.from('mediflow_users').select('*'),
+      supabase.from('mediflow_nurses').select('hospital_code, status'),
+      supabase.from('mediflow_roster').select('hospital_code, month_key, updated_at')
+    ]);
+
+    if (usersError) throw usersError;
+    if (nursesError) throw nursesError;
+    if (rosterError) throw rosterError;
+
+    // 병원 코드별로 집계
+    const hospitalMap = new Map();
+    const ensureHospital = (code, name) => {
+      if (!hospitalMap.has(code)) {
+        hospitalMap.set(code, {
+          hospitalCode: code,
+          hospitalName: name || code,
+          totalMembers: 0,
+          adminCount: 0,
+          memberCount: 0,
+          members: [],
+          totalNurses: 0,
+          activeNurses: 0,
+          rosterMonths: []
+        });
+      }
+      return hospitalMap.get(code);
+    };
+
+    allUsers.forEach(u => {
+      const h = ensureHospital(u.hospital_code, u.hospital_name);
+      h.totalMembers++;
+      if (u.role === 'admin') h.adminCount++; else h.memberCount++;
+      h.members.push({ name: u.name, email: u.email, role: u.role, createdAt: u.created_at });
+    });
+
+    (allNurses || []).forEach(n => {
+      const h = ensureHospital(n.hospital_code);
+      h.totalNurses++;
+      if (n.status === 'active') h.activeNurses++;
+    });
+
+    (allRosters || []).forEach(r => {
+      const h = ensureHospital(r.hospital_code);
+      h.rosterMonths.push({ monthKey: r.month_key, updatedAt: r.updated_at });
+    });
+
+    const hospitals = Array.from(hospitalMap.values())
+      .sort((a, b) => (b.members[0]?.createdAt || '').localeCompare(a.members[0]?.createdAt || ''));
+
+    res.json({
+      totalHospitals: hospitals.length,
+      totalUsers: allUsers.length,
+      totalNurses: (allNurses || []).length,
+      hospitals
+    });
+  } catch (err) {
+    console.error('platform-stats 조회 오류:', err);
+    res.status(500).json({ error: '통계 조회 중 오류가 발생했습니다.' });
+  }
+});
+
+// ------------------------------------------------------------------
 // 프로덕션 배포 시: React 빌드 결과물(build 폴더)을 정적으로 서빙
 // (Render Web Service에서 "npm run build" 후 "node server.js"로 실행)
 // ------------------------------------------------------------------
