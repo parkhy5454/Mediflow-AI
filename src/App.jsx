@@ -143,6 +143,17 @@ const HospitalRosterSystem = () => {
     setCurrentUser(null);
   };
 
+  // [추가] 셀프 관리자 승격 등, 로그인 이후 currentUser의 일부 필드(예: role)가 바뀌었을 때
+  // 화면 상태와 localStorage를 함께 갱신하기 위한 헬퍼.
+  const handleUserUpdate = (updates) => {
+    setCurrentUser(prev => {
+      if (!prev) return prev;
+      const merged = { ...prev, ...updates };
+      window.localStorage.setItem('mediflow_user', JSON.stringify(merged));
+      return merged;
+    });
+  };
+
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -233,7 +244,7 @@ const HospitalRosterSystem = () => {
         )}
 
         {activeTab === 'members' && (
-          <MemberManagement currentUser={currentUser} />
+          <MemberManagement currentUser={currentUser} onUserUpdate={handleUserUpdate} />
         )}
 
         {activeTab === 'admin' && (
