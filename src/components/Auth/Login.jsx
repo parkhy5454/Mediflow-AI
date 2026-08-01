@@ -1,5 +1,5 @@
 // src/components/Auth/Login.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const Login = ({ onLoginSuccess }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -8,6 +8,10 @@ const Login = ({ onLoginSuccess }) => {
   const [name, setName] = useState('');
   const [hospitalName, setHospitalName] = useState('');
   const [hospitalCode, setHospitalCode] = useState('');
+  const [wantsAdmin, setWantsAdmin] = useState(false);
+  // 병원 코드로 조회한 "이미 관리자가 있는지" 상태. null = 아직 확인 전(입력 비어있거나 조회 중)
+  const [hospitalHasAdmin, setHospitalHasAdmin] = useState(null);
+  const [checkingHospital, setCheckingHospital] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -15,7 +19,34 @@ const Login = ({ onLoginSuccess }) => {
     setName('');
     setHospitalName('');
     setHospitalCode('');
+    setWantsAdmin(false);
+    setHospitalHasAdmin(null);
   };
+
+  // 병원 코드를 입력하는 동안(0.5초 멈추면) 그 병원에 이미 관리자가 있는지 서버에 확인.
+  // 관리자가 있으면 "관리자로 가입" 선택지를 아예 숨기기 위함.
+  useEffect(() => {
+    if (isLogin || !hospitalCode.trim()) {
+      setHospitalHasAdmin(null);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setCheckingHospital(true);
+      try {
+        const res = await fetch(`/api/auth/hospital-status?code=${encodeURIComponent(hospitalCode.trim())}`);
+        const data = await res.json();
+        if (res.ok) {
+          setHospitalHasAdmin(!!data.hasAdmin);
+          if (data.hasAdmin) setWantsAdmin(false); // 이미 관리자가 있으면 선택 초기화
+        }
+      } catch (err) {
+        console.error('병원 코드 확인 실패:', err);
+      } finally {
+        setCheckingHospital(false);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [hospitalCode, isLogin]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -40,7 +71,8 @@ const Login = ({ onLoginSuccess }) => {
             password,
             name: name.trim(),
             hospitalName: hospitalName.trim(),
-            hospitalCode: hospitalCode.trim()
+            hospitalCode: hospitalCode.trim(),
+            wantsAdmin: hospitalHasAdmin === false && wantsAdmin === true
           };
 
       const res = await fetch(endpoint, {
@@ -168,9 +200,36 @@ const Login = ({ onLoginSuccess }) => {
                   style={inputStyle}
                 />
                 <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px', lineHeight: '1.4' }}>
-                  같은 병원 코드로 가입하면 같은 병원 소속으로 데이터가 연동됩니다. 처음 가입하는 분은 자동으로 관리자가 됩니다.
+                  같은 병원 코드로 가입하면 같은 병원 소속으로 데이터가 연동됩니다.
                 </p>
               </div>
+
+              {/* 병원 코드에 따라 관리자 선택지를 보여줄지 결정 */}
+              {hospitalCode.trim() && !checkingHospital && hospitalHasAdmin === false && (
+                <div style={{ backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '12px' }}>
+                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '500', color: '#374151' }}>
+                    가입 유형
+                  </label>
+                  <div style={{ display: 'flex', gap: '16px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#374151', cursor: 'pointer' }}>
+                      <input type="radio" name="wantsAdmin" checked={!wantsAdmin} onChange={() => setWantsAdmin(false)} />
+                      일반 사용자
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#374151', cursor: 'pointer' }}>
+                      <input type="radio" name="wantsAdmin" checked={wantsAdmin} onChange={() => setWantsAdmin(true)} />
+                      관리자
+                    </label>
+                  </div>
+                  <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '8px', lineHeight: '1.4' }}>
+                    이 병원 코드로는 아직 아무도 관리자로 가입하지 않았습니다. 이 병원의 실제 담당자라면 "관리자"를 선택하세요. 이후 다른 관리자 지정은 회원 관리에서 관리자만 할 수 있습니다.
+                  </p>
+                </div>
+              )}
+              {hospitalCode.trim() && !checkingHospital && hospitalHasAdmin === true && (
+                <p style={{ fontSize: '11px', color: '#9ca3af', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '10px 12px', lineHeight: '1.4' }}>
+                  이 병원은 이미 관리자가 등록되어 있어 일반 사용자로 가입됩니다. 관리자 권한이 필요하면 가입 후 병원 관리자에게 요청하세요.
+                </p>
+              )}
             </>
           )}
 
