@@ -1,5 +1,5 @@
 // src/components/NurseManagement/NurseManagement.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserPlus } from 'lucide-react';
 import AddNurseForm from './AddNurseForm';
 import NurseFilters from './NurseFilters';
@@ -12,12 +12,40 @@ const NurseManagement = ({
   updateNurseStatus, 
   updateNurse,
   deleteNurse, 
-  getFilteredNurses 
+  getFilteredNurses,
+  currentUser
 }) => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterDepartment, setFilterDepartment] = useState('all');
+
+  // [추가] 같은 병원으로 회원가입한 사람들의 이름을 가져와서,
+  // "간호사 추가/수정" 화면의 이름 필드에서 선택할 수 있게 한다 (직접 입력도 계속 가능).
+  const [memberNameOptions, setMemberNameOptions] = useState([]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    (async () => {
+      try {
+        const res = await fetch('/api/auth/users', { headers: { 'x-user-id': currentUser.id } });
+        const data = await res.json();
+        if (res.ok && Array.isArray(data)) {
+          // 같은 이름이 여러 명이면 이메일을 붙여 구분
+          const nameCounts = {};
+          data.forEach(m => { nameCounts[m.name] = (nameCounts[m.name] || 0) + 1; });
+          setMemberNameOptions(
+            data.map(m => ({
+              value: m.name,
+              label: nameCounts[m.name] > 1 ? `${m.name} (${m.email})` : m.name
+            }))
+          );
+        }
+      } catch (err) {
+        console.error('회원 목록 조회 실패:', err);
+      }
+    })();
+  }, [currentUser?.id]);
 
   const handleAddNurse = async (nurseData) => {
     const success = await addNurse(nurseData);
@@ -77,6 +105,7 @@ const NurseManagement = ({
         <AddNurseForm 
           onAddNurse={handleAddNurse}
           onCancel={() => setShowAddForm(false)}
+          nameOptions={memberNameOptions}
         />
       )}
 
@@ -95,6 +124,7 @@ const NurseManagement = ({
         updateNurseStatus={updateNurseStatus}
         updateNurse={updateNurse}
         deleteNurse={deleteNurse}
+        nameOptions={memberNameOptions}
       />
     </div>
   );

@@ -7,7 +7,7 @@ import SelectOrCustom, { inputStyle } from '../Common/SelectOrCustom';
 import { QUALIFICATION_OPTIONS, EXPERIENCE_OPTIONS, DEPARTMENT_OPTIONS } from '../../constants/nurseOptions';
 import { SHIFT_TYPES, shiftLabel } from '../../constants/shiftTypes';
 
-const NurseTable = ({ nurses, updateNurseStatus, updateNurse, deleteNurse }) => {
+const NurseTable = ({ nurses, updateNurseStatus, updateNurse, deleteNurse, nameOptions = [] }) => {
   const [editingId, setEditingId] = useState(null);
   const [editValues, setEditValues] = useState(null);
 
@@ -224,12 +224,20 @@ const NurseTable = ({ nurses, updateNurseStatus, updateNurse, deleteNurse }) => 
                       return (
                         <tr key={nurse.id} style={{ borderBottom: '1px solid #f3f4f6', backgroundColor: '#eff6ff' }}>
                           <td style={{ padding: '10px' }}>
-                            <input
-                              type="text"
-                              value={editValues.name}
-                              onChange={(e) => setEditValues({ ...editValues, name: e.target.value })}
-                              style={inputStyle}
-                            />
+                            {nameOptions.length > 0 ? (
+                              <SelectOrCustom
+                                value={editValues.name}
+                                onChange={(v) => setEditValues({ ...editValues, name: v })}
+                                options={nameOptions}
+                              />
+                            ) : (
+                              <input
+                                type="text"
+                                value={editValues.name}
+                                onChange={(e) => setEditValues({ ...editValues, name: e.target.value })}
+                                style={inputStyle}
+                              />
+                            )}
                           </td>
                           <td style={{ padding: '10px' }}>
                             <SelectOrCustom

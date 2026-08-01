@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { QUALIFICATION_OPTIONS, EXPERIENCE_OPTIONS, DEPARTMENT_OPTIONS } from '../../constants/nurseOptions';
 import SelectOrCustom, { inputStyle } from '../Common/SelectOrCustom';
 
-const AddNurseForm = ({ onAddNurse, onCancel }) => {
+const AddNurseForm = ({ onAddNurse, onCancel, nameOptions = [] }) => {
   const [newNurse, setNewNurse] = useState({
     name: '',
     qualification: 'RN',
@@ -43,13 +43,21 @@ const AddNurseForm = ({ onAddNurse, onCancel }) => {
         gap: '15px',
         alignItems: 'start'
       }}>
-        <input
-          type="text"
-          placeholder="간호사 이름"
-          value={newNurse.name}
-          onChange={(e) => setNewNurse({ ...newNurse, name: e.target.value })}
-          style={inputStyle}
-        />
+        {nameOptions.length > 0 ? (
+          <SelectOrCustom
+            value={newNurse.name}
+            onChange={(v) => setNewNurse({ ...newNurse, name: v })}
+            options={nameOptions}
+          />
+        ) : (
+          <input
+            type="text"
+            placeholder="간호사 이름"
+            value={newNurse.name}
+            onChange={(e) => setNewNurse({ ...newNurse, name: e.target.value })}
+            style={inputStyle}
+          />
+        )}
 
         <SelectOrCustom
           value={newNurse.qualification}
