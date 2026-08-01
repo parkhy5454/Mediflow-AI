@@ -2359,7 +2359,7 @@ export const generateRoster = (activeNurses, daysInMonth, rosterConfig) => {
 
 📋 업무량 분포:
 ${workloadSummary.map(n =>
-  `${n.name}: ${shiftBreakdownLine(n)} / 비번 ${n.offDutyDays} | 균형: ${n.balanceScore <= 1 ? '✅' : '⚖️'}`
+  `${n.name}: ${shiftBreakdownLine(n)} / 비번 (OFF) ${n.offDutyDays} | 균형: ${n.balanceScore <= 1 ? '✅' : '⚖️'}`
 ).join('\n')}`;
 
   const summaryMessage = hasEmptyShifts
