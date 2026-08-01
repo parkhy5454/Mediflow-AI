@@ -111,6 +111,7 @@ import Settings from './components/Settings/Settings';
 import Login from './components/Auth/Login';
 import MemberManagement from './components/Members/MemberManagement';
 import AdminDashboard from './components/Admin/AdminDashboard';
+import FeedbackButton from './components/Feedback/FeedbackButton';
 import { useNurses } from './hooks/useNurses';
 import { useRoster } from './hooks/useRoster';
 import { useRosterConfig } from './hooks/useRosterConfig';
@@ -246,6 +247,8 @@ const HospitalRosterSystem = () => {
           />
         )}
       </div>
+
+      <FeedbackButton currentUser={currentUser} />
     </div>
   );
 };
