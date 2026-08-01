@@ -468,8 +468,6 @@ export const exportToPDF = (monthRoster, selectedMonth, selectedYear, rosterConf
           </table>
         </div>
         
-        <div class="page-break"></div>
-        
         <div class="section">
           <h3>👥 간호사 업무량 요약</h3>
           <table class="workload-table">
