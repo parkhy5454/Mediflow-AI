@@ -84,7 +84,7 @@ export const exportToExcel = (monthRoster, selectedMonth, selectedYear, rosterCo
 
     // 일별 근무표
     csvContent += `일별 근무표\n`;
-    csvContent += `일,날짜,요일,${shiftTypes.map(s => shiftLabel(s)).join(',')},비번\n`;
+    csvContent += `일,날짜,요일,${shiftTypes.map(s => shiftLabel(s)).join(',')},비번 (OFF)\n`;
 
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(selectedYear, selectedMonth, day);
@@ -389,7 +389,7 @@ export const exportToPDF = (monthRoster, selectedMonth, selectedYear, rosterConf
                 <th>일</th>
                 <th>날짜</th>
                 ${shiftTypes.map(s => `<th>${shiftFullLabel(s)} (${rosterConfig.shifts[s].size})</th>`).join('')}
-                <th>비번</th>
+                <th>비번 (OFF)</th>
               </tr>
             </thead>
             <tbody>
