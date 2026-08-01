@@ -1,12 +1,10 @@
 // src/components/Dashboard/CalendarView.jsx
 // [수정] 주간/야간 2칸 고정 → rosterConfig에 설정된 교대(D/E/N/M) 수만큼 동적으로 표시
 import React from 'react';
-import { useRoster } from '../../hooks/useRoster';
 import { getDaysInMonth } from '../../utils/dateUtils';
 import { SHIFT_TYPES, shiftLabel } from '../../constants/shiftTypes';
 
-const CalendarView = ({ selectedMonth, selectedYear, rosterConfig }) => {
-  const { getCurrentMonthRoster } = useRoster();
+const CalendarView = ({ selectedMonth, selectedYear, rosterConfig, getCurrentMonthRoster }) => {
   const monthRoster = getCurrentMonthRoster();
   const daysInMonth = getDaysInMonth(selectedMonth, selectedYear);
   const firstDay = new Date(selectedYear, selectedMonth, 1).getDay();
