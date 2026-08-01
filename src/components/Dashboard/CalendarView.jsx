@@ -1,8 +1,58 @@
 // src/components/Dashboard/CalendarView.jsx
 // [수정] 주간/야간 2칸 고정 → rosterConfig에 설정된 교대(D/E/N/M) 수만큼 동적으로 표시
-import React from 'react';
+// [수정] 이름이 많을 때 축약 표시 + 클릭 시 전체 펼쳐보기
+import React, { useState } from 'react';
 import { getDaysInMonth } from '../../utils/dateUtils';
 import { SHIFT_TYPES, shiftLabel, shiftColor } from '../../constants/shiftTypes';
+
+const NAME_PREVIEW_COUNT = 3; // 기본으로 몇 명까지 보여줄지
+
+// 교대 한 줄(데이/이브닝/... 또는 휴무)을 담당하는 컴포넌트.
+// 이름이 NAME_PREVIEW_COUNT를 넘으면 "+N명"으로 축약하고, 클릭하면 전체를 펼친다.
+const NameLine = ({ label, count, size, names, color, isIssue }) => {
+  const [expanded, setExpanded] = useState(false);
+  const hasMore = names.length > NAME_PREVIEW_COUNT;
+  const visibleNames = expanded || !hasMore ? names : names.slice(0, NAME_PREVIEW_COUNT);
+
+  return (
+    <div
+      onClick={() => hasMore && setExpanded(prev => !prev)}
+      style={{
+        color: isIssue ? '#ef4444' : '#374151',
+        marginBottom: '2px',
+        lineHeight: '1.4',
+        wordBreak: 'keep-all',
+        cursor: hasMore ? 'pointer' : 'default'
+      }}
+      title={hasMore ? (expanded ? '클릭하여 접기' : `클릭하여 전체 ${names.length}명 보기`) : names.join(', ')}
+    >
+      {color && (
+        <span
+          style={{
+            display: 'inline-block',
+            width: '6px',
+            height: '6px',
+            borderRadius: '50%',
+            backgroundColor: color,
+            marginRight: '4px'
+          }}
+        />
+      )}
+      <span style={{ fontWeight: 600 }}>
+        {label} {size !== undefined ? `(${count}/${size})` : `(${count})`}
+      </span>
+      {visibleNames.length > 0 && (
+        <span style={{ color: '#6b7280' }}> {visibleNames.join(', ')}</span>
+      )}
+      {hasMore && (
+        <span style={{ color: '#2563eb', fontWeight: 600 }}>
+          {' '}
+          {expanded ? '접기 ▲' : `+${names.length - NAME_PREVIEW_COUNT}명 더보기`}
+        </span>
+      )}
+    </div>
+  );
+};
 
 const CalendarView = ({ selectedMonth, selectedYear, rosterConfig, getCurrentMonthRoster }) => {
   const monthRoster = getCurrentMonthRoster();
@@ -43,38 +93,22 @@ const CalendarView = ({ selectedMonth, selectedYear, rosterConfig, getCurrentMon
         {dayData && (
           <div style={{ fontSize: '11px' }}>
             {counts.map(c => (
-              <div
+              <NameLine
                 key={c.shiftType}
-                style={{
-                  color: c.count < c.size ? '#ef4444' : '#374151',
-                  marginBottom: '2px',
-                  lineHeight: '1.4',
-                  wordBreak: 'keep-all'
-                }}
-                title={c.names.join(', ')}
-              >
-                <span
-                  style={{
-                    display: 'inline-block',
-                    width: '6px',
-                    height: '6px',
-                    borderRadius: '50%',
-                    backgroundColor: shiftColor(c.shiftType),
-                    marginRight: '4px'
-                  }}
-                />
-                <span style={{ fontWeight: 600 }}>
-                  {shiftLabel(c.shiftType)} ({c.count}/{c.size})
-                </span>
-                {c.names.length > 0 && (
-                  <span style={{ color: '#6b7280' }}> {c.names.join(', ')}</span>
-                )}
-              </div>
+                label={shiftLabel(c.shiftType)}
+                count={c.count}
+                size={c.size}
+                names={c.names}
+                color={shiftColor(c.shiftType)}
+                isIssue={c.count < c.size}
+              />
             ))}
-            <div style={{ color: '#6b7280', marginTop: '4px' }}>
-              휴무 ({dayData.offDuty?.length || 0})
-              {offDutyNames.length > 0 && <span> {offDutyNames.join(', ')}</span>}
-            </div>
+            <NameLine
+              label="휴무"
+              count={dayData.offDuty?.length || 0}
+              names={offDutyNames}
+              isIssue={false}
+            />
           </div>
         )}
       </div>
