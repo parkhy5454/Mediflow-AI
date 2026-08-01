@@ -761,6 +761,357 @@ app.put('/api/feedback/:id', async (req, res) => {
 });
 
 // ------------------------------------------------------------------
+// 🔁 근무 변경 요청 (1:1 맞교환 / 공개 대타)
+// - 누구나(로그인한 회원) 요청을 만들 수 있다.
+// - 'swap'(1:1 맞교환)은 상대방을 처음부터 지정하므로 바로 'ready_for_review'(승인대기) 상태로 시작.
+// - 'cover'(공개 대타)는 상대방 없이 'pending'(모집중)으로 시작, 누군가 지원하면 'ready_for_review'로 전환.
+// - 최종 반영(실제 근무표 수정)은 반드시 관리자의 승인(decision)을 거쳐야만 이루어진다.
+// ------------------------------------------------------------------
+
+const toPublicSwapRequest = (r) => ({
+  id: r.id,
+  requestType: r.request_type,
+  selectedYear: r.selected_year,
+  selectedMonth: r.selected_month,
+  fromDay: r.from_day,
+  fromShiftType: r.from_shift_type,
+  fromNurseId: r.from_nurse_id,
+  fromNurseName: r.from_nurse_name,
+  toDay: r.to_day,
+  toShiftType: r.to_shift_type,
+  toNurseId: r.to_nurse_id,
+  toNurseName: r.to_nurse_name,
+  reason: r.reason,
+  status: r.status,
+  createdByUserId: r.created_by_user_id,
+  createdByUserName: r.created_by_user_name,
+  volunteeredByUserId: r.volunteered_by_user_id,
+  reviewedByUserId: r.reviewed_by_user_id,
+  reviewNote: r.review_note,
+  createdAt: r.created_at,
+  reviewedAt: r.reviewed_at
+});
+
+// 근무표(mediflow_roster.roster_data) JSON 안에서 특정 날짜/교대 배열에 있는 간호사를
+// id 기준으로 찾아 제거하고, 그 자리에 새 간호사를 넣어주는 헬퍼.
+// 원래 있어야 할 간호사가 그 자리에 없으면(그 사이 근무표가 재생성/변경된 경우) null을 반환해 실패를 알린다.
+const replaceNurseInShift = (roster, day, shiftType, outNurseId, inNurseRecord) => {
+  const dayData = roster[day];
+  if (!dayData || !Array.isArray(dayData[shiftType])) return null;
+  const idx = dayData[shiftType].findIndex(n => n.id === outNurseId);
+  if (idx === -1) return null;
+  const removed = dayData[shiftType][idx];
+  dayData[shiftType].splice(idx, 1, {
+    id: inNurseRecord.id,
+    name: inNurseRecord.name,
+    qualification: inNurseRecord.qualification,
+    experience: inNurseRecord.experience
+  });
+  return removed;
+};
+
+// 요청 생성
+app.post('/api/swap-requests', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+    const { requestType, selectedYear, selectedMonth, fromDay, fromShiftType, fromNurseId, toDay, toShiftType, toNurseId, reason } = req.body;
+
+    if (!['swap', 'cover'].includes(requestType)) {
+      return res.status(400).json({ error: '올바르지 않은 요청 유형입니다.' });
+    }
+    if (selectedYear === undefined || selectedMonth === undefined || !fromDay || !fromShiftType || !fromNurseId) {
+      return res.status(400).json({ error: '필수 정보가 누락되었습니다.' });
+    }
+    if (requestType === 'swap' && (!toDay || !toShiftType || !toNurseId)) {
+      return res.status(400).json({ error: '1:1 맞교환은 상대방의 날짜/교대/간호사를 모두 선택해야 합니다.' });
+    }
+    if (requestType === 'swap' && toNurseId === fromNurseId) {
+      return res.status(400).json({ error: '같은 간호사끼리는 맞교환할 수 없습니다.' });
+    }
+
+    const { data: fromNurse, error: fromNurseError } = await supabase
+      .from('mediflow_nurses')
+      .select('id, name')
+      .eq('id', fromNurseId)
+      .eq('hospital_code', requester.hospital_code)
+      .maybeSingle();
+    if (fromNurseError) throw fromNurseError;
+    if (!fromNurse) return res.status(404).json({ error: '요청자 간호사를 찾을 수 없습니다.' });
+
+    let toNurse = null;
+    if (requestType === 'swap') {
+      const { data, error } = await supabase
+        .from('mediflow_nurses')
+        .select('id, name')
+        .eq('id', toNurseId)
+        .eq('hospital_code', requester.hospital_code)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return res.status(404).json({ error: '상대방 간호사를 찾을 수 없습니다.' });
+      toNurse = data;
+    }
+
+    const { data: inserted, error: insertError } = await supabase
+      .from('swap_requests')
+      .insert({
+        hospital_code: requester.hospital_code,
+        request_type: requestType,
+        selected_year: selectedYear,
+        selected_month: selectedMonth,
+        from_day: fromDay,
+        from_shift_type: fromShiftType,
+        from_nurse_id: fromNurse.id,
+        from_nurse_name: fromNurse.name,
+        to_day: requestType === 'swap' ? toDay : null,
+        to_shift_type: requestType === 'swap' ? toShiftType : null,
+        to_nurse_id: toNurse?.id || null,
+        to_nurse_name: toNurse?.name || null,
+        reason: reason || null,
+        status: requestType === 'swap' ? 'ready_for_review' : 'pending',
+        created_by_user_id: requester.id,
+        created_by_user_name: requester.name
+      })
+      .select()
+      .single();
+
+    if (insertError) throw insertError;
+    res.status(201).json(toPublicSwapRequest(inserted));
+  } catch (err) {
+    console.error('swap request create error:', err);
+    res.status(500).json({ error: '근무 변경 요청 등록 중 오류가 발생했습니다.' });
+  }
+});
+
+// 같은 병원의 요청 목록 조회 (전체 회원이 볼 수 있음 — 대타 모집 현황 등)
+app.get('/api/swap-requests', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+    let query = supabase
+      .from('swap_requests')
+      .select('*')
+      .eq('hospital_code', requester.hospital_code)
+      .order('created_at', { ascending: false });
+
+    if (req.query.year !== undefined && req.query.month !== undefined) {
+      query = query.eq('selected_year', Number(req.query.year)).eq('selected_month', Number(req.query.month));
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    res.json(data.map(toPublicSwapRequest));
+  } catch (err) {
+    console.error('swap request list error:', err);
+    res.status(500).json({ error: '근무 변경 요청 목록 조회 중 오류가 발생했습니다.' });
+  }
+});
+
+// 공개 대타 요청에 지원(자원)하기
+app.put('/api/swap-requests/:id/volunteer', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+    const { nurseId } = req.body;
+    if (!nurseId) return res.status(400).json({ error: '지원할 간호사를 선택해주세요.' });
+
+    const { data: existing, error: fetchError } = await supabase
+      .from('swap_requests')
+      .select('*')
+      .eq('id', req.params.id)
+      .eq('hospital_code', requester.hospital_code)
+      .maybeSingle();
+    if (fetchError) throw fetchError;
+    if (!existing) return res.status(404).json({ error: '요청을 찾을 수 없습니다.' });
+    if (existing.request_type !== 'cover') return res.status(400).json({ error: '공개 대타 요청에만 지원할 수 있습니다.' });
+    if (existing.status !== 'pending') return res.status(409).json({ error: '이미 다른 사람이 지원했거나 처리된 요청입니다.' });
+    if (nurseId === existing.from_nurse_id) return res.status(400).json({ error: '본인이 요청한 근무에는 지원할 수 없습니다.' });
+
+    const { data: volunteerNurse, error: nurseError } = await supabase
+      .from('mediflow_nurses')
+      .select('id, name')
+      .eq('id', nurseId)
+      .eq('hospital_code', requester.hospital_code)
+      .maybeSingle();
+    if (nurseError) throw nurseError;
+    if (!volunteerNurse) return res.status(404).json({ error: '간호사를 찾을 수 없습니다.' });
+
+    const { data: updated, error: updateError } = await supabase
+      .from('swap_requests')
+      .update({
+        to_nurse_id: volunteerNurse.id,
+        to_nurse_name: volunteerNurse.name,
+        volunteered_by_user_id: requester.id,
+        status: 'ready_for_review'
+      })
+      .eq('id', req.params.id)
+      .select()
+      .single();
+    if (updateError) throw updateError;
+
+    res.json(toPublicSwapRequest(updated));
+  } catch (err) {
+    console.error('swap request volunteer error:', err);
+    res.status(500).json({ error: '지원 처리 중 오류가 발생했습니다.' });
+  }
+});
+
+// 요청 취소 (작성자 본인 또는 관리자만, 아직 승인되지 않은 요청만)
+app.put('/api/swap-requests/:id/cancel', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+    const { data: existing, error: fetchError } = await supabase
+      .from('swap_requests')
+      .select('*')
+      .eq('id', req.params.id)
+      .eq('hospital_code', requester.hospital_code)
+      .maybeSingle();
+    if (fetchError) throw fetchError;
+    if (!existing) return res.status(404).json({ error: '요청을 찾을 수 없습니다.' });
+    if (existing.created_by_user_id !== requester.id && requester.role !== 'admin') {
+      return res.status(403).json({ error: '본인이 등록한 요청만 취소할 수 있습니다.' });
+    }
+    if (!['pending', 'ready_for_review'].includes(existing.status)) {
+      return res.status(409).json({ error: '이미 처리된 요청은 취소할 수 없습니다.' });
+    }
+
+    const { data: updated, error: updateError } = await supabase
+      .from('swap_requests')
+      .update({ status: 'cancelled' })
+      .eq('id', req.params.id)
+      .select()
+      .single();
+    if (updateError) throw updateError;
+
+    res.json(toPublicSwapRequest(updated));
+  } catch (err) {
+    console.error('swap request cancel error:', err);
+    res.status(500).json({ error: '요청 취소 중 오류가 발생했습니다.' });
+  }
+});
+
+// 관리자 승인/거절 — 승인 시 실제 근무표(mediflow_roster)에 반영
+app.put('/api/swap-requests/:id/decision', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    if (requester.role !== 'admin') return res.status(403).json({ error: '관리자만 승인/거절할 수 있습니다.' });
+
+    const { decision, note } = req.body;
+    if (!['approved', 'rejected'].includes(decision)) {
+      return res.status(400).json({ error: '올바르지 않은 처리 결과입니다.' });
+    }
+
+    const { data: swapReq, error: fetchError } = await supabase
+      .from('swap_requests')
+      .select('*')
+      .eq('id', req.params.id)
+      .eq('hospital_code', requester.hospital_code)
+      .maybeSingle();
+    if (fetchError) throw fetchError;
+    if (!swapReq) return res.status(404).json({ error: '요청을 찾을 수 없습니다.' });
+    if (swapReq.status !== 'ready_for_review') {
+      return res.status(409).json({ error: '승인 대기 상태인 요청만 처리할 수 있습니다. (대타 모집이 아직 안 됐거나 이미 처리됨)' });
+    }
+
+    if (decision === 'rejected') {
+      const { data: updated, error: updateError } = await supabase
+        .from('swap_requests')
+        .update({ status: 'rejected', reviewed_by_user_id: requester.id, review_note: note || null, reviewed_at: new Date().toISOString() })
+        .eq('id', req.params.id)
+        .select()
+        .single();
+      if (updateError) throw updateError;
+      return res.json(toPublicSwapRequest(updated));
+    }
+
+    // decision === 'approved' → 실제 근무표에 반영
+    const monthKey = `${swapReq.selected_year}-${swapReq.selected_month}`;
+    const { data: rosterRow, error: rosterFetchError } = await supabase
+      .from('mediflow_roster')
+      .select('roster_data')
+      .eq('hospital_code', requester.hospital_code)
+      .eq('month_key', monthKey)
+      .maybeSingle();
+    if (rosterFetchError) throw rosterFetchError;
+    if (!rosterRow || !rosterRow.roster_data) {
+      return res.status(409).json({ error: '해당 월의 근무표를 찾을 수 없습니다. 근무표가 삭제되었을 수 있습니다.' });
+    }
+
+    const roster = rosterRow.roster_data;
+
+    const [{ data: fromNurseFull }, { data: toNurseFull }] = await Promise.all([
+      supabase.from('mediflow_nurses').select('id, name, qualification, experience').eq('id', swapReq.from_nurse_id).maybeSingle(),
+      supabase.from('mediflow_nurses').select('id, name, qualification, experience').eq('id', swapReq.to_nurse_id).maybeSingle()
+    ]);
+    if (!fromNurseFull || !toNurseFull) {
+      return res.status(409).json({ error: '간호사 정보를 찾을 수 없습니다. (삭제되었을 수 있음)' });
+    }
+
+    // from자리에 to간호사를 채워넣는다.
+    const removedFrom = replaceNurseInShift(roster, swapReq.from_day, swapReq.from_shift_type, swapReq.from_nurse_id, toNurseFull);
+    if (!removedFrom) {
+      return res.status(409).json({
+        error: `요청 시점과 현재 근무표가 달라져서 적용할 수 없습니다. (${swapReq.from_day}일 ${swapReq.from_shift_type} 근무에 ${swapReq.from_nurse_name}이(가) 더 이상 없습니다. 근무표가 그 사이 재생성/변경되었을 수 있습니다.)`
+      });
+    }
+
+    if (swapReq.request_type === 'swap') {
+      // 반대쪽 자리에도 from간호사를 채워넣는다 (진짜 맞교환).
+      const removedTo = replaceNurseInShift(roster, swapReq.to_day, swapReq.to_shift_type, swapReq.to_nurse_id, fromNurseFull);
+      if (!removedTo) {
+        // 되돌리기: 방금 바꾼 from자리를 원상복구
+        replaceNurseInShift(roster, swapReq.from_day, swapReq.from_shift_type, toNurseFull.id, fromNurseFull);
+        return res.status(409).json({
+          error: `요청 시점과 현재 근무표가 달라져서 적용할 수 없습니다. (${swapReq.to_day}일 ${swapReq.to_shift_type} 근무에 ${swapReq.to_nurse_name}이(가) 더 이상 없습니다.)`
+        });
+      }
+    } else {
+      // 'cover'(대타): 원래 근무자는 그 날 휴무로 이동시켜 비번 목록에서 보이게 한다.
+      const day = roster[swapReq.from_day];
+      if (!Array.isArray(day.offDuty)) day.offDuty = [];
+      day.offDuty.push({
+        id: fromNurseFull.id,
+        name: fromNurseFull.name,
+        qualification: fromNurseFull.qualification,
+        experience: fromNurseFull.experience,
+        daysRemaining: 0,
+        status: 'Swapped',
+        cycleInfo: `대타 승인 (${toNurseFull.name}(으)로 교체)`
+      });
+    }
+
+    const { error: rosterSaveError } = await supabase
+      .from('mediflow_roster')
+      .upsert({
+        hospital_code: requester.hospital_code,
+        month_key: monthKey,
+        roster_data: roster,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'hospital_code,month_key' });
+    if (rosterSaveError) throw rosterSaveError;
+
+    const { data: updatedReq, error: updateReqError } = await supabase
+      .from('swap_requests')
+      .update({ status: 'approved', reviewed_by_user_id: requester.id, review_note: note || null, reviewed_at: new Date().toISOString() })
+      .eq('id', req.params.id)
+      .select()
+      .single();
+    if (updateReqError) throw updateReqError;
+
+    res.json(toPublicSwapRequest(updatedReq));
+  } catch (err) {
+    console.error('swap request decision error:', err);
+    res.status(500).json({ error: '요청 처리 중 오류가 발생했습니다.' });
+  }
+});
+
+// ------------------------------------------------------------------
 // 프로덕션 배포 시: React 빌드 결과물(build 폴더)을 정적으로 서빙
 // (Render Web Service에서 "npm run build" 후 "node server.js"로 실행)
 // ------------------------------------------------------------------
