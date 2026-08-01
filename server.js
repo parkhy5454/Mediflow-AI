@@ -204,6 +204,9 @@ app.get('/api/auth/users', async (req, res) => {
 
 // ------------------------------------------------------------------
 // 관리자 전용: 같은 병원 소속 동료의 역할(admin/member) 변경
+// [수정] 예외: 그 병원에 관리자가 한 명도 없는 경우, 일반 사용자가 "본인만" 관리자로
+// 셀프 승격할 수 있다 (관리자가 없어져서 아무도 권한을 못 바꾸는 상황을 막기 위한 안전장치).
+// 관리자가 1명이라도 있으면 이 예외는 적용되지 않고, 기존처럼 관리자만 역할을 바꿀 수 있다.
 // ------------------------------------------------------------------
 app.put('/api/auth/users/:targetId', async (req, res) => {
   try {
@@ -221,7 +224,27 @@ app.put('/api/auth/users/:targetId', async (req, res) => {
       .maybeSingle();
 
     if (requesterError) throw requesterError;
-    if (!requester || requester.role !== 'admin') {
+    if (!requester) {
+      return res.status(401).json({ error: '로그인이 필요합니다.' });
+    }
+
+    let authorized = requester.role === 'admin';
+
+    // 셀프 승격 예외: 본인을 관리자로 바꾸려는 요청 + 그 병원에 관리자가 0명일 때만 허용
+    if (!authorized && role === 'admin' && req.params.targetId === requester.id) {
+      const { data: existingAdmins, error: adminCheckError } = await supabase
+        .from('mediflow_users')
+        .select('id')
+        .eq('hospital_code', requester.hospital_code)
+        .eq('role', 'admin')
+        .limit(1);
+      if (adminCheckError) throw adminCheckError;
+      if (!existingAdmins || existingAdmins.length === 0) {
+        authorized = true;
+      }
+    }
+
+    if (!authorized) {
       return res.status(403).json({ error: '관리자만 역할을 변경할 수 있습니다.' });
     }
 
