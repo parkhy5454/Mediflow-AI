@@ -30,6 +30,7 @@ const CalendarView = ({ selectedMonth, selectedYear, rosterConfig, getCurrentMon
       };
     });
     const hasIssues = counts.some(c => c.count < c.size);
+    const offDutyNames = (dayData?.offDuty || []).map(getName).filter(Boolean);
 
     days.push(
       <div key={day} style={{
@@ -70,7 +71,10 @@ const CalendarView = ({ selectedMonth, selectedYear, rosterConfig, getCurrentMon
                 )}
               </div>
             ))}
-            <div style={{ color: '#6b7280', marginTop: '4px' }}>휴무: {dayData.offDuty?.length || 0}</div>
+            <div style={{ color: '#6b7280', marginTop: '4px' }}>
+              휴무 ({dayData.offDuty?.length || 0})
+              {offDutyNames.length > 0 && <span> {offDutyNames.join(', ')}</span>}
+            </div>
           </div>
         )}
       </div>
