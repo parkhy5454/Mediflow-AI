@@ -2,7 +2,7 @@
 // [수정] 주간/야간 2칸 고정 → rosterConfig에 설정된 교대(D/E/N/M) 수만큼 동적으로 표시
 import React from 'react';
 import { getDaysInMonth } from '../../utils/dateUtils';
-import { SHIFT_TYPES, shiftLabel } from '../../constants/shiftTypes';
+import { SHIFT_TYPES, shiftLabel, shiftColor } from '../../constants/shiftTypes';
 
 const CalendarView = ({ selectedMonth, selectedYear, rosterConfig, getCurrentMonthRoster }) => {
   const monthRoster = getCurrentMonthRoster();
@@ -18,11 +18,17 @@ const CalendarView = ({ selectedMonth, selectedYear, rosterConfig, getCurrentMon
 
   for (let day = 1; day <= daysInMonth; day++) {
     const dayData = monthRoster[day];
-    const counts = shiftTypes.map(s => ({
-      shiftType: s,
-      count: dayData?.[s]?.length || 0,
-      size: rosterConfig.shifts[s].size
-    }));
+    // 배열 원소가 문자열(이름) 또는 {id, name} 객체 둘 다 대응
+    const getName = (entry) => (typeof entry === 'string' ? entry : entry?.name || '');
+    const counts = shiftTypes.map(s => {
+      const nurses = dayData?.[s] || [];
+      return {
+        shiftType: s,
+        count: nurses.length,
+        size: rosterConfig.shifts[s].size,
+        names: nurses.map(getName).filter(Boolean)
+      };
+    });
     const hasIssues = counts.some(c => c.count < c.size);
 
     days.push(
@@ -36,11 +42,35 @@ const CalendarView = ({ selectedMonth, selectedYear, rosterConfig, getCurrentMon
         {dayData && (
           <div style={{ fontSize: '11px' }}>
             {counts.map(c => (
-              <div key={c.shiftType} style={{ color: c.count < c.size ? '#ef4444' : '#374151' }}>
-                {shiftLabel(c.shiftType)}: {c.count}/{c.size}
+              <div
+                key={c.shiftType}
+                style={{
+                  color: c.count < c.size ? '#ef4444' : '#374151',
+                  marginBottom: '2px',
+                  lineHeight: '1.4',
+                  wordBreak: 'keep-all'
+                }}
+                title={c.names.join(', ')}
+              >
+                <span
+                  style={{
+                    display: 'inline-block',
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    backgroundColor: shiftColor(c.shiftType),
+                    marginRight: '4px'
+                  }}
+                />
+                <span style={{ fontWeight: 600 }}>
+                  {shiftLabel(c.shiftType)} ({c.count}/{c.size})
+                </span>
+                {c.names.length > 0 && (
+                  <span style={{ color: '#6b7280' }}> {c.names.join(', ')}</span>
+                )}
               </div>
             ))}
-            <div style={{ color: '#6b7280' }}>휴무: {dayData.offDuty?.length || 0}</div>
+            <div style={{ color: '#6b7280', marginTop: '4px' }}>휴무: {dayData.offDuty?.length || 0}</div>
           </div>
         )}
       </div>
