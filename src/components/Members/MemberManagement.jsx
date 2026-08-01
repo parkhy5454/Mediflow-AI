@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { UserCheck, ShieldCheck, Loader2 } from 'lucide-react';
 
-const MemberManagement = ({ currentUser }) => {
+const MemberManagement = ({ currentUser, onUserUpdate }) => {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -32,6 +32,8 @@ const MemberManagement = ({ currentUser }) => {
   }, []);
 
   const isAdmin = currentUser.role === 'admin';
+  const adminCount = members.filter(m => m.role === 'admin').length;
+  const hospitalHasNoAdmin = !loading && !error && adminCount === 0;
 
   const changeRole = async (targetId, newRole) => {
     setActionError('');
@@ -45,6 +47,11 @@ const MemberManagement = ({ currentUser }) => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '역할 변경에 실패했습니다.');
       setMembers(prev => prev.map(m => (m.id === targetId ? { ...m, role: newRole } : m)));
+      // 본인의 역할이 바뀐 경우, 앱 전역 currentUser도 함께 갱신해야
+      // 새로고침 없이 바로 관리자 화면들이 보인다.
+      if (targetId === currentUser.id && onUserUpdate) {
+        onUserUpdate({ role: newRole });
+      }
     } catch (err) {
       setActionError(err.message || '역할 변경 중 오류가 발생했습니다.');
     } finally {
@@ -67,6 +74,44 @@ const MemberManagement = ({ currentUser }) => {
         <p style={{ color: '#dc2626', fontSize: '13px', backgroundColor: '#fef2f2', padding: '10px 14px', borderRadius: '8px', marginBottom: '14px' }}>
           {actionError}
         </p>
+      )}
+
+      {hospitalHasNoAdmin && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '12px',
+          backgroundColor: '#fffbeb',
+          border: '1px solid #fcd34d',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          marginBottom: '16px'
+        }}>
+          <div style={{ fontSize: '13px', color: '#92400e' }}>
+            ⚠️ 이 병원에는 아직 관리자가 없습니다. 근무표 설정 등 관리 기능을 쓰려면 관리자가 1명 필요합니다.
+          </div>
+          {!isAdmin && (
+            <button
+              disabled={updatingId === currentUser.id}
+              onClick={() => changeRole(currentUser.id, 'admin')}
+              style={{
+                flexShrink: 0,
+                fontSize: '12px',
+                fontWeight: '600',
+                padding: '7px 14px',
+                borderRadius: '6px',
+                border: '1px solid #f59e0b',
+                backgroundColor: '#f59e0b',
+                color: 'white',
+                cursor: updatingId === currentUser.id ? 'not-allowed' : 'pointer',
+                opacity: updatingId === currentUser.id ? 0.6 : 1
+              }}
+            >
+              {updatingId === currentUser.id ? '처리 중...' : '내가 관리자 되기'}
+            </button>
+          )}
+        </div>
       )}
 
       {loading ? (
