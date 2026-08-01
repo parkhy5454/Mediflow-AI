@@ -33,7 +33,7 @@ const AssignmentChart = ({ assignmentData, rosterConfig }) => {
           {shiftTypes.map(s => (
             <Bar key={s} dataKey={s} fill={shiftColor(s)} name={`${shiftLabel(s)} 근무일`} />
           ))}
-          <Bar dataKey="offDutyDays" fill="#6b7280" name="비번일" />
+          <Bar dataKey="offDutyDays" fill="#6b7280" name="비번 (OFF)" />
         </BarChart>
       </ResponsiveContainer>
     </div>
