@@ -351,13 +351,19 @@ export const exportToPDF = (monthRoster, selectedMonth, selectedYear, rosterConf
               print-color-adjust: exact;
             }
             .no-print { display: none !important; }
-            .section { 
-              break-inside: avoid; 
+            .section {
               margin-bottom: 15px;
             }
+            /* break-inside: avoid는 제목/설정 카드처럼 짧은 섹션(.no-break)에만 건다.
+               근무표처럼 긴 섹션까지 여기 걸리면, 남은 페이지 공간에 다 안 들어갈 때
+               섹션 전체가 통째로 다음 페이지로 밀려나서 앞 페이지에 큰 빈 공간이 생긴다. */
+            .no-break {
+              page-break-inside: avoid;
+              break-inside: avoid;
+            }
             /* 근무표 같은 긴 표는 섹션 전체를 한 페이지에 욱여넣을 수 없으므로
-               섹션 자체는 break-inside를 걸지 않되, 표의 각 행(하루치)은
-               페이지 중간에서 반으로 잘리지 않도록 해서 빈 여백이 크게 생기는 걸 방지한다. */
+               섹션 자체는 break-inside를 걸지 않고 자연스럽게 이어서 흐르게 하되,
+               표의 각 행(하루치)만 페이지 중간에서 반으로 잘리지 않도록 한다. */
             .roster-table tr,
             .workload-table tr {
               page-break-inside: avoid;
