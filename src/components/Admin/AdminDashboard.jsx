@@ -1,13 +1,36 @@
 // src/components/Admin/AdminDashboard.jsx
-// 개발자(운영자) 전용: 모든 병원의 가입/사용 현황을 한눈에 보는 대시보드.
+// 개발자(운영자) 전용: 모든 병원의 가입/사용 현황 + 사용자 문의함을 보는 대시보드.
 import React, { useState, useEffect } from 'react';
-import { Building2, Users, UserCheck, Calendar, Loader2, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  Building2, Users, UserCheck, Calendar, Loader2, RefreshCw, ChevronDown, ChevronUp,
+  Inbox, Bug, Lightbulb, HelpCircle, Mail, Phone, Clock, CheckCircle2
+} from 'lucide-react';
+
+const TYPE_INFO = {
+  bug: { label: '버그 신고', icon: Bug, color: '#dc2626' },
+  feature: { label: '기능 제안', icon: Lightbulb, color: '#d97706' },
+  other: { label: '기타 문의', icon: HelpCircle, color: '#3b82f6' }
+};
+
+const STATUS_INFO = {
+  new: { label: '신규', color: '#dc2626', bg: '#fef2f2' },
+  in_progress: { label: '처리중', color: '#d97706', bg: '#fffbeb' },
+  resolved: { label: '완료', color: '#059669', bg: '#f0fdf4' }
+};
 
 const AdminDashboard = ({ currentUser }) => {
+  const [view, setView] = useState('hospitals'); // 'hospitals' | 'feedback'
+
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [expandedHospital, setExpandedHospital] = useState(null);
+
+  const [feedbackItems, setFeedbackItems] = useState([]);
+  const [feedbackLoading, setFeedbackLoading] = useState(true);
+  const [feedbackFilter, setFeedbackFilter] = useState('all');
+  const [noteDrafts, setNoteDrafts] = useState({});
+  const [updatingId, setUpdatingId] = useState(null);
 
   const fetchStats = async () => {
     setLoading(true);
@@ -26,46 +49,119 @@ const AdminDashboard = ({ currentUser }) => {
     }
   };
 
+  const fetchFeedback = async () => {
+    setFeedbackLoading(true);
+    try {
+      const res = await fetch('/api/feedback', { headers: { 'x-user-id': currentUser.id } });
+      const data = await res.json();
+      if (res.ok) setFeedbackItems(data);
+    } catch (err) {
+      console.error('문의 목록 조회 실패:', err);
+    } finally {
+      setFeedbackLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchStats();
+    fetchFeedback();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const updateFeedback = async (id, updates) => {
+    setUpdatingId(id);
+    try {
+      const res = await fetch(`/api/feedback/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+        body: JSON.stringify(updates)
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setFeedbackItems(prev => prev.map(f => (f.id === id ? data.feedback : f)));
+      }
+    } catch (err) {
+      console.error('문의 상태 변경 실패:', err);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const filteredFeedback = feedbackItems.filter(f => feedbackFilter === 'all' || f.status === feedbackFilter);
+  const newCount = feedbackItems.filter(f => f.status === 'new').length;
+
   return (
     <div style={{ padding: '20px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
         <div>
           <h2 style={{ color: '#1f2937', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Building2 size={22} style={{ color: '#7c3aed' }} />
             운영자 대시보드
           </h2>
           <p style={{ color: '#6b7280', fontSize: '13px', margin: '4px 0 0 0' }}>
-            등록된 모든 병원의 가입/사용 현황을 한눈에 확인합니다. (개발자 전용)
+            모든 병원의 현황과 사용자 문의를 확인합니다. (개발자 전용)
           </p>
         </div>
         <button
-          onClick={fetchStats}
+          onClick={() => { fetchStats(); fetchFeedback(); }}
           style={{
             display: 'flex', alignItems: 'center', gap: '6px',
             padding: '8px 14px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db',
             borderRadius: '6px', cursor: 'pointer', fontSize: '13px', color: '#374151'
           }}
         >
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          <RefreshCw size={14} className={(loading || feedbackLoading) ? 'animate-spin' : ''} />
           새로고침
         </button>
       </div>
 
-      {loading ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#6b7280', padding: '40px 0', justifyContent: 'center' }}>
-          <Loader2 size={20} className="animate-spin" />
-          통계 불러오는 중...
-        </div>
-      ) : error ? (
-        <div style={{ textAlign: 'center', color: '#dc2626', padding: '40px 0' }}>
-          <p>{error}</p>
-        </div>
-      ) : (
+      {/* 뷰 전환 탭 */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+        <button
+          onClick={() => setView('hospitals')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px',
+            border: view === 'hospitals' ? '1px solid #7c3aed' : '1px solid #e5e7eb',
+            backgroundColor: view === 'hospitals' ? '#f5f3ff' : 'white',
+            color: view === 'hospitals' ? '#6d28d9' : '#6b7280',
+            cursor: 'pointer', fontSize: '13px', fontWeight: '600'
+          }}
+        >
+          <Building2 size={14} /> 병원 현황
+        </button>
+        <button
+          onClick={() => setView('feedback')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px',
+            border: view === 'feedback' ? '1px solid #7c3aed' : '1px solid #e5e7eb',
+            backgroundColor: view === 'feedback' ? '#f5f3ff' : 'white',
+            color: view === 'feedback' ? '#6d28d9' : '#6b7280',
+            cursor: 'pointer', fontSize: '13px', fontWeight: '600', position: 'relative'
+          }}
+        >
+          <Inbox size={14} /> 문의함
+          {newCount > 0 && (
+            <span style={{
+              backgroundColor: '#dc2626', color: 'white', fontSize: '10px', fontWeight: '700',
+              borderRadius: '10px', padding: '1px 6px', marginLeft: '2px'
+            }}>
+              {newCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {view === 'hospitals' ? (
+        loading ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#6b7280', padding: '40px 0', justifyContent: 'center' }}>
+            <Loader2 size={20} className="animate-spin" />
+            통계 불러오는 중...
+          </div>
+        ) : error ? (
+          <div style={{ textAlign: 'center', color: '#dc2626', padding: '40px 0' }}>
+            <p>{error}</p>
+          </div>
+        ) : (
         <>
           {/* 전체 요약 카드 */}
           <div style={{
@@ -195,6 +291,128 @@ const AdminDashboard = ({ currentUser }) => {
             </div>
           )}
         </>
+        )
+      ) : (
+        <div>
+          {/* 문의함 필터 */}
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+            {[
+              { value: 'all', label: '전체' },
+              { value: 'new', label: '신규' },
+              { value: 'in_progress', label: '처리중' },
+              { value: 'resolved', label: '완료' }
+            ].map(f => (
+              <button
+                key={f.value}
+                onClick={() => setFeedbackFilter(f.value)}
+                style={{
+                  padding: '6px 14px', borderRadius: '16px', fontSize: '12px', fontWeight: '600',
+                  border: feedbackFilter === f.value ? '1px solid #4f46e5' : '1px solid #e5e7eb',
+                  backgroundColor: feedbackFilter === f.value ? '#eef2ff' : 'white',
+                  color: feedbackFilter === f.value ? '#4338ca' : '#6b7280',
+                  cursor: 'pointer'
+                }}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {feedbackLoading ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#6b7280', padding: '40px 0', justifyContent: 'center' }}>
+              <Loader2 size={20} className="animate-spin" />
+              문의 목록 불러오는 중...
+            </div>
+          ) : filteredFeedback.length === 0 ? (
+            <div style={{ textAlign: 'center', color: '#9ca3af', padding: '40px 0' }}>
+              해당하는 문의가 없습니다.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {filteredFeedback.map(f => {
+                const typeInfo = TYPE_INFO[f.type] || TYPE_INFO.other;
+                const statusInfo = STATUS_INFO[f.status] || STATUS_INFO.new;
+                const TypeIcon = typeInfo.icon;
+                return (
+                  <div key={f.id} style={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '14px 16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', flexWrap: 'wrap' }}>
+                      <div style={{ flex: 1, minWidth: '200px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                          <span style={{
+                            display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '700',
+                            color: typeInfo.color, backgroundColor: `${typeInfo.color}15`, padding: '3px 8px', borderRadius: '10px'
+                          }}>
+                            <TypeIcon size={12} /> {typeInfo.label}
+                          </span>
+                          <span style={{
+                            fontSize: '11px', fontWeight: '700', color: statusInfo.color,
+                            backgroundColor: statusInfo.bg, padding: '3px 8px', borderRadius: '10px'
+                          }}>
+                            {statusInfo.label}
+                          </span>
+                          <span style={{ fontSize: '11px', color: '#9ca3af' }}>
+                            {f.hospital_name} · {new Date(f.created_at).toLocaleString('ko-KR')}
+                          </span>
+                        </div>
+                        <div style={{ fontWeight: '700', color: '#1f2937', fontSize: '14px', marginBottom: '4px' }}>{f.title}</div>
+                        <div style={{ fontSize: '13px', color: '#4b5563', whiteSpace: 'pre-wrap', marginBottom: '8px' }}>{f.message}</div>
+                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', fontSize: '12px' }}>
+                          <span style={{ color: '#6b7280' }}>{f.user_name}</span>
+                          <a href={`mailto:${f.user_email}`} style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#4f46e5', textDecoration: 'none' }}>
+                            <Mail size={12} /> {f.user_email}
+                          </a>
+                          {f.user_phone && (
+                            <a href={`tel:${f.user_phone}`} style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#4f46e5', textDecoration: 'none' }}>
+                              <Phone size={12} /> {f.user_phone}
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f3f4f6', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <button
+                        disabled={updatingId === f.id || f.status === 'in_progress'}
+                        onClick={() => updateFeedback(f.id, { status: 'in_progress' })}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', padding: '5px 10px',
+                          borderRadius: '6px', border: '1px solid #fcd34d', backgroundColor: '#fffbeb', color: '#92400e',
+                          cursor: 'pointer', opacity: (updatingId === f.id || f.status === 'in_progress') ? 0.5 : 1
+                        }}
+                      >
+                        <Clock size={12} /> 처리중으로 표시
+                      </button>
+                      <button
+                        disabled={updatingId === f.id || f.status === 'resolved'}
+                        onClick={() => updateFeedback(f.id, { status: 'resolved', resolutionNote: noteDrafts[f.id] })}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', padding: '5px 10px',
+                          borderRadius: '6px', border: '1px solid #6ee7b7', backgroundColor: '#f0fdf4', color: '#065f46',
+                          cursor: 'pointer', opacity: (updatingId === f.id || f.status === 'resolved') ? 0.5 : 1
+                        }}
+                      >
+                        <CheckCircle2 size={12} /> 완료로 표시
+                      </button>
+                      <input
+                        type="text"
+                        placeholder="답변/메모 (선택)"
+                        value={noteDrafts[f.id] ?? f.resolution_note ?? ''}
+                        onChange={(e) => setNoteDrafts(prev => ({ ...prev, [f.id]: e.target.value }))}
+                        style={{ flex: 1, minWidth: '160px', padding: '5px 10px', fontSize: '12px', border: '1px solid #e5e7eb', borderRadius: '6px' }}
+                      />
+                    </div>
+
+                    {f.resolution_note && (
+                      <div style={{ marginTop: '8px', fontSize: '12px', color: '#065f46', backgroundColor: '#f0fdf4', padding: '8px 10px', borderRadius: '6px' }}>
+                        📝 {f.resolution_note}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
