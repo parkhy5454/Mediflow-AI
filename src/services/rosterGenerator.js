@@ -2147,11 +2147,20 @@ export const generateRoster = (activeNurses, daysInMonth, rosterConfig) => {
       });
   };
 
-  // 그래도 자리가 안 채워지면 휴무 중인 사람을 비상으로 앞당겨 배정 (휴무 얼마 안 남은 사람 우선)
+  // 그래도 자리가 안 채워지면 휴무 중인 사람을 비상으로 앞당겨 배정.
+  // [수정] 예전에는 "휴무 며칠 남았는지"만 보고 골랐는데, 그러면 한 번 앞당겨진 사람이
+  // 휴무가 짧게 남은 상태가 되어 다음 비상 배정에서도 또 뽑히는 눈덩이 효과가 생겼다
+  // (실제로 특정 2명에게 미들 근무가 몰리는 문제가 발생함).
+  // → 이제는 "이번 달 목표 근무일 대비 얼마나 부족한지"를 최우선으로 보고,
+  //   이미 많이 일한 사람은 비상 배정에서 뒤로 밀려나도록 한다.
   const forceAssignmentFromOffDuty = (shiftType, needed) => {
     const offDutyNurses = nurseStates
       .filter(n => n.currentCycle === 'off-duty')
       .sort((a, b) => {
+        // 공정성 최우선: 목표 대비 아직 근무가 부족한 사람을 먼저 앞당긴다
+        const aDeficit = a.targetTotalWorkDays - a.totalWorkDays;
+        const bDeficit = b.targetTotalWorkDays - b.totalWorkDays;
+        if (bDeficit !== aDeficit) return bDeficit - aDeficit;
         if (a.offDutyDays !== b.offDutyDays) return a.offDutyDays - b.offDutyDays;
         return (b.priorityByShift[shiftType] || 0) - (a.priorityByShift[shiftType] || 0);
       });
