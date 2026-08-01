@@ -196,7 +196,7 @@ const ExportButtons = ({
     setExportType('excel');
     
     try {
-      exportToExcel(monthRoster, selectedMonth, selectedYear, rosterConfig);
+      await exportToExcel(monthRoster, selectedMonth, selectedYear, rosterConfig);
       
       // Show success message after a short delay
       setTimeout(() => {
