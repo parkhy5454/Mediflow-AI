@@ -1,1 +1,23 @@
+name: Daily Subscription Billing
 
+# 매일 UTC 01:00 (한국시간 오전 10시)에 자동 실행되어,
+# 그날이 결제일인 병원들에게 정기결제(빌링)를 청구합니다.
+# GitHub 저장소 Settings > Secrets and variables > Actions 에
+# CRON_SECRET (Render 환경변수에 넣은 값과 동일한 값)을 등록해야 동작합니다.
+on:
+  schedule:
+    - cron: '0 1 * * *'
+  workflow_dispatch: {}  # 필요하면 Actions 탭에서 수동으로도 실행 가능
+
+jobs:
+  run-billing:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call run-billing endpoint
+        run: |
+          curl -sf -X POST "https://mediflow-ai-web.onrender.com/api/subscription/run-billing" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -o response.json -w "\nHTTP status: %{http_code}\n"
+          echo "----- 응답 내용 -----"
+          cat response.json
