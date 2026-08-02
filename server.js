@@ -169,13 +169,16 @@ app.get('/api/auth/hospital-status', async (req, res) => {
 // ------------------------------------------------------------------
 app.post('/api/auth/signup', authLimiter, async (req, res) => {
   try {
-    const { email, password, name, phone, hospitalName, hospitalCode, wantsAdmin } = req.body;
+    const { email, password, name, phone, hospitalName, hospitalCode, wantsAdmin, agreedToTerms } = req.body;
 
     if (!email || !password || !name || !hospitalName || !hospitalCode) {
       return res.status(400).json({ error: '이메일, 비밀번호, 이름, 병원명, 병원 코드를 모두 입력해주세요.' });
     }
     if (!isPasswordStrongEnough(password)) {
       return res.status(400).json({ error: PASSWORD_RULE_MESSAGE });
+    }
+    if (agreedToTerms !== true) {
+      return res.status(400).json({ error: '이용약관 및 개인정보처리방침에 동의해야 회원가입할 수 있습니다.' });
     }
 
     const normalizedEmail = email.trim().toLowerCase();
@@ -220,7 +223,8 @@ app.post('/api/auth/signup', authLimiter, async (req, res) => {
         phone: phone ? phone.trim() : null,
         hospital_name: resolvedHospitalName,
         hospital_code: normalizedHospitalCode,
-        role
+        role,
+        terms_agreed_at: new Date().toISOString()
       })
       .select()
       .single();
