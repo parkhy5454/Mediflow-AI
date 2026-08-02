@@ -2,6 +2,9 @@
   "name": "nurser-roaster-app",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
     "@sentry/node": "^10.69.0",
     "@sentry/react": "^10.69.0",
