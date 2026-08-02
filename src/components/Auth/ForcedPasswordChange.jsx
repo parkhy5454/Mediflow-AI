@@ -22,8 +22,8 @@ const ForcedPasswordChange = ({ currentUser, onChanged }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (newPassword.length < 6) {
-      setError('비밀번호는 6자 이상이어야 합니다.');
+    if (!(newPassword.length >= 8 && /[a-zA-Z]/.test(newPassword) && /[0-9]/.test(newPassword))) {
+      setError('비밀번호는 영문과 숫자를 포함해 8자 이상이어야 합니다.');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -68,7 +68,7 @@ const ForcedPasswordChange = ({ currentUser, onChanged }) => {
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="6자 이상"
+              placeholder="영문+숫자 포함 8자 이상"
               style={inputStyle}
             />
           </div>
