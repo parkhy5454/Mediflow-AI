@@ -312,6 +312,16 @@ const SubscriptionView = ({ currentUser }) => {
                     )}
                   </div>
                   <div style={{ fontSize: '11px', color: '#9ca3af' }}>{formatDate(h.billedAt)}</div>
+                  {h.status === 'success' && h.receiptUrl && (
+                    <a
+                      href={h.receiptUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ fontSize: '11px', color: '#3b82f6', textDecoration: 'underline' }}
+                    >
+                      카드매출전표 보기
+                    </a>
+                  )}
                 </div>
                 <span style={{
                   fontSize: '11px', fontWeight: '700', padding: '3px 8px', borderRadius: '10px',
