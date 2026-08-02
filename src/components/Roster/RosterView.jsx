@@ -215,7 +215,7 @@
 
 // src/components/Roster/RosterView.jsx (Updated with Cycle Continuity)
 import React, { useState } from 'react';
-import { Calendar, Info } from 'lucide-react';
+import { Calendar, Info, Lock, Unlock } from 'lucide-react';
 import MonthSelector from './MonthSelector';
 import RosterTable from './RosterTable';
 import ExportButtons from './ExportButtons';
@@ -235,18 +235,30 @@ const RosterView = ({
   rosterConfig,
   nurses,
   clearRoster,
-  currentUser
+  currentUser,
+  rosterMeta,
+  publishRoster,
+  unpublishRoster
 }) => {
   const monthRoster = getCurrentMonthRoster();
   const hasRosterData = Object.keys(monthRoster).length > 0;
   // [수정] alert() 대신 예쁜 모달로 근무표 생성 결과를 보여주기 위한 상태
   const [rosterResult, setRosterResult] = useState(null);
+  const [publishing, setPublishing] = useState(false);
+
+  const isAdmin = currentUser?.role === 'admin';
+  const monthKey = `${selectedYear}-${selectedMonth}`;
+  const meta = (rosterMeta && rosterMeta[monthKey]) || { isPublished: false };
 
   // [추가] 승인된 휴가를 근무표 생성에 반영하기 위해 조회. 관리자는 병원 전체 신청이 다 보인다.
   const { requests: leaveRequests } = useLeaveRequests(currentUser);
 
   // [추가] 예전(간호사 명단이 바뀌기 전) 근무표를 지우는 기능. 되돌릴 수 없어 확인창을 띄운다.
   const handleClearRoster = () => {
+    if (meta.isPublished) {
+      alert('이 근무표는 발행되어 있어 초기화할 수 없습니다. 먼저 발행을 취소해주세요.');
+      return;
+    }
     const confirmed = window.confirm(
       `${selectedYear}년 ${getMonthName(selectedMonth)} 근무표를 초기화하시겠습니까?\n\n저장된 근무표 데이터가 완전히 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`
     );
@@ -256,6 +268,10 @@ const RosterView = ({
   };
 
   const handleGenerateRoster = () => {
+    if (meta.isPublished) {
+      alert('이 근무표는 이미 발행되어 있어 재생성할 수 없습니다. 먼저 발행을 취소해주세요.');
+      return;
+    }
     // 이번에 생성하는 달과 겹치는 "승인됨" 휴가만 추려서 함께 반영한다.
     const daysInMonth = getDaysInMonth(selectedMonth, selectedYear);
     const pad = (n) => String(n).padStart(2, '0');
@@ -268,6 +284,22 @@ const RosterView = ({
     if (result && result.message) {
       setRosterResult(result);
     }
+  };
+
+  const handlePublish = async () => {
+    if (!window.confirm(`${selectedYear}년 ${getMonthName(selectedMonth)} 근무표를 발행하시겠습니까?\n\n발행하면 재생성/초기화가 잠기고, 병원 전체 회원에게 확정된 근무표로 안내됩니다.`)) return;
+    setPublishing(true);
+    const result = await publishRoster(selectedMonth, selectedYear);
+    setPublishing(false);
+    if (!result.success) alert(result.message);
+  };
+
+  const handleUnpublish = async () => {
+    if (!window.confirm('발행을 취소하시겠습니까? 다시 수정 가능한 상태로 돌아갑니다.')) return;
+    setPublishing(true);
+    const result = await unpublishRoster(selectedMonth, selectedYear);
+    setPublishing(false);
+    if (!result.success) alert(result.message);
   };
 
   const handleMonthChange = (newMonth, newYear) => {
@@ -321,8 +353,17 @@ const RosterView = ({
         flexWrap: 'wrap',
         gap: '15px'
       }}>
-        <h2 style={{ color: '#1f2937', margin: 0 }}>
+        <h2 style={{ color: '#1f2937', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
           근무표 - {selectedYear}년 {getMonthName(selectedMonth)}
+          {meta.isPublished && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: '4px',
+              fontSize: '12px', fontWeight: '700', padding: '4px 10px', borderRadius: '12px',
+              backgroundColor: '#eff6ff', color: '#1d4ed8'
+            }}>
+              <Lock size={12} /> 발행됨
+            </span>
+          )}
         </h2>
         
         <div style={{ 
@@ -333,13 +374,14 @@ const RosterView = ({
         }}>
           <button 
             onClick={handleGenerateRoster}
+            disabled={meta.isPublished}
             style={{
-              backgroundColor: '#10b981',
+              backgroundColor: meta.isPublished ? '#d1d5db' : '#10b981',
               color: 'white',
               padding: '10px 20px',
               border: 'none',
               borderRadius: '6px',
-              cursor: 'pointer',
+              cursor: meta.isPublished ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
@@ -353,13 +395,14 @@ const RosterView = ({
           {hasRosterData && (
             <button
               onClick={handleClearRoster}
+              disabled={meta.isPublished}
               style={{
                 backgroundColor: 'white',
-                color: '#dc2626',
+                color: meta.isPublished ? '#d1d5db' : '#dc2626',
                 padding: '10px 20px',
-                border: '1px solid #fecaca',
+                border: `1px solid ${meta.isPublished ? '#e5e7eb' : '#fecaca'}`,
                 borderRadius: '6px',
-                cursor: 'pointer',
+                cursor: meta.isPublished ? 'not-allowed' : 'pointer',
                 fontSize: '14px',
                 fontWeight: '500'
               }}
@@ -368,8 +411,46 @@ const RosterView = ({
               근무표 초기화
             </button>
           )}
+          {isAdmin && hasRosterData && (
+            meta.isPublished ? (
+              <button
+                onClick={handleUnpublish}
+                disabled={publishing}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  backgroundColor: 'white', color: '#374151', padding: '10px 20px',
+                  border: '1px solid #d1d5db', borderRadius: '6px',
+                  cursor: publishing ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: '500'
+                }}
+              >
+                <Unlock size={16} /> 발행 취소
+              </button>
+            ) : (
+              <button
+                onClick={handlePublish}
+                disabled={publishing}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  backgroundColor: '#3b82f6', color: 'white', padding: '10px 20px',
+                  border: 'none', borderRadius: '6px',
+                  cursor: publishing ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: '500'
+                }}
+              >
+                <Lock size={16} /> {publishing ? '처리 중...' : '근무표 발행'}
+              </button>
+            )
+          )}
         </div>
       </div>
+
+      {meta.isPublished && (
+        <p style={{
+          fontSize: '12px', color: '#1d4ed8', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe',
+          borderRadius: '8px', padding: '10px 14px', marginTop: '-6px', marginBottom: '16px'
+        }}>
+          🔒 이 근무표는 {meta.publishedByName ? `${meta.publishedByName}님이 ` : ''}발행하여 확정되었습니다. 재생성/초기화가 잠겨있으며, 근무 변경·휴가 승인은 계속 반영됩니다.
+        </p>
+      )}
 
       {/* Month/Year Selector */}
       <div style={{ marginBottom: '20px' }}>
