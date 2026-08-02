@@ -14,7 +14,8 @@ const AUDIT_ACTION_LABEL = {
   leave_approved: '휴가 승인',
   leave_rejected: '휴가 거절',
   subscription_card_registered: '결제 카드 등록',
-  subscription_prepaid: '구독 선결제'
+  subscription_prepaid: '구독 선결제',
+  subscription_cancelled: '구독 해지'
 };
 
 const MemberManagement = ({ currentUser, onUserUpdate }) => {
