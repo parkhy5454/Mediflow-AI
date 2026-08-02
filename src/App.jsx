@@ -196,6 +196,35 @@ const HospitalRosterSystem = () => {
       alert('카드 등록이 취소되었거나 실패했습니다.');
       window.history.replaceState({}, '', window.location.pathname);
       setActiveTab('subscription');
+    } else if (params.get('prepayYears') && params.get('paymentKey') && params.get('orderId') && params.get('amount')) {
+      const years = params.get('prepayYears');
+      const paymentKey = params.get('paymentKey');
+      const orderId = params.get('orderId');
+      const amount = params.get('amount');
+      (async () => {
+        try {
+          const res = await fetch('/api/subscription/prepay/confirm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+            body: JSON.stringify({ years, paymentKey, orderId, amount })
+          });
+          const data = await res.json();
+          if (res.ok) {
+            alert(`${years}년 선결제가 완료되었습니다. (${data.prepaidUntil}까지 적용)`);
+          } else {
+            alert(data.error || '선결제 처리에 실패했습니다.');
+          }
+        } catch (err) {
+          alert('선결제 처리 중 오류가 발생했습니다.');
+        } finally {
+          window.history.replaceState({}, '', window.location.pathname);
+          setActiveTab('subscription');
+        }
+      })();
+    } else if (params.get('prepayFail')) {
+      alert('선결제가 취소되었거나 실패했습니다.');
+      window.history.replaceState({}, '', window.location.pathname);
+      setActiveTab('subscription');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id]);
