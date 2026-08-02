@@ -1,6 +1,6 @@
 // src/components/Layout/Navigation.jsx
 import React from 'react';
-import { BarChart3, Users, Calendar, Settings, UserCheck, ShieldCheck, Repeat } from 'lucide-react';
+import { BarChart3, Users, Calendar, Settings, UserCheck, ShieldCheck, Repeat, Umbrella } from 'lucide-react';
 
 // 개발자(운영자) 전용 탭을 노출하기 위한 기준 이메일 (서버의 ADMIN_EMAIL과 동일)
 const ADMIN_EMAIL = 'parkhy5454@gmail.com';
@@ -13,6 +13,7 @@ const Navigation = ({ activeTab, setActiveTab, currentUser }) => {
     { id: 'nurses', label: '간호사 관리', icon: Users },
     { id: 'roster', label: '근무표', icon: Calendar },
     { id: 'swap-requests', label: '근무 변경 요청', icon: Repeat },
+    { id: 'leave-requests', label: '휴가 신청', icon: Umbrella },
     { id: 'members', label: '회원 관리', icon: UserCheck },
     { id: 'settings', label: '설정', icon: Settings },
     ...(isDeveloperAccount ? [{ id: 'admin', label: '운영자 대시보드', icon: ShieldCheck }] : [])
