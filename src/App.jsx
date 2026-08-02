@@ -112,6 +112,7 @@ import Login from './components/Auth/Login';
 import ForcedPasswordChange from './components/Auth/ForcedPasswordChange';
 import MemberManagement from './components/Members/MemberManagement';
 import SwapRequests from './components/Roster/SwapRequests';
+import LeaveRequests from './components/Roster/LeaveRequests';
 import AdminDashboard from './components/Admin/AdminDashboard';
 import FeedbackButton from './components/Feedback/FeedbackButton';
 import { useNurses } from './hooks/useNurses';
@@ -263,6 +264,10 @@ const HospitalRosterSystem = () => {
             {...sharedProps}
             currentUser={currentUser}
           />
+        )}
+
+        {activeTab === 'leave-requests' && (
+          <LeaveRequests currentUser={currentUser} />
         )}
 
         {activeTab === 'members' && (
