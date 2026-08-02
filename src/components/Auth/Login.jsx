@@ -12,6 +12,8 @@ const Login = ({ onLoginSuccess }) => {
   const [wantsAdmin, setWantsAdmin] = useState(false);
   // 병원 코드로 조회한 "이미 관리자가 있는지" 상태. null = 아직 확인 전(입력 비어있거나 조회 중)
   const [hospitalHasAdmin, setHospitalHasAdmin] = useState(null);
+  // 그 병원 코드로 이미 등록된 병원명. null이면 새 병원(직접 입력 가능), 값이 있으면 자동입력 + 잠금.
+  const [existingHospitalName, setExistingHospitalName] = useState(null);
   const [checkingHospital, setCheckingHospital] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -23,13 +25,16 @@ const Login = ({ onLoginSuccess }) => {
     setHospitalCode('');
     setWantsAdmin(false);
     setHospitalHasAdmin(null);
+    setExistingHospitalName(null);
   };
 
-  // 병원 코드를 입력하는 동안(0.5초 멈추면) 그 병원에 이미 관리자가 있는지 서버에 확인.
-  // 관리자가 있으면 "관리자로 가입" 선택지를 아예 숨기기 위함.
+  // 병원 코드를 입력하는 동안(0.5초 멈추면) 그 병원에 이미 관리자가 있는지 + 기존 병원명을 서버에 확인.
+  // 이미 등록된 병원이면 병원명을 자동으로 채우고 수정하지 못하게 잠가서, 같은 병원인데
+  // 병원명이 사람마다 다르게 저장되는 걸(오타, 띄어쓰기 차이 등) 원천적으로 막는다.
   useEffect(() => {
     if (isLogin || !hospitalCode.trim()) {
       setHospitalHasAdmin(null);
+      setExistingHospitalName(null);
       return;
     }
     const timer = setTimeout(async () => {
@@ -40,6 +45,12 @@ const Login = ({ onLoginSuccess }) => {
         if (res.ok) {
           setHospitalHasAdmin(!!data.hasAdmin);
           if (data.hasAdmin) setWantsAdmin(false); // 이미 관리자가 있으면 선택 초기화
+          if (data.hospitalName) {
+            setExistingHospitalName(data.hospitalName);
+            setHospitalName(data.hospitalName); // 자동입력
+          } else {
+            setExistingHospitalName(null);
+          }
         }
       } catch (err) {
         console.error('병원 코드 확인 실패:', err);
@@ -196,29 +207,47 @@ const Login = ({ onLoginSuccess }) => {
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: '500', color: '#374151' }}>
-                  병원명
-                </label>
-                <input
-                  type="text"
-                  value={hospitalName}
-                  onChange={(e) => setHospitalName(e.target.value)}
-                  placeholder="예: 서울중앙병원"
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: '500', color: '#374151' }}>
                   병원 코드
                 </label>
                 <input
                   type="text"
                   value={hospitalCode}
-                  onChange={(e) => setHospitalCode(e.target.value)}
+                  onChange={(e) => {
+                    setHospitalCode(e.target.value);
+                    // 코드가 바뀌면 이전 코드에서 자동입력됐던 병원명은 일단 지우고, 새로 확인해서 다시 채운다.
+                    setExistingHospitalName(null);
+                    setHospitalName('');
+                  }}
                   placeholder="같은 병원 동료와 동일하게 입력하세요"
                   style={inputStyle}
                 />
                 <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px', lineHeight: '1.4' }}>
-                  같은 병원 코드로 가입하면 같은 병원 소속으로 데이터가 연동됩니다.
+                  같은 병원 코드로 가입하면 같은 병원 소속으로 데이터가 연동됩니다. 먼저 입력하시면 이미 등록된 병원인지 확인해서 병원명을 자동으로 채워드려요.
+                </p>
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: '500', color: '#374151' }}>
+                  병원명 {existingHospitalName && <span style={{ color: '#3b82f6', fontWeight: '400' }}>(자동 입력됨)</span>}
+                </label>
+                <input
+                  type="text"
+                  value={hospitalName}
+                  onChange={(e) => setHospitalName(e.target.value)}
+                  placeholder={hospitalCode.trim() ? '병원 코드를 먼저 확인 중...' : '병원 코드를 먼저 입력하세요'}
+                  readOnly={!!existingHospitalName}
+                  disabled={!hospitalCode.trim()}
+                  style={{
+                    ...inputStyle,
+                    backgroundColor: existingHospitalName ? '#f3f4f6' : (!hospitalCode.trim() ? '#f9fafb' : 'white'),
+                    cursor: existingHospitalName ? 'not-allowed' : 'text'
+                  }}
+                />
+                <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px', lineHeight: '1.4' }}>
+                  {existingHospitalName
+                    ? '이미 등록된 병원이라 기존 병원명으로 자동 입력되며 수정할 수 없습니다.'
+                    : hospitalCode.trim()
+                      ? '새 병원 코드입니다. 이 병원의 정식 명칭을 입력해주세요. (이후 같은 코드로 가입하는 동료에게 이 이름이 그대로 쓰입니다)'
+                      : '병원 코드를 입력하면 여기에 자동으로 채워지거나, 새 병원이면 직접 입력할 수 있습니다.'}
                 </p>
               </div>
 
