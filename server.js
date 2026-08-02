@@ -1701,6 +1701,273 @@ app.put('/api/leave-requests/:id/decision', async (req, res) => {
   }
 });
 
+// ------------------------------------------------------------------
+// 💳 구독/결제 관리
+// - 요금제: 활성 간호사 1명당 월 3,000원, 가입일로부터 14일 무료체험.
+// - 토스페이먼츠 빌링키(자동결제) 방식. 카드 등록 1회 후 매달 자동 청구.
+// - 실제 청구(run-billing)는 외부 스케줄러(Render Cron Job 등)가 하루 한 번
+//   CRON_SECRET을 헤더에 담아 호출하는 것을 전제로 한다.
+// ------------------------------------------------------------------
+
+const TOSS_SECRET_KEY = process.env.TOSS_SECRET_KEY;
+const TOSS_API_BASE = 'https://api.tosspayments.com/v1';
+const TRIAL_DAYS = 14;
+
+const tossAuthHeader = () => 'Basic ' + Buffer.from(`${TOSS_SECRET_KEY}:`).toString('base64');
+
+const toPublicSubscription = (s) => ({
+  hospitalCode: s.hospital_code,
+  status: s.status,
+  trialEndsAt: s.trial_ends_at,
+  hasBillingKey: !!s.billing_key,
+  cardCompany: s.card_company,
+  cardLast4: s.card_last4,
+  pricePerNurse: s.price_per_nurse,
+  nextBillingDate: s.next_billing_date
+});
+
+// 그 병원의 활성 간호사 수를 센다 (요금 계산 기준)
+const countActiveNurses = async (hospitalCode) => {
+  const { count, error } = await supabase
+    .from('mediflow_nurses')
+    .select('id', { count: 'exact', head: true })
+    .eq('hospital_code', hospitalCode)
+    .eq('status', 'active');
+  if (error) throw error;
+  return count || 0;
+};
+
+// 구독 레코드가 없으면(그 병원의 첫 조회) 새로 만든다. 체험 종료일은 그 병원 최초 가입일 + 14일.
+const ensureSubscription = async (hospitalCode) => {
+  const { data: existing, error: fetchError } = await supabase
+    .from('mediflow_subscriptions')
+    .select('*')
+    .eq('hospital_code', hospitalCode)
+    .maybeSingle();
+  if (fetchError) throw fetchError;
+  if (existing) return existing;
+
+  const { data: firstMember, error: memberError } = await supabase
+    .from('mediflow_users')
+    .select('created_at')
+    .eq('hospital_code', hospitalCode)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (memberError) throw memberError;
+
+  const anchor = firstMember ? new Date(firstMember.created_at) : new Date();
+  const trialEndsAt = new Date(anchor.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
+
+  const { data: created, error: insertError } = await supabase
+    .from('mediflow_subscriptions')
+    .insert({
+      hospital_code: hospitalCode,
+      status: 'trial',
+      trial_ends_at: trialEndsAt.toISOString(),
+      next_billing_date: trialEndsAt.toISOString().slice(0, 10)
+    })
+    .select()
+    .single();
+  if (insertError) throw insertError;
+  return created;
+};
+
+// 구독 상태 조회 (같은 병원 회원 누구나 볼 수 있음, 카드 등록/변경은 관리자만)
+app.get('/api/subscription', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+    const subscription = await ensureSubscription(requester.hospital_code);
+    const activeNurseCount = await countActiveNurses(requester.hospital_code);
+
+    res.json({
+      ...toPublicSubscription(subscription),
+      activeNurseCount,
+      estimatedMonthlyAmount: activeNurseCount * (subscription.price_per_nurse || 3000)
+    });
+  } catch (err) {
+    console.error('subscription fetch error:', err);
+    res.status(500).json({ error: '구독 정보 조회 중 오류가 발생했습니다.' });
+  }
+});
+
+// 결제 내역 조회
+app.get('/api/subscription/billing-history', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+    const { data, error } = await supabase
+      .from('mediflow_billing_history')
+      .select('*')
+      .eq('hospital_code', requester.hospital_code)
+      .order('billed_at', { ascending: false })
+      .limit(24);
+    if (error) throw error;
+
+    res.json(data.map(h => ({
+      id: h.id,
+      amount: h.amount,
+      nurseCount: h.nurse_count_at_billing,
+      status: h.status,
+      failureReason: h.failure_reason,
+      billedAt: h.billed_at
+    })));
+  } catch (err) {
+    console.error('billing history fetch error:', err);
+    res.status(500).json({ error: '결제 내역 조회 중 오류가 발생했습니다.' });
+  }
+});
+
+// 카드 등록/변경 — 토스페이먼츠 결제창에서 인증 완료 후 돌아온 authKey를 빌링키로 교환
+app.post('/api/subscription/register-card', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    if (requester.role !== 'admin') return res.status(403).json({ error: '관리자만 결제 카드를 등록할 수 있습니다.' });
+    if (!TOSS_SECRET_KEY) return res.status(500).json({ error: '결제 서비스가 아직 설정되지 않았습니다. 관리자에게 문의해주세요.' });
+
+    const { authKey, customerKey } = req.body;
+    if (!authKey || !customerKey) {
+      return res.status(400).json({ error: 'authKey, customerKey가 필요합니다.' });
+    }
+
+    const tossRes = await fetch(`${TOSS_API_BASE}/billing/authorizations/issue`, {
+      method: 'POST',
+      headers: { Authorization: tossAuthHeader(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ authKey, customerKey })
+    });
+    const tossData = await tossRes.json();
+    if (!tossRes.ok) {
+      console.error('toss billing key issue failed:', tossData);
+      return res.status(400).json({ error: tossData.message || '카드 등록에 실패했습니다.' });
+    }
+
+    const subscription = await ensureSubscription(requester.hospital_code);
+    const now = new Date();
+    const trialEndsAt = new Date(subscription.trial_ends_at);
+    // 아직 체험 기간이면 체험 종료일에 첫 결제, 이미 지났으면 다음 달 오늘 날짜에 결제
+    const nextBillingDate = trialEndsAt > now
+      ? trialEndsAt.toISOString().slice(0, 10)
+      : new Date(now.getFullYear(), now.getMonth() + 1, now.getDate()).toISOString().slice(0, 10);
+
+    const { error: updateError } = await supabase
+      .from('mediflow_subscriptions')
+      .update({
+        billing_key: tossData.billingKey,
+        toss_customer_key: customerKey,
+        card_company: tossData.card?.company || null,
+        card_last4: tossData.card?.number ? tossData.card.number.slice(-4) : null,
+        next_billing_date: nextBillingDate,
+        updated_at: new Date().toISOString()
+      })
+      .eq('hospital_code', requester.hospital_code);
+    if (updateError) throw updateError;
+
+    logAudit({
+      hospitalCode: requester.hospital_code,
+      actorUserId: requester.id,
+      actorName: requester.name,
+      action: 'subscription_card_registered',
+      targetDescription: `결제 카드 등록 (${tossData.card?.company || ''} ${tossData.card?.number ? tossData.card.number.slice(-4) : ''})`
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('register card error:', err);
+    res.status(500).json({ error: '카드 등록 중 오류가 발생했습니다.' });
+  }
+});
+
+// [내부용] 실제 정기 청구 실행. 외부 스케줄러가 하루 한 번 CRON_SECRET을 담아 호출한다.
+// 오늘이 결제일(next_billing_date)이고 빌링키가 등록된 모든 병원에 대해 청구를 시도한다.
+app.post('/api/subscription/run-billing', async (req, res) => {
+  try {
+    const secret = req.headers['x-cron-secret'];
+    if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
+      return res.status(403).json({ error: '권한이 없습니다.' });
+    }
+    if (!TOSS_SECRET_KEY) return res.status(500).json({ error: '결제 서비스가 설정되지 않았습니다.' });
+
+    const today = new Date().toISOString().slice(0, 10);
+    const { data: dueSubs, error } = await supabase
+      .from('mediflow_subscriptions')
+      .select('*')
+      .not('billing_key', 'is', null)
+      .lte('next_billing_date', today);
+    if (error) throw error;
+
+    const results = [];
+    for (const sub of (dueSubs || [])) {
+      try {
+        const nurseCount = await countActiveNurses(sub.hospital_code);
+        const amount = nurseCount * (sub.price_per_nurse || 3000);
+        const nextDate = new Date();
+        nextDate.setMonth(nextDate.getMonth() + 1);
+        const nextDateStr = nextDate.toISOString().slice(0, 10);
+
+        if (amount <= 0) {
+          // 활성 간호사가 0명이면 청구하지 않고 결제일만 다음 달로 미룬다.
+          await supabase.from('mediflow_subscriptions')
+            .update({ next_billing_date: nextDateStr })
+            .eq('hospital_code', sub.hospital_code);
+          results.push({ hospitalCode: sub.hospital_code, skipped: true });
+          continue;
+        }
+
+        const orderId = `mediflow-${sub.hospital_code}-${Date.now()}`;
+        const tossRes = await fetch(`${TOSS_API_BASE}/billing/${sub.billing_key}`, {
+          method: 'POST',
+          headers: { Authorization: tossAuthHeader(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customerKey: sub.toss_customer_key,
+            amount,
+            orderId,
+            orderName: `Mediflow-AI 구독료 (간호사 ${nurseCount}명)`
+          })
+        });
+        const tossData = await tossRes.json();
+
+        if (tossRes.ok) {
+          await supabase.from('mediflow_billing_history').insert({
+            hospital_code: sub.hospital_code,
+            amount,
+            nurse_count_at_billing: nurseCount,
+            status: 'success',
+            toss_payment_key: tossData.paymentKey
+          });
+          await supabase.from('mediflow_subscriptions')
+            .update({ status: 'active', next_billing_date: nextDateStr, updated_at: new Date().toISOString() })
+            .eq('hospital_code', sub.hospital_code);
+          results.push({ hospitalCode: sub.hospital_code, success: true, amount });
+        } else {
+          await supabase.from('mediflow_billing_history').insert({
+            hospital_code: sub.hospital_code,
+            amount,
+            nurse_count_at_billing: nurseCount,
+            status: 'failed',
+            failure_reason: tossData.message || '결제 실패'
+          });
+          await supabase.from('mediflow_subscriptions')
+            .update({ status: 'past_due', updated_at: new Date().toISOString() })
+            .eq('hospital_code', sub.hospital_code);
+          results.push({ hospitalCode: sub.hospital_code, success: false, error: tossData.message });
+        }
+      } catch (innerErr) {
+        console.error(`billing error for ${sub.hospital_code}:`, innerErr);
+        results.push({ hospitalCode: sub.hospital_code, success: false, error: 'internal error' });
+      }
+    }
+
+    res.json({ processed: results.length, results });
+  } catch (err) {
+    console.error('run-billing error:', err);
+    res.status(500).json({ error: '청구 실행 중 오류가 발생했습니다.' });
+  }
+});
+
 // [추가] 위의 API 라우트들에서 try/catch로 못 잡고 그대로 터진(정말 예상 못한) 에러를
 // 마지막으로 한 번 더 Sentry에 보고하는 안전망. DSN이 없으면 아무 동작 안 함.
 if (process.env.SENTRY_DSN_BACKEND) {
