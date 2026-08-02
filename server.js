@@ -56,10 +56,21 @@ const path = require('path');
 const bcrypt = require('bcryptjs');
 const { createClient } = require('@supabase/supabase-js');
 const crypto = require('crypto');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// [추가] 무차별 대입(브루트포스) 공격 방지.
+// 로그인/회원가입/비밀번호 관련 엔드포인트는 IP당 짧은 시간에 너무 많이 시도하면 잠깐 막는다.
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15분
+  max: 20,                  // 같은 IP에서 15분에 20번까지만 허용
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: '너무 많이 시도하셨습니다. 잠시 후 다시 시도해주세요.' }
+});
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -89,6 +100,34 @@ const generateTempPassword = () => {
   let pw = '';
   for (let i = 0; i < 10; i++) pw += chars[Math.floor(Math.random() * chars.length)];
   return pw;
+};
+
+// [추가] 비밀번호 규칙: 8자 이상 + 영문/숫자 최소 1개씩 포함.
+// (임시 비밀번호는 generateTempPassword로 자동 생성되므로 이 규칙과 별개로 항상 통과함)
+const isPasswordStrongEnough = (password) => {
+  if (!password || password.length < 8) return false;
+  if (!/[a-zA-Z]/.test(password)) return false;
+  if (!/[0-9]/.test(password)) return false;
+  return true;
+};
+const PASSWORD_RULE_MESSAGE = '비밀번호는 영문과 숫자를 포함해 8자 이상이어야 합니다.';
+
+// [추가] 관리자/운영자의 민감한 액션(역할 변경, 비밀번호 초기화, 근무표 삭제, 스왑 승인/거절)을
+// 감사 로그 테이블에 남긴다. 로그 기록 자체가 실패해도 원래 하려던 작업까지 실패시키지는 않도록
+// 항상 에러를 조용히 삼킨다 (로그는 부가 기능이지 핵심 기능이 아니므로).
+const logAudit = async ({ hospitalCode, actorUserId, actorName, action, targetDescription, metadata }) => {
+  try {
+    await supabase.from('mediflow_audit_log').insert({
+      hospital_code: hospitalCode,
+      actor_user_id: actorUserId || null,
+      actor_name: actorName || null,
+      action,
+      target_description: targetDescription || null,
+      metadata: metadata || {}
+    });
+  } catch (err) {
+    console.error('audit log error:', err);
+  }
 };
 
 // ------------------------------------------------------------------
@@ -128,15 +167,15 @@ app.get('/api/auth/hospital-status', async (req, res) => {
 // 단, 그 병원(hospitalCode)에 관리자가 이미 1명이라도 있으면 wantsAdmin 값과 무관하게
 // 서버에서 강제로 member로 배정한다. (관리자가 정해진 뒤에는 기존 관리자만 새 관리자를 지정 가능)
 // ------------------------------------------------------------------
-app.post('/api/auth/signup', async (req, res) => {
+app.post('/api/auth/signup', authLimiter, async (req, res) => {
   try {
     const { email, password, name, phone, hospitalName, hospitalCode, wantsAdmin } = req.body;
 
     if (!email || !password || !name || !hospitalName || !hospitalCode) {
       return res.status(400).json({ error: '이메일, 비밀번호, 이름, 병원명, 병원 코드를 모두 입력해주세요.' });
     }
-    if (password.length < 6) {
-      return res.status(400).json({ error: '비밀번호는 6자 이상이어야 합니다.' });
+    if (!isPasswordStrongEnough(password)) {
+      return res.status(400).json({ error: PASSWORD_RULE_MESSAGE });
     }
 
     const normalizedEmail = email.trim().toLowerCase();
@@ -198,7 +237,7 @@ app.post('/api/auth/signup', async (req, res) => {
 // ------------------------------------------------------------------
 // 로그인
 // ------------------------------------------------------------------
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
@@ -230,7 +269,7 @@ app.post('/api/auth/login', async (req, res) => {
 // 임시 비밀번호를 발급해서 딱 한 번 응답으로 돌려준다 (그 이후엔 해시로만 저장, 평문은 어디에도 안 남음).
 // 초기화된 계정은 다음 로그인 시 무조건 새 비밀번호로 바꿔야 앱을 쓸 수 있다.
 // ------------------------------------------------------------------
-app.put('/api/auth/users/:targetId/reset-password', async (req, res) => {
+app.put('/api/auth/users/:targetId/reset-password', authLimiter, async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
     if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
@@ -257,6 +296,14 @@ app.put('/api/auth/users/:targetId/reset-password', async (req, res) => {
       .update({ password: passwordHash, must_change_password: true })
       .eq('id', target.id);
     if (updateError) throw updateError;
+
+    logAudit({
+      hospitalCode: target.hospital_code,
+      actorUserId: requester.id,
+      actorName: requester.name,
+      action: 'password_reset',
+      targetDescription: `${target.name}(${target.email}) 비밀번호 초기화`
+    });
 
     res.json({ tempPassword, userName: target.name, userEmail: target.email });
   } catch (err) {
@@ -297,14 +344,14 @@ app.put('/api/auth/profile', async (req, res) => {
 // ------------------------------------------------------------------
 // 본인 비밀번호 변경 (임시 비밀번호로 로그인한 뒤 강제로 새 비밀번호 설정할 때 사용)
 // ------------------------------------------------------------------
-app.put('/api/auth/change-password', async (req, res) => {
+app.put('/api/auth/change-password', authLimiter, async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
     if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
 
     const { newPassword } = req.body;
-    if (!newPassword || newPassword.length < 6) {
-      return res.status(400).json({ error: '새 비밀번호는 6자 이상이어야 합니다.' });
+    if (!isPasswordStrongEnough(newPassword)) {
+      return res.status(400).json({ error: PASSWORD_RULE_MESSAGE });
     }
 
     const passwordHash = bcrypt.hashSync(newPassword, 10);
@@ -424,10 +471,50 @@ app.put('/api/auth/users/:targetId', async (req, res) => {
 
     if (updateError) throw updateError;
 
+    logAudit({
+      hospitalCode: requester.hospital_code,
+      actorUserId: requester.id,
+      actorName: requester.name,
+      action: 'role_change',
+      targetDescription: `${target.name}(${target.email}) 역할을 ${role === 'admin' ? '관리자' : '일반 사용자'}로 변경`
+    });
+
     res.json({ user: toPublicUser(updated) });
   } catch (err) {
     console.error('role update error:', err);
     res.status(500).json({ error: '역할 변경 중 오류가 발생했습니다.' });
+  }
+});
+
+
+// ------------------------------------------------------------------
+// 감사 로그 조회 (같은 병원 관리자만) — 최근 관리자 활동 확인용
+// ------------------------------------------------------------------
+app.get('/api/audit-log', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    if (requester.role !== 'admin') return res.status(403).json({ error: '관리자만 조회할 수 있습니다.' });
+
+    const { data, error } = await supabase
+      .from('mediflow_audit_log')
+      .select('*')
+      .eq('hospital_code', requester.hospital_code)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (error) throw error;
+
+    res.json(data.map(l => ({
+      id: l.id,
+      actorName: l.actor_name,
+      action: l.action,
+      targetDescription: l.target_description,
+      createdAt: l.created_at
+    })));
+  } catch (err) {
+    console.error('audit log fetch error:', err);
+    res.status(500).json({ error: '감사 로그 조회 중 오류가 발생했습니다.' });
   }
 });
 
@@ -725,6 +812,15 @@ app.delete('/api/roster/:monthKey', async (req, res) => {
       .eq('month_key', req.params.monthKey);
 
     if (error) throw error;
+
+    logAudit({
+      hospitalCode: requester.hospital_code,
+      actorUserId: requester.id,
+      actorName: requester.name,
+      action: 'roster_delete',
+      targetDescription: `${req.params.monthKey} 근무표 삭제`
+    });
+
     res.json({ success: true });
   } catch (err) {
     console.error('roster delete error:', err);
@@ -1188,6 +1284,15 @@ app.put('/api/swap-requests/:id/decision', async (req, res) => {
         .select()
         .single();
       if (updateError) throw updateError;
+
+      logAudit({
+        hospitalCode: requester.hospital_code,
+        actorUserId: requester.id,
+        actorName: requester.name,
+        action: 'swap_rejected',
+        targetDescription: `${swapReq.from_day}일 ${swapReq.from_shift_type} (${swapReq.from_nurse_name}) 근무 변경 요청 거절`
+      });
+
       return res.json(toPublicSwapRequest(updated));
     }
 
@@ -1293,6 +1398,16 @@ app.put('/api/swap-requests/:id/decision', async (req, res) => {
       .select()
       .single();
     if (updateReqError) throw updateReqError;
+
+    logAudit({
+      hospitalCode: requester.hospital_code,
+      actorUserId: requester.id,
+      actorName: requester.name,
+      action: 'swap_approved',
+      targetDescription: swapReq.request_type === 'swap'
+        ? `${swapReq.from_day}일 ${swapReq.from_shift_type}(${swapReq.from_nurse_name}) ⇄ ${swapReq.to_day}일 ${swapReq.to_shift_type}(${swapReq.to_nurse_name}) 맞교환 승인`
+        : `${swapReq.from_day}일 ${swapReq.from_shift_type} ${swapReq.from_nurse_name} → ${toNurseFull.name} 대타 승인`
+    });
 
     res.json(toPublicSwapRequest(updatedReq));
   } catch (err) {
