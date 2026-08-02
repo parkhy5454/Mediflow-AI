@@ -221,7 +221,7 @@ const HospitalRosterSystem = () => {
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
-      <Header activeNurses={getActiveNurses()} currentUser={currentUser} onLogout={handleLogout} />
+      <Header activeNurses={getActiveNurses()} currentUser={currentUser} onLogout={handleLogout} onUserUpdate={handleUserUpdate} />
       
       <Navigation 
         activeTab={activeTab} 
