@@ -173,7 +173,7 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
               표시할 회원이 없습니다.
             </div>
           ) : (
-            members.map((m) => {
+            [...members].sort((a, b) => (a.role === 'admin' ? 0 : 1) - (b.role === 'admin' ? 0 : 1)).map((m) => {
               const isMe = m.id === currentUser.id;
               return (
                 <div
