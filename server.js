@@ -1863,6 +1863,8 @@ app.post('/api/subscription/register-card', async (req, res) => {
         card_company: tossData.card?.company || null,
         card_last4: tossData.card?.number ? tossData.card.number.slice(-4) : null,
         next_billing_date: nextBillingDate,
+        // 해지했다가 다시 카드 등록하는 경우, 해지 상태를 자동으로 풀어준다.
+        status: subscription.status === 'cancelled' ? (trialEndsAt > now ? 'trial' : 'active') : subscription.status,
         updated_at: new Date().toISOString()
       })
       .eq('hospital_code', requester.hospital_code);
@@ -1880,6 +1882,41 @@ app.post('/api/subscription/register-card', async (req, res) => {
   } catch (err) {
     console.error('register card error:', err);
     res.status(500).json({ error: '카드 등록 중 오류가 발생했습니다.' });
+  }
+});
+
+// 구독 해지 — 자동결제를 중단시킨다. 카드/빌링키는 남겨둬서 나중에 다시 등록하면 재개된다.
+app.put('/api/subscription/cancel', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    if (requester.role !== 'admin') return res.status(403).json({ error: '관리자만 구독을 해지할 수 있습니다.' });
+
+    const subscription = await ensureSubscription(requester.hospital_code);
+    if (subscription.prepaid_until && new Date(subscription.prepaid_until) > new Date()) {
+      return res.status(400).json({
+        error: `선결제 기간(${subscription.prepaid_until}까지)이 남아있어 해지해도 그 이후부터 자동결제가 중단됩니다. 계속하시겠다면 다시 시도해주세요.`
+      });
+    }
+
+    const { error } = await supabase
+      .from('mediflow_subscriptions')
+      .update({ status: 'cancelled', next_billing_date: null, updated_at: new Date().toISOString() })
+      .eq('hospital_code', requester.hospital_code);
+    if (error) throw error;
+
+    logAudit({
+      hospitalCode: requester.hospital_code,
+      actorUserId: requester.id,
+      actorName: requester.name,
+      action: 'subscription_cancelled',
+      targetDescription: '구독 해지'
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('subscription cancel error:', err);
+    res.status(500).json({ error: '구독 해지 중 오류가 발생했습니다.' });
   }
 });
 
@@ -1997,6 +2034,7 @@ app.post('/api/subscription/run-billing', async (req, res) => {
       .from('mediflow_subscriptions')
       .select('*')
       .not('billing_key', 'is', null)
+      .neq('status', 'cancelled')
       .lte('next_billing_date', today);
     if (error) throw error;
 
