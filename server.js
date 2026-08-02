@@ -38,8 +38,17 @@ const toPublicUser = (u) => ({
   hospitalName: u.hospital_name,
   hospitalCode: u.hospital_code,
   role: u.role,
+  mustChangePassword: !!u.must_change_password,
   createdAt: u.created_at
 });
+
+// 임시 비밀번호 생성기. 헷갈리기 쉬운 문자(0/O, 1/l/I)는 제외해서 전화로 불러줘도 헷갈리지 않게 한다.
+const generateTempPassword = () => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  let pw = '';
+  for (let i = 0; i < 10; i++) pw += chars[Math.floor(Math.random() * chars.length)];
+  return pw;
+};
 
 // ------------------------------------------------------------------
 // 병원 코드 상태 조회 (회원가입 화면에서 "관리자로 가입" 선택지 표시 여부 + 병원명 자동입력용)
@@ -172,6 +181,75 @@ app.post('/api/auth/login', async (req, res) => {
   } catch (err) {
     console.error('login error:', err);
     res.status(500).json({ error: '로그인 중 오류가 발생했습니다.' });
+  }
+});
+
+// ------------------------------------------------------------------
+// 비밀번호 초기화 (같은 병원 관리자 또는 운영자만)
+// 임시 비밀번호를 발급해서 딱 한 번 응답으로 돌려준다 (그 이후엔 해시로만 저장, 평문은 어디에도 안 남음).
+// 초기화된 계정은 다음 로그인 시 무조건 새 비밀번호로 바꿔야 앱을 쓸 수 있다.
+// ------------------------------------------------------------------
+app.put('/api/auth/users/:targetId/reset-password', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+    const { data: target, error: targetError } = await supabase
+      .from('mediflow_users')
+      .select('*')
+      .eq('id', req.params.targetId)
+      .maybeSingle();
+    if (targetError) throw targetError;
+    if (!target) return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+
+    const isDeveloper = requester.email === ADMIN_EMAIL;
+    const isSameHospitalAdmin = requester.role === 'admin' && requester.hospital_code === target.hospital_code;
+    if (!isDeveloper && !isSameHospitalAdmin) {
+      return res.status(403).json({ error: '같은 병원의 관리자 또는 운영자만 비밀번호를 초기화할 수 있습니다.' });
+    }
+
+    const tempPassword = generateTempPassword();
+    const passwordHash = bcrypt.hashSync(tempPassword, 10);
+
+    const { error: updateError } = await supabase
+      .from('mediflow_users')
+      .update({ password: passwordHash, must_change_password: true })
+      .eq('id', target.id);
+    if (updateError) throw updateError;
+
+    res.json({ tempPassword, userName: target.name, userEmail: target.email });
+  } catch (err) {
+    console.error('password reset error:', err);
+    res.status(500).json({ error: '비밀번호 초기화 중 오류가 발생했습니다.' });
+  }
+});
+
+// ------------------------------------------------------------------
+// 본인 비밀번호 변경 (임시 비밀번호로 로그인한 뒤 강제로 새 비밀번호 설정할 때 사용)
+// ------------------------------------------------------------------
+app.put('/api/auth/change-password', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+    const { newPassword } = req.body;
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ error: '새 비밀번호는 6자 이상이어야 합니다.' });
+    }
+
+    const passwordHash = bcrypt.hashSync(newPassword, 10);
+    const { data: updated, error } = await supabase
+      .from('mediflow_users')
+      .update({ password: passwordHash, must_change_password: false })
+      .eq('id', requester.id)
+      .select()
+      .single();
+    if (error) throw error;
+
+    res.json({ user: toPublicUser(updated) });
+  } catch (err) {
+    console.error('change password error:', err);
+    res.status(500).json({ error: '비밀번호 변경 중 오류가 발생했습니다.' });
   }
 });
 
@@ -631,7 +709,7 @@ app.get('/api/admin/platform-stats', async (req, res) => {
       const h = ensureHospital(u.hospital_code, u.hospital_name);
       h.totalMembers++;
       if (u.role === 'admin') h.adminCount++; else h.memberCount++;
-      h.members.push({ name: u.name, email: u.email, phone: u.phone || '', role: u.role, createdAt: u.created_at });
+      h.members.push({ id: u.id, name: u.name, email: u.email, phone: u.phone || '', role: u.role, createdAt: u.created_at });
     });
 
     (allNurses || []).forEach(n => {
