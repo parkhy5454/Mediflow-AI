@@ -2393,3 +2393,114 @@ ${workloadSummary.map(n =>
     }
   };
 };
+
+// ------------------------------------------------------------------
+// [추가] 승인된 휴가를 근무표에 반영 — 이미 생성된 근무표에서, 휴가 기간과 겹치는 날짜에
+// 배정되어 있던 휴가자를 빼고 그날 쉬고 있던(offDuty) 다른 간호사로 대체한다.
+// generateRoster()가 끝난 뒤 결과물(roster, updatedNurses)에 대해 후처리로 적용하는 방식이라,
+// 기존의 복잡한 근무 주기 배정 로직 자체는 건드리지 않는다.
+//
+// approvedLeaves: [{ nurseId, startDate: 'YYYY-MM-DD', endDate: 'YYYY-MM-DD' }, ...]
+// ------------------------------------------------------------------
+export const applyApprovedLeaveToRoster = ({
+  roster, updatedNurses, activeNurses, approvedLeaves, daysInMonth, selectedYear, selectedMonth, shiftTypes
+}) => {
+  const notes = [];
+  if (!approvedLeaves || approvedLeaves.length === 0) {
+    return { roster, updatedNurses, notes };
+  }
+
+  const nurseById = new Map(activeNurses.map(n => [n.id, n]));
+  const histByNurseId = new Map(updatedNurses.map(n => [n.id, { ...(n.historicalDaysByShift || {}) }]));
+
+  const dateForDay = (day) => {
+    const d = new Date(selectedYear, selectedMonth, day);
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${d.getFullYear()}-${mm}-${dd}`;
+  };
+
+  approvedLeaves.forEach(leave => {
+    if (!leave.nurseId) return;
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = dateForDay(day);
+      if (dateStr < leave.startDate || dateStr > leave.endDate) continue;
+
+      const dayData = roster[day];
+      if (!dayData) continue;
+      if (!Array.isArray(dayData.offDuty)) dayData.offDuty = [];
+
+      // 이미 그날 휴무였으면(원래도 안 일하던 날) 별도 처리 불필요 — offDuty 항목에 휴가 표시만 추가
+      const alreadyOffIdx = dayData.offDuty.findIndex(n => n.id === leave.nurseId);
+      if (alreadyOffIdx !== -1) {
+        dayData.offDuty[alreadyOffIdx] = {
+          ...dayData.offDuty[alreadyOffIdx],
+          status: 'Leave',
+          cycleInfo: '휴가'
+        };
+      }
+
+      shiftTypes.forEach(shiftType => {
+        const arr = dayData[shiftType];
+        if (!Array.isArray(arr)) return;
+        const idx = arr.findIndex(n => n.id === leave.nurseId);
+        if (idx === -1) return; // 이 교대엔 배정 안 되어 있었음
+
+        const leaveNurse = arr[idx];
+
+        // 대체자 후보: 그날 이미 쉬고 있는 사람 중, 이 교대 누적이 가장 적은 사람
+        const candidates = dayData.offDuty.filter(n => n.id !== leave.nurseId);
+        if (candidates.length === 0) {
+          notes.push(`${dateStr} ${shiftLabel(shiftType)}: ${leaveNurse.name} 휴가지만 대체 인력을 찾지 못해 인원이 부족합니다`);
+          return;
+        }
+        candidates.sort((a, b) => {
+          const ah = (histByNurseId.get(a.id) || {})[shiftType] || 0;
+          const bh = (histByNurseId.get(b.id) || {})[shiftType] || 0;
+          return ah - bh;
+        });
+        const replacement = candidates[0];
+        const replacementFull = nurseById.get(replacement.id) || replacement;
+
+        // 근무 배열에서 교체
+        arr.splice(idx, 1, {
+          id: replacementFull.id,
+          name: replacementFull.name,
+          qualification: replacementFull.qualification,
+          experience: replacementFull.experience
+        });
+
+        // offDuty에서 대체자 빼고, 휴가자를 넣음
+        const offIdx = dayData.offDuty.findIndex(n => n.id === replacement.id);
+        if (offIdx !== -1) dayData.offDuty.splice(offIdx, 1);
+        dayData.offDuty.push({
+          id: leaveNurse.id,
+          name: leaveNurse.name,
+          qualification: leaveNurse.qualification,
+          experience: leaveNurse.experience,
+          daysRemaining: 0,
+          status: 'Leave',
+          cycleInfo: '휴가'
+        });
+
+        // 누적 통계 보정 (대시보드 정확도 유지)
+        const leaveHist = histByNurseId.get(leaveNurse.id) || {};
+        leaveHist[shiftType] = Math.max(0, (leaveHist[shiftType] || 0) - 1);
+        histByNurseId.set(leaveNurse.id, leaveHist);
+        const replHist = histByNurseId.get(replacementFull.id) || {};
+        replHist[shiftType] = (replHist[shiftType] || 0) + 1;
+        histByNurseId.set(replacementFull.id, replHist);
+
+        notes.push(`${dateStr} ${shiftLabel(shiftType)}: ${leaveNurse.name}(휴가) → ${replacementFull.name} 대체`);
+      });
+    }
+  });
+
+  const finalUpdatedNurses = updatedNurses.map(n => ({
+    ...n,
+    historicalDaysByShift: histByNurseId.get(n.id) || n.historicalDaysByShift
+  }));
+
+  return { roster, updatedNurses: finalUpdatedNurses, notes };
+};
