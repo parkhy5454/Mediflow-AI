@@ -1,7 +1,10 @@
 // src/components/Layout/Header.jsx
-import React from 'react';
+import React, { useState } from 'react';
+import ProfileEditModal from './ProfileEditModal';
 
-const Header = ({ activeNurses, currentUser, onLogout }) => {
+const Header = ({ activeNurses, currentUser, onLogout, onUserUpdate }) => {
+  const [showProfileModal, setShowProfileModal] = useState(false);
+
   return (
     
     <div style={{ 
@@ -51,6 +54,20 @@ const Header = ({ activeNurses, currentUser, onLogout }) => {
                 )}
               </span>
               <button
+                onClick={() => setShowProfileModal(true)}
+                style={{
+                  fontSize: '12px',
+                  padding: '6px 12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  backgroundColor: 'white',
+                  color: '#374151',
+                  cursor: 'pointer'
+                }}
+              >
+                내 정보
+              </button>
+              <button
                 onClick={onLogout}
                 style={{
                   fontSize: '12px',
@@ -68,6 +85,14 @@ const Header = ({ activeNurses, currentUser, onLogout }) => {
           )}
         </div>
       </div>
+
+      {showProfileModal && (
+        <ProfileEditModal
+          currentUser={currentUser}
+          onClose={() => setShowProfileModal(false)}
+          onSaved={(updatedUser) => onUserUpdate && onUserUpdate(updatedUser)}
+        />
+      )}
     </div>
   );
 };
