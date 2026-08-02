@@ -102,17 +102,30 @@ export const useNurses = (currentUser) => {
     return true;
   };
 
-  // 근무표 생성 후 여러 간호사의 상태(lastShiftType 등)를 한 번에 갱신할 때 사용
+  // 근무표 생성 후 여러 간호사의 상태(lastShiftType, historicalDaysByShift 등)를 한 번에 갱신할 때 사용
+  // [수정] 예전엔 서버 응답의 성공/실패를 전혀 확인하지 않아서, 저장이 실패해도 콘솔에만 조용히
+  // 로그가 찍히고 화면(nurses 상태)은 이미 낙관적으로 바뀐 채로 남아 있었다. 그래서 새로고침 전까지는
+  // "잘 된 것처럼" 보이다가, 새로고침하면 실제로는 저장 안 된 값(0 등)이 드러나는 문제가 반복됐다.
+  // 이제는 res.ok를 꼭 확인해서 실패하면 사용자에게 바로 알리고, 호출한 쪽에서도 성공 여부를 알 수 있게 반환한다.
   const updateNurses = async (updatedNurses) => {
     setNurses(updatedNurses);
     try {
-      await fetch('/api/nurses/bulk', {
+      const res = await fetch('/api/nurses/bulk', {
         method: 'PUT',
         headers: authHeaders(currentUser, true),
         body: JSON.stringify({ nurses: updatedNurses })
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        console.error('간호사 일괄 저장 실패:', data);
+        alert(`간호사 정보(누적 통계 포함) 서버 저장에 실패했습니다: ${data.error || '알 수 없는 오류'}\n근무표는 만들어졌지만 통계가 정확하지 않을 수 있으니, 개발자에게 문의해주세요.`);
+        return false;
+      }
+      return true;
     } catch (err) {
       console.error('간호사 일괄 저장 실패:', err);
+      alert('간호사 정보 서버 저장 중 네트워크 오류가 발생했습니다. 인터넷 연결을 확인하고 근무표를 다시 생성해주세요.');
+      return false;
     }
   };
 
