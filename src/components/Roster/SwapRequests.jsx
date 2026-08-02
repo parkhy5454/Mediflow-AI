@@ -185,7 +185,15 @@ const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, select
             요청자: {r.createdByUserName} · {new Date(r.createdAt).toLocaleString()}
           </div>
           {r.reviewNote && (
-            <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>처리 메모: {r.reviewNote}</div>
+            <div style={{
+              marginTop: '6px', padding: '8px 10px', borderRadius: '6px',
+              backgroundColor: r.status === 'rejected' ? '#fef2f2' : '#f0fdf4',
+              border: `1px solid ${r.status === 'rejected' ? '#fecaca' : '#bbf7d0'}`,
+              fontSize: '13px', fontWeight: '700',
+              color: r.status === 'rejected' ? '#991b1b' : '#166534'
+            }}>
+              처리 메모: {r.reviewNote}
+            </div>
           )}
         </div>
 
