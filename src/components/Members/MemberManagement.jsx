@@ -12,7 +12,8 @@ const AUDIT_ACTION_LABEL = {
   swap_approved: '근무 변경 승인',
   swap_rejected: '근무 변경 거절',
   leave_approved: '휴가 승인',
-  leave_rejected: '휴가 거절'
+  leave_rejected: '휴가 거절',
+  subscription_card_registered: '결제 카드 등록'
 };
 
 const MemberManagement = ({ currentUser, onUserUpdate }) => {
