@@ -115,7 +115,9 @@ const Login = ({ onLoginSuccess }) => {
         return;
       }
 
-      onLoginSuccess(data.user);
+      // [수정] 서버가 발급한 서명된 토큰(token)을 user 정보와 함께 저장한다.
+      // 이후 모든 API 요청은 이 토큰으로 인증하며, uuid만으로는 더 이상 인증되지 않는다.
+      onLoginSuccess({ ...data.user, token: data.token });
     } catch (err) {
       console.error(err);
       setError('서버와 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
