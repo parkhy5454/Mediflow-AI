@@ -29,11 +29,13 @@ const daysBetween = (start, end) => {
   return Math.round((e - s) / (1000 * 60 * 60 * 24)) + 1;
 };
 
-const LeaveRequests = ({ currentUser }) => {
+const LeaveRequests = ({ currentUser, nurses }) => {
   const { requests, loading, error, createRequest, cancelRequest, decide } = useLeaveRequests(currentUser);
   const isAdmin = currentUser.role === 'admin';
+  const activeNurses = (nurses || []).filter(n => n.status === 'active');
 
   const [formOpen, setFormOpen] = useState(false);
+  const [nurseId, setNurseId] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [reason, setReason] = useState('');
@@ -44,12 +46,16 @@ const LeaveRequests = ({ currentUser }) => {
   const [rejectNote, setRejectNote] = useState('');
 
   const resetForm = () => {
-    setStartDate(''); setEndDate(''); setReason(''); setSubmitError('');
+    setNurseId(''); setStartDate(''); setEndDate(''); setReason(''); setSubmitError('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitError('');
+    if (!nurseId) {
+      setSubmitError('본인이 어떤 간호사인지 선택해주세요.');
+      return;
+    }
     if (!startDate || !endDate) {
       setSubmitError('시작일과 종료일을 선택해주세요.');
       return;
@@ -59,7 +65,7 @@ const LeaveRequests = ({ currentUser }) => {
       return;
     }
     setSubmitting(true);
-    const result = await createRequest({ startDate, endDate, reason });
+    const result = await createRequest({ nurseId, startDate, endDate, reason });
     setSubmitting(false);
     if (result.success) {
       resetForm();
@@ -106,7 +112,7 @@ const LeaveRequests = ({ currentUser }) => {
             <span style={{ fontSize: '11px', color: '#9ca3af' }}>{daysBetween(r.startDate, r.endDate)}일</span>
           </div>
           <div style={{ fontSize: '13px', color: '#1f2937', fontWeight: '500' }}>
-            {r.requesterName} — {r.startDate} ~ {r.endDate}
+            {r.nurseName || r.requesterName} — {r.startDate} ~ {r.endDate}
           </div>
           {r.reason && <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>사유: {r.reason}</div>}
           <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px' }}>
@@ -176,6 +182,15 @@ const LeaveRequests = ({ currentUser }) => {
 
       {formOpen && (
         <form onSubmit={handleSubmit} style={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '16px', marginBottom: '20px' }}>
+          <div style={{ marginBottom: '14px' }}>
+            <label style={labelStyle}>본인 (간호사 선택)</label>
+            <select value={nurseId} onChange={e => setNurseId(e.target.value)} style={inputStyle}>
+              <option value="">선택</option>
+              {activeNurses.map(n => (
+                <option key={n.id} value={n.id}>{n.name}</option>
+              ))}
+            </select>
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
             <div>
               <label style={labelStyle}>시작일</label>
