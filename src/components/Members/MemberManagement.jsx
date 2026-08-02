@@ -180,6 +180,7 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
                       )}
                     </div>
                     <div style={{ fontSize: '12px', color: '#6b7280' }}>{m.email}</div>
+                    {m.phone && <div style={{ fontSize: '12px', color: '#9ca3af' }}>{m.phone}</div>}
                   </div>
                   <div style={{ flex: 1 }}>
                     <span style={{
