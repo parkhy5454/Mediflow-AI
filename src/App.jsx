@@ -176,7 +176,7 @@ const HospitalRosterSystem = () => {
         try {
           const res = await fetch('/api/subscription/register-card', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentUser.token}` },
             body: JSON.stringify({ authKey, customerKey })
           });
           const data = await res.json();
@@ -205,7 +205,7 @@ const HospitalRosterSystem = () => {
         try {
           const res = await fetch('/api/subscription/prepay/confirm', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentUser.token}` },
             body: JSON.stringify({ years, paymentKey, orderId, amount })
           });
           const data = await res.json();
