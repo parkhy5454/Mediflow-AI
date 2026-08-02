@@ -1,6 +1,7 @@
 // src/components/Auth/Login.jsx
 import React, { useState, useEffect } from 'react';
 import { formatPhoneNumber } from '../../utils/phoneUtils';
+import TermsModal from './TermsModal';
 
 const Login = ({ onLoginSuccess }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -18,6 +19,8 @@ const Login = ({ onLoginSuccess }) => {
   const [checkingHospital, setCheckingHospital] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
 
   const resetSignupFields = () => {
     setName('');
@@ -27,6 +30,7 @@ const Login = ({ onLoginSuccess }) => {
     setWantsAdmin(false);
     setHospitalHasAdmin(null);
     setExistingHospitalName(null);
+    setAgreedToTerms(false);
   };
 
   // 병원 코드를 입력하는 동안(0.5초 멈추면) 그 병원에 이미 관리자가 있는지 + 기존 병원명을 서버에 확인.
@@ -78,6 +82,10 @@ const Login = ({ onLoginSuccess }) => {
       setError('비밀번호는 영문과 숫자를 포함해 8자 이상이어야 합니다.');
       return;
     }
+    if (!isLogin && !agreedToTerms) {
+      setError('이용약관 및 개인정보처리방침에 동의해야 회원가입할 수 있습니다.');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -91,7 +99,8 @@ const Login = ({ onLoginSuccess }) => {
             phone: phone.trim(),
             hospitalName: hospitalName.trim(),
             hospitalCode: hospitalCode.trim(),
-            wantsAdmin: hospitalHasAdmin === false && wantsAdmin === true
+            wantsAdmin: hospitalHasAdmin === false && wantsAdmin === true,
+            agreedToTerms: true
           };
 
       const res = await fetch(endpoint, {
@@ -282,6 +291,25 @@ const Login = ({ onLoginSuccess }) => {
                   이 병원은 이미 관리자가 등록되어 있어 일반 사용자로 가입됩니다. 관리자 권한이 필요하면 가입 후 병원 관리자에게 요청하세요.
                 </p>
               )}
+
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '13px', color: '#374151', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={agreedToTerms}
+                  onChange={(e) => setAgreedToTerms(e.target.checked)}
+                  style={{ marginTop: '2px' }}
+                />
+                <span>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); setShowTermsModal(true); }}
+                    style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', textDecoration: 'underline', cursor: 'pointer', fontSize: '13px' }}
+                  >
+                    이용약관 및 개인정보처리방침
+                  </button>
+                  에 동의합니다. (필수)
+                </span>
+              </label>
             </>
           )}
 
@@ -343,6 +371,8 @@ const Login = ({ onLoginSuccess }) => {
           {isLogin ? '계정이 없으신가요? 회원가입' : '이미 계정이 있으신가요? 로그인'}
         </p>
       </div>
+
+      {showTermsModal && <TermsModal onClose={() => setShowTermsModal(false)} />}
     </div>
   );
 };
