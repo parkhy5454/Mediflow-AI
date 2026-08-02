@@ -1046,8 +1046,8 @@ app.put('/api/swap-requests/:id/decision', async (req, res) => {
     const roster = rosterRow.roster_data;
 
     const [{ data: fromNurseFull }, { data: toNurseFull }] = await Promise.all([
-      supabase.from('mediflow_nurses').select('id, name, qualification, experience').eq('id', swapReq.from_nurse_id).maybeSingle(),
-      supabase.from('mediflow_nurses').select('id, name, qualification, experience').eq('id', swapReq.to_nurse_id).maybeSingle()
+      supabase.from('mediflow_nurses').select('id, name, qualification, experience, historical_days_by_shift').eq('id', swapReq.from_nurse_id).maybeSingle(),
+      supabase.from('mediflow_nurses').select('id, name, qualification, experience, historical_days_by_shift').eq('id', swapReq.to_nurse_id).maybeSingle()
     ]);
     if (!fromNurseFull || !toNurseFull) {
       return res.status(409).json({ error: '간호사 정보를 찾을 수 없습니다. (삭제되었을 수 있음)' });
@@ -1084,6 +1084,35 @@ app.put('/api/swap-requests/:id/decision', async (req, res) => {
         status: 'Swapped',
         cycleInfo: `대타 승인 (${toNurseFull.name}(으)로 교체)`
       });
+    }
+
+    // [추가] 실제로 일한 근무가 바뀌었으니, 대시보드 통계(누적 교대 분포)에 쓰이는
+    // historical_days_by_shift도 스왑 결과에 맞게 같이 조정한다.
+    // 안 맞춰주면 다음 달 근무표 자동 생성 때 "덜 일한 줄 알고" 잘못 배정하게 됨.
+    const clampNonNegative = (n) => Math.max(0, n || 0);
+    const fromHist = { ...(fromNurseFull.historical_days_by_shift || {}) };
+    const toHist = { ...(toNurseFull.historical_days_by_shift || {}) };
+
+    if (swapReq.request_type === 'swap') {
+      // from간호사: 원래 근무(from_shift_type) -1, 새로 맡은 근무(to_shift_type) +1
+      fromHist[swapReq.from_shift_type] = clampNonNegative((fromHist[swapReq.from_shift_type] || 0) - 1);
+      fromHist[swapReq.to_shift_type] = (fromHist[swapReq.to_shift_type] || 0) + 1;
+      // to간호사: 반대로
+      toHist[swapReq.to_shift_type] = clampNonNegative((toHist[swapReq.to_shift_type] || 0) - 1);
+      toHist[swapReq.from_shift_type] = (toHist[swapReq.from_shift_type] || 0) + 1;
+    } else {
+      // cover: 같은 교대(from_shift_type)를 from간호사 대신 to간호사가 하루 더 한 것
+      fromHist[swapReq.from_shift_type] = clampNonNegative((fromHist[swapReq.from_shift_type] || 0) - 1);
+      toHist[swapReq.from_shift_type] = (toHist[swapReq.from_shift_type] || 0) + 1;
+    }
+
+    const { error: histUpdateError } = await supabase.from('mediflow_nurses').upsert([
+      { id: fromNurseFull.id, historical_days_by_shift: fromHist },
+      { id: toNurseFull.id, historical_days_by_shift: toHist }
+    ], { onConflict: 'id' });
+    if (histUpdateError) {
+      // 통계 보정이 실패해도 근무표 자체는 이미 정상 반영됐으니 요청을 실패로 처리하진 않고 로그만 남긴다.
+      console.error('swap request historical stats update error:', histUpdateError);
     }
 
     const { error: rosterSaveError } = await supabase
