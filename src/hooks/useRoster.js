@@ -1,7 +1,7 @@
 // src/hooks/useRoster.js (4교대 D/E/N/M 시스템, 서버 API 기반 저장)
 // [수정] localStorage 대신 서버 API(Supabase)를 통해 병원별로 근무표를 저장/조회한다.
 import { useState, useEffect } from 'react';
-import { generateRoster } from '../services/rosterGenerator';
+import { generateRoster, applyApprovedLeaveToRoster } from '../services/rosterGenerator';
 import { getDaysInMonth } from '../utils/dateUtils';
 
 export const useRoster = (nurses, selectedMonth, selectedYear, updateNurses, currentUser) => {
@@ -43,27 +43,48 @@ export const useRoster = (nurses, selectedMonth, selectedYear, updateNurses, cur
     }).catch(err => console.error('근무표 저장 실패:', err));
   };
 
-  const generateBalancedRoster = (rosterConfig) => {
+  const generateBalancedRoster = (rosterConfig, approvedLeaves = []) => {
     const activeNurses = nurses.filter(nurse => nurse.status === 'active');
     const daysInMonth = getDaysInMonth(selectedMonth, selectedYear);
     
     const result = generateRoster(activeNurses, daysInMonth, rosterConfig);
     
     if (result.success) {
-      setRoster(prev => ({ ...prev, [monthKey]: result.roster }));
-      saveRosterToServer(monthKey, result.roster);
+      let finalRoster = result.roster;
+      let finalUpdatedNurses = result.updatedNurses;
+      let leaveNotes = [];
+
+      // 승인된 휴가가 있으면, 생성된 근무표에서 해당 날짜의 배정을 대체 인력으로 바꾼다.
+      if (approvedLeaves && approvedLeaves.length > 0) {
+        const applied = applyApprovedLeaveToRoster({
+          roster: finalRoster,
+          updatedNurses: finalUpdatedNurses,
+          activeNurses,
+          approvedLeaves,
+          daysInMonth,
+          selectedYear,
+          selectedMonth,
+          shiftTypes: result.shiftTypes
+        });
+        finalRoster = applied.roster;
+        finalUpdatedNurses = applied.updatedNurses;
+        leaveNotes = applied.notes;
+      }
+
+      setRoster(prev => ({ ...prev, [monthKey]: finalRoster }));
+      saveRosterToServer(monthKey, finalRoster);
       
       // Update nurses with new lastShiftType information
-      if (result.updatedNurses && updateNurses) {
+      if (finalUpdatedNurses && updateNurses) {
         // Merge updated nurses with existing inactive nurses
         const inactiveNurses = nurses.filter(nurse => nurse.status !== 'active');
-        const allUpdatedNurses = [...result.updatedNurses, ...inactiveNurses];
+        const allUpdatedNurses = [...finalUpdatedNurses, ...inactiveNurses];
         updateNurses(allUpdatedNurses);
       }
       
       return { 
         success: true, 
-        message: result.message, 
+        message: result.message + (leaveNotes.length > 0 ? `\n\n🏖 승인된 휴가 반영:\n${leaveNotes.join('\n')}` : ''), 
         workloadSummary: result.workloadSummary,
         continuityInfo: result.continuityInfo,
         shiftTypes: result.shiftTypes
