@@ -214,12 +214,13 @@
 // export default RosterView;
 
 // src/components/Roster/RosterView.jsx (Updated with Cycle Continuity)
-import React from 'react';
+import React, { useState } from 'react';
 import { Calendar, Info } from 'lucide-react';
 import MonthSelector from './MonthSelector';
 import RosterTable from './RosterTable';
 import ExportButtons from './ExportButtons';
 import CycleContinuityDisplay from './CycleContinuityDisplay';
+import RosterResultModal from './RosterResultModal';
 import { getMonthName } from '../../utils/dateUtils';
 import { shiftLabel } from '../../constants/shiftTypes';
 
@@ -236,6 +237,8 @@ const RosterView = ({
 }) => {
   const monthRoster = getCurrentMonthRoster();
   const hasRosterData = Object.keys(monthRoster).length > 0;
+  // [수정] alert() 대신 예쁜 모달로 근무표 생성 결과를 보여주기 위한 상태
+  const [rosterResult, setRosterResult] = useState(null);
 
   // [추가] 예전(간호사 명단이 바뀌기 전) 근무표를 지우는 기능. 되돌릴 수 없어 확인창을 띄운다.
   const handleClearRoster = () => {
@@ -250,14 +253,7 @@ const RosterView = ({
   const handleGenerateRoster = () => {
     const result = generateBalancedRoster();
     if (result && result.message) {
-      // Enhanced alert with continuity information
-      let alertMessage = result.message;
-      
-      if (result.continuityInfo && result.continuityInfo.nursesInTransition > 0) {
-        alertMessage += `\n\n🔄 근무 주기 연속성: 간호사 ${result.continuityInfo.nursesInTransition}명이 현재 근무 주기를 다음 달로 이어서 계속합니다.`;
-      }
-      
-      alert(alertMessage);
+      setRosterResult(result);
     }
   };
 
@@ -504,6 +500,10 @@ const RosterView = ({
         getCurrentMonthRoster={getCurrentMonthRoster}
         rosterConfig={rosterConfig}
       />
+
+      {rosterResult && (
+        <RosterResultModal result={rosterResult} onClose={() => setRosterResult(null)} />
+      )}
     </div>
   );
 };
