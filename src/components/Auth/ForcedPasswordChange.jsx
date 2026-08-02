@@ -35,7 +35,7 @@ const ForcedPasswordChange = ({ currentUser, onChanged }) => {
     try {
       const res = await fetch('/api/auth/change-password', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentUser.token}` },
         body: JSON.stringify({ newPassword })
       });
       const data = await res.json();
