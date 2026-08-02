@@ -8,24 +8,31 @@ export const useRoster = (nurses, selectedMonth, selectedYear, updateNurses, cur
   const [roster, setRoster] = useState({});
   const monthKey = `${selectedYear}-${selectedMonth}`;
 
-  // 선택된 달이 바뀌면 그 달의 근무표를 서버에서 불러온다 (이미 불러온 적 있으면 캐시된 값 유지)
-  useEffect(() => {
+  // 근무표를 서버에서 불러와 roster 상태에 반영. month 인자를 안 주면 현재 monthKey를 쓴다.
+  // [추가] 근무 변경 요청 승인처럼, 다른 화면에서 서버의 근무표를 직접 수정한 뒤
+  // 이 함수를 호출해 화면(roster 상태)을 최신 상태로 강제 갱신할 수 있도록 외부에 노출한다.
+  const fetchRosterForMonth = async (key = monthKey) => {
     if (!currentUser) return;
-    (async () => {
-      try {
-        const res = await fetch(`/api/roster/${monthKey}`, {
-          headers: { 'x-user-id': currentUser.id }
-        });
-        const data = await res.json();
-        if (res.ok) {
-          setRoster(prev => ({ ...prev, [monthKey]: data.roster || {} }));
-        }
-      } catch (err) {
-        console.error('근무표 조회 실패:', err);
+    try {
+      const res = await fetch(`/api/roster/${key}`, {
+        headers: { 'x-user-id': currentUser.id }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setRoster(prev => ({ ...prev, [key]: data.roster || {} }));
       }
-    })();
+    } catch (err) {
+      console.error('근무표 조회 실패:', err);
+    }
+  };
+
+  // 선택된 달이 바뀌면 그 달의 근무표를 서버에서 불러온다
+  useEffect(() => {
+    fetchRosterForMonth(monthKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [monthKey, currentUser?.id]);
+
+  const refetchRoster = () => fetchRosterForMonth(monthKey);
 
   const saveRosterToServer = (key, rosterData) => {
     if (!currentUser) return;
@@ -156,6 +163,7 @@ export const useRoster = (nurses, selectedMonth, selectedYear, updateNurses, cur
     getRosterStats,
     generateNurseAssignmentChart,
     clearRoster,
-    hasRosterData
+    hasRosterData,
+    refetchRoster
   };
 };
