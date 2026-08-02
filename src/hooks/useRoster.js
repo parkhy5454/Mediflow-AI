@@ -6,6 +6,8 @@ import { getDaysInMonth } from '../utils/dateUtils';
 
 export const useRoster = (nurses, selectedMonth, selectedYear, updateNurses, currentUser) => {
   const [roster, setRoster] = useState({});
+  // [추가] 발행 상태(잠금 여부)를 월별로 따로 관리. roster_data와 달리 메타 정보라서 분리.
+  const [rosterMeta, setRosterMeta] = useState({});
   const monthKey = `${selectedYear}-${selectedMonth}`;
 
   // 근무표를 서버에서 불러와 roster 상태에 반영. month 인자를 안 주면 현재 monthKey를 쓴다.
@@ -20,6 +22,14 @@ export const useRoster = (nurses, selectedMonth, selectedYear, updateNurses, cur
       const data = await res.json();
       if (res.ok) {
         setRoster(prev => ({ ...prev, [key]: data.roster || {} }));
+        setRosterMeta(prev => ({
+          ...prev,
+          [key]: {
+            isPublished: !!data.isPublished,
+            publishedAt: data.publishedAt || null,
+            publishedByName: data.publishedByName || null
+          }
+        }));
       }
     } catch (err) {
       console.error('근무표 조회 실패:', err);
@@ -44,6 +54,10 @@ export const useRoster = (nurses, selectedMonth, selectedYear, updateNurses, cur
   };
 
   const generateBalancedRoster = (rosterConfig, approvedLeaves = []) => {
+    if (rosterMeta[monthKey]?.isPublished) {
+      return { success: false, message: '이 근무표는 이미 발행되어 있어 재생성할 수 없습니다. 먼저 발행을 취소해주세요.' };
+    }
+
     const activeNurses = nurses.filter(nurse => nurse.status === 'active');
     const daysInMonth = getDaysInMonth(selectedMonth, selectedYear);
     
@@ -161,6 +175,10 @@ export const useRoster = (nurses, selectedMonth, selectedYear, updateNurses, cur
 
   const clearRoster = (month, year) => {
     const key = `${year}-${month}`;
+    if (rosterMeta[key]?.isPublished) {
+      alert('이 근무표는 이미 발행되어 있어 초기화할 수 없습니다. 먼저 발행을 취소해주세요.');
+      return false;
+    }
     setRoster(prev => {
       const newRoster = { ...prev };
       delete newRoster[key];
@@ -172,6 +190,45 @@ export const useRoster = (nurses, selectedMonth, selectedYear, updateNurses, cur
         headers: { 'x-user-id': currentUser.id }
       }).catch(err => console.error('근무표 삭제 실패:', err));
     }
+    return true;
+  };
+
+  // [추가] 근무표 발행 / 발행 취소 (관리자만 서버에서 허용됨)
+  const publishRoster = async (month = selectedMonth, year = selectedYear) => {
+    const key = `${year}-${month}`;
+    if (!currentUser) return { success: false, message: '로그인이 필요합니다.' };
+    try {
+      const res = await fetch(`/api/roster/${key}/publish`, {
+        method: 'PUT',
+        headers: { 'x-user-id': currentUser.id }
+      });
+      const data = await res.json();
+      if (!res.ok) return { success: false, message: data.error || '발행에 실패했습니다.' };
+      setRosterMeta(prev => ({
+        ...prev,
+        [key]: { isPublished: true, publishedAt: new Date().toISOString(), publishedByName: currentUser.name }
+      }));
+      return { success: true };
+    } catch (err) {
+      return { success: false, message: '발행 중 오류가 발생했습니다.' };
+    }
+  };
+
+  const unpublishRoster = async (month = selectedMonth, year = selectedYear) => {
+    const key = `${year}-${month}`;
+    if (!currentUser) return { success: false, message: '로그인이 필요합니다.' };
+    try {
+      const res = await fetch(`/api/roster/${key}/unpublish`, {
+        method: 'PUT',
+        headers: { 'x-user-id': currentUser.id }
+      });
+      const data = await res.json();
+      if (!res.ok) return { success: false, message: data.error || '발행 취소에 실패했습니다.' };
+      setRosterMeta(prev => ({ ...prev, [key]: { isPublished: false, publishedAt: null, publishedByName: null } }));
+      return { success: true };
+    } catch (err) {
+      return { success: false, message: '발행 취소 중 오류가 발생했습니다.' };
+    }
   };
 
   const hasRosterData = (month = selectedMonth, year = selectedYear) => {
@@ -181,12 +238,15 @@ export const useRoster = (nurses, selectedMonth, selectedYear, updateNurses, cur
 
   return {
     roster,
+    rosterMeta,
     generateBalancedRoster,
     getCurrentMonthRoster,
     getRosterStats,
     generateNurseAssignmentChart,
     clearRoster,
     hasRosterData,
-    refetchRoster
+    refetchRoster,
+    publishRoster,
+    unpublishRoster
   };
 };
