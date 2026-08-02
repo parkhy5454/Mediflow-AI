@@ -1,6 +1,7 @@
 // src/components/Admin/AdminDashboard.jsx
 // 개발자(운영자) 전용: 모든 병원의 가입/사용 현황 + 사용자 문의함을 보는 대시보드.
 import React, { useState, useEffect } from 'react';
+import { formatPhoneNumber } from '../../utils/phoneUtils';
 import {
   Building2, Users, UserCheck, Calendar, Loader2, RefreshCw, ChevronDown, ChevronUp,
   Inbox, Bug, Lightbulb, HelpCircle, Mail, Phone, Clock, CheckCircle2
@@ -256,7 +257,7 @@ const AdminDashboard = ({ currentUser }) => {
                             }}>
                               <span>
                                 {m.name} <span style={{ color: '#9ca3af', fontSize: '11px' }}>({m.email})</span>
-                                {m.phone && <span style={{ color: '#9ca3af', fontSize: '11px' }}> · {m.phone}</span>}
+                                {m.phone && <span style={{ color: '#9ca3af', fontSize: '11px' }}> · {formatPhoneNumber(m.phone)}</span>}
                               </span>
                               <span style={{
                                 fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '10px',
@@ -366,7 +367,7 @@ const AdminDashboard = ({ currentUser }) => {
                           </a>
                           {f.user_phone && (
                             <a href={`tel:${f.user_phone}`} style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#4f46e5', textDecoration: 'none' }}>
-                              <Phone size={12} /> {f.user_phone}
+                              <Phone size={12} /> {formatPhoneNumber(f.user_phone)}
                             </a>
                           )}
                         </div>
