@@ -42,9 +42,10 @@ const toPublicUser = (u) => ({
 });
 
 // ------------------------------------------------------------------
-// 병원 코드 상태 조회 (회원가입 화면에서 "관리자로 가입" 선택지를 보여줄지 판단용)
-// 그 병원 코드로 가입된 관리자가 1명이라도 있으면 hasAdmin: true를 내려준다.
-// (관리자가 있는 병원에서는 새 가입자가 관리자를 자칭할 수 없도록 프론트에서 이 값으로 선택지를 숨김)
+// 병원 코드 상태 조회 (회원가입 화면에서 "관리자로 가입" 선택지 표시 여부 + 병원명 자동입력용)
+// - hasAdmin: 그 병원 코드로 가입된 관리자가 1명이라도 있는지
+// - hospitalName: 그 병원 코드로 이미 가입된 사람이 있으면 그 병원명(최초 등록된 이름으로 통일).
+//   없으면 null → 새 병원이라는 뜻이므로 가입자가 직접 병원명을 입력해서 정한다.
 // ------------------------------------------------------------------
 app.get('/api/auth/hospital-status', async (req, res) => {
   try {
@@ -53,16 +54,18 @@ app.get('/api/auth/hospital-status', async (req, res) => {
       return res.status(400).json({ error: '병원 코드가 필요합니다.' });
     }
 
-    const { data: admins, error } = await supabase
+    const { data: existingMembers, error } = await supabase
       .from('mediflow_users')
-      .select('id')
+      .select('role, hospital_name, created_at')
       .eq('hospital_code', code)
-      .eq('role', 'admin')
-      .limit(1);
+      .order('created_at', { ascending: true });
 
     if (error) throw error;
 
-    res.json({ hasAdmin: !!(admins && admins.length > 0) });
+    const hasAdmin = (existingMembers || []).some(m => m.role === 'admin');
+    const hospitalName = existingMembers && existingMembers.length > 0 ? existingMembers[0].hospital_name : null;
+
+    res.json({ hasAdmin, hospitalName });
   } catch (err) {
     console.error('hospital-status error:', err);
     res.status(500).json({ error: '병원 코드 확인 중 오류가 발생했습니다.' });
@@ -101,18 +104,21 @@ app.post('/api/auth/signup', async (req, res) => {
       return res.status(409).json({ error: '이미 가입된 이메일입니다.' });
     }
 
-    // 그 병원(hospitalCode)에 관리자가 이미 있는지 확인.
-    // 있으면 wantsAdmin이 true여도 무시하고 무조건 member로 배정 (프론트 조작/레이스 컨디션 방지용 서버측 최종 검증)
-    const { data: existingAdmins, error: adminCheckError } = await supabase
+    // 그 병원(hospitalCode)에 이미 가입된 사람이 있는지 확인.
+    // 있으면: 1) 관리자 여부와 무관하게 role을 member로 강제, 2) 병원명도 클라이언트가 뭘 보냈든
+    //         무시하고 기존(최초 가입자가 정한) 병원명으로 통일한다. (오타/불일치 방지, 프론트 우회 방지용 서버측 최종 검증)
+    const { data: existingHospitalMembers, error: hospitalCheckError } = await supabase
       .from('mediflow_users')
-      .select('id')
+      .select('role, hospital_name')
       .eq('hospital_code', normalizedHospitalCode)
-      .eq('role', 'admin')
-      .limit(1);
+      .order('created_at', { ascending: true });
 
-    if (adminCheckError) throw adminCheckError;
-    const hospitalHasAdmin = existingAdmins && existingAdmins.length > 0;
+    if (hospitalCheckError) throw hospitalCheckError;
+    const hospitalHasAdmin = (existingHospitalMembers || []).some(m => m.role === 'admin');
     const role = (!hospitalHasAdmin && wantsAdmin === true) ? 'admin' : 'member';
+    const resolvedHospitalName = existingHospitalMembers && existingHospitalMembers.length > 0
+      ? existingHospitalMembers[0].hospital_name
+      : hospitalName.trim();
 
     const passwordHash = bcrypt.hashSync(password, 10);
 
@@ -123,7 +129,7 @@ app.post('/api/auth/signup', async (req, res) => {
         password: passwordHash,
         name: name.trim(),
         phone: phone ? phone.trim() : null,
-        hospital_name: hospitalName.trim(),
+        hospital_name: resolvedHospitalName,
         hospital_code: normalizedHospitalCode,
         role
       })
