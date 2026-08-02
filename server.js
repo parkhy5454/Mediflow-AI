@@ -476,44 +476,12 @@ app.post('/api/nurses', async (req, res) => {
   }
 });
 
-// 간호사 정보/상태 수정 (같은 병원 소속만)
-app.put('/api/nurses/:id', async (req, res) => {
-  try {
-    const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
-
-    const updates = {};
-    const body = req.body;
-    if (body.status !== undefined) updates.status = body.status;
-    if (body.name !== undefined) updates.name = body.name;
-    if (body.qualification !== undefined) updates.qualification = body.qualification;
-    if (body.experience !== undefined) updates.experience = body.experience;
-    if (body.department !== undefined) updates.department = body.department;
-    if (body.lastShiftType !== undefined) updates.last_shift_type = body.lastShiftType;
-    if (body.lastShiftCycleDay !== undefined) updates.last_shift_cycle_day = body.lastShiftCycleDay;
-    if (body.lastOffDutyRemaining !== undefined) updates.last_off_duty_remaining = body.lastOffDutyRemaining;
-    if (body.lastShiftPreference !== undefined) updates.last_shift_preference = body.lastShiftPreference;
-    if (body.historicalDaysByShift !== undefined) updates.historical_days_by_shift = body.historicalDaysByShift;
-    updates.updated_at = new Date().toISOString();
-
-    const { data, error } = await supabase
-      .from('mediflow_nurses')
-      .update(updates)
-      .eq('id', req.params.id)
-      .eq('hospital_code', requester.hospital_code)
-      .select()
-      .single();
-
-    if (error) throw error;
-    if (!data) return res.status(404).json({ error: '간호사를 찾을 수 없습니다.' });
-    res.json(toPublicNurse(data));
-  } catch (err) {
-    console.error('nurse update error:', err);
-    res.status(500).json({ error: '간호사 정보 수정 중 오류가 발생했습니다.' });
-  }
-});
-
-// 간호사 여러 명을 한 번에 upsert (근무표 생성 후 lastShiftType 등을 일괄 갱신할 때 사용)
+// [수정] /api/nurses/bulk 를 /api/nurses/:id 보다 먼저 등록해야 한다.
+// Express는 라우트를 등록 순서대로 검사하므로, :id 같은 와일드카드가 먼저 있으면
+// "bulk"라는 경로까지 id="bulk"인 것으로 착각해서 가로채버린다.
+// (이 순서 문제 때문에 /api/nurses/bulk 요청이 지금까지 한 번도 제대로 실행된 적이 없었음 —
+//  근무표 생성 후 간호사 누적 통계가 계속 저장 안 되던 문제의 진짜 원인)
+// 간호사 여러 명을 한 번에 upsert (근무표 생성 후 lastShiftType, historicalDaysByShift 등을 일괄 갱신할 때 사용)
 app.put('/api/nurses/bulk', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
@@ -550,6 +518,43 @@ app.put('/api/nurses/bulk', async (req, res) => {
   } catch (err) {
     console.error('nurse bulk update error:', err);
     res.status(500).json({ error: '간호사 일괄 수정 중 오류가 발생했습니다.' });
+  }
+});
+
+// 간호사 정보/상태 수정 (같은 병원 소속만)
+app.put('/api/nurses/:id', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+    const updates = {};
+    const body = req.body;
+    if (body.status !== undefined) updates.status = body.status;
+    if (body.name !== undefined) updates.name = body.name;
+    if (body.qualification !== undefined) updates.qualification = body.qualification;
+    if (body.experience !== undefined) updates.experience = body.experience;
+    if (body.department !== undefined) updates.department = body.department;
+    if (body.lastShiftType !== undefined) updates.last_shift_type = body.lastShiftType;
+    if (body.lastShiftCycleDay !== undefined) updates.last_shift_cycle_day = body.lastShiftCycleDay;
+    if (body.lastOffDutyRemaining !== undefined) updates.last_off_duty_remaining = body.lastOffDutyRemaining;
+    if (body.lastShiftPreference !== undefined) updates.last_shift_preference = body.lastShiftPreference;
+    if (body.historicalDaysByShift !== undefined) updates.historical_days_by_shift = body.historicalDaysByShift;
+    updates.updated_at = new Date().toISOString();
+
+    const { data, error } = await supabase
+      .from('mediflow_nurses')
+      .update(updates)
+      .eq('id', req.params.id)
+      .eq('hospital_code', requester.hospital_code)
+      .select()
+      .single();
+
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: '간호사를 찾을 수 없습니다.' });
+    res.json(toPublicNurse(data));
+  } catch (err) {
+    console.error('nurse update error:', err);
+    res.status(500).json({ error: '간호사 정보 수정 중 오류가 발생했습니다.' });
   }
 });
 
