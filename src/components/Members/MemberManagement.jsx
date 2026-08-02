@@ -1,6 +1,6 @@
 // src/components/Members/MemberManagement.jsx
 import React, { useState, useEffect } from 'react';
-import { UserCheck, ShieldCheck, Loader2 } from 'lucide-react';
+import { UserCheck, ShieldCheck, Loader2, KeyRound, Copy, X } from 'lucide-react';
 import { formatPhoneNumber } from '../../utils/phoneUtils';
 
 const MemberManagement = ({ currentUser, onUserUpdate }) => {
@@ -9,6 +9,9 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
   const [error, setError] = useState('');
   const [updatingId, setUpdatingId] = useState(null);
   const [actionError, setActionError] = useState('');
+  const [resettingId, setResettingId] = useState(null);
+  // 방금 발급한 임시 비밀번호. 딱 한 번만 화면에 보여주고, 닫으면 다시는 어디서도 볼 수 없다.
+  const [resetResult, setResetResult] = useState(null);
 
   const fetchMembers = async () => {
     setLoading(true);
@@ -57,6 +60,25 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
       setActionError(err.message || '역할 변경 중 오류가 발생했습니다.');
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  const resetPassword = async (targetId) => {
+    if (!window.confirm('이 회원의 비밀번호를 초기화하시겠습니까? 기존 비밀번호는 더 이상 쓸 수 없게 됩니다.')) return;
+    setActionError('');
+    setResettingId(targetId);
+    try {
+      const res = await fetch(`/api/auth/users/${targetId}/reset-password`, {
+        method: 'PUT',
+        headers: { 'x-user-id': currentUser.id }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '비밀번호 초기화에 실패했습니다.');
+      setResetResult(data);
+    } catch (err) {
+      setActionError(err.message || '비밀번호 초기화 중 오류가 발생했습니다.');
+    } finally {
+      setResettingId(null);
     }
   };
 
@@ -196,7 +218,7 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
                     </span>
                   </div>
                   {isAdmin && (
-                    <div style={{ flex: 2, display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                    <div style={{ flex: 2, display: 'flex', justifyContent: 'flex-end', gap: '8px', flexWrap: 'wrap' }}>
                       {!isMe ? (
                         <>
                           <button
@@ -231,6 +253,23 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
                           >
                             일반 사용자로 지정
                           </button>
+                          <button
+                            disabled={resettingId === m.id}
+                            onClick={() => resetPassword(m.id)}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: '4px',
+                              fontSize: '11px',
+                              padding: '5px 10px',
+                              borderRadius: '6px',
+                              border: '1px solid #fca5a5',
+                              backgroundColor: '#fef2f2',
+                              color: '#b91c1c',
+                              cursor: resettingId === m.id ? 'not-allowed' : 'pointer',
+                              opacity: resettingId === m.id ? 0.5 : 1
+                            }}
+                          >
+                            <KeyRound size={12} /> {resettingId === m.id ? '초기화 중...' : '비밀번호 초기화'}
+                          </button>
                         </>
                       ) : (
                         <span style={{ fontSize: '11px', color: '#9ca3af' }}>본인은 변경 불가</span>
@@ -248,6 +287,54 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
         <UserCheck size={14} />
         총 {members.length}명의 회원이 {currentUser.hospitalName}에 소속되어 있습니다.
       </p>
+
+      {resetResult && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000, padding: '20px'
+        }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '24px', width: '100%', maxWidth: '380px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <KeyRound size={18} style={{ color: '#3b82f6' }} />
+                <h3 style={{ margin: 0, fontSize: '16px', color: '#1f2937' }}>임시 비밀번호 발급됨</h3>
+              </div>
+              <button onClick={() => setResetResult(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}>
+                <X size={18} />
+              </button>
+            </div>
+            <p style={{ fontSize: '13px', color: '#6b7280', margin: '8px 0 16px' }}>
+              <strong>{resetResult.userName}</strong>님({resetResult.userEmail})에게 아래 임시 비밀번호를 전화나 메시지로 직접 전달해주세요.
+              이 창을 닫으면 다시는 확인할 수 없습니다.
+            </p>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              backgroundColor: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: '8px',
+              padding: '12px 14px', marginBottom: '16px'
+            }}>
+              <span style={{ fontSize: '18px', fontWeight: '700', color: '#1f2937', letterSpacing: '1px', fontFamily: 'monospace' }}>
+                {resetResult.tempPassword}
+              </span>
+              <button
+                onClick={() => navigator.clipboard?.writeText(resetResult.tempPassword)}
+                style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 10px', borderRadius: '6px', border: '1px solid #d1d5db', backgroundColor: 'white', fontSize: '11px', cursor: 'pointer' }}
+              >
+                <Copy size={12} /> 복사
+              </button>
+            </div>
+            <p style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '16px' }}>
+              이 사용자는 다음 로그인 시 이 임시 비밀번호로 들어온 뒤, 반드시 본인만 아는 새 비밀번호로 바꿔야 계속 사용할 수 있습니다.
+            </p>
+            <button
+              onClick={() => setResetResult(null)}
+              style={{ width: '100%', padding: '10px', borderRadius: '6px', border: 'none', backgroundColor: '#3b82f6', color: 'white', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}
+            >
+              확인, 전달했습니다
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
