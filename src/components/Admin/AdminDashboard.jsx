@@ -271,7 +271,7 @@ const AdminDashboard = ({ currentUser }) => {
                           가입 회원 목록
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '14px' }}>
-                          {h.members.map((m, idx) => (
+                          {[...h.members].sort((a, b) => (a.role === 'admin' ? 0 : 1) - (b.role === 'admin' ? 0 : 1)).map((m, idx) => (
                             <div key={idx} style={{
                               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                               fontSize: '13px', padding: '6px 10px', backgroundColor: '#f9fafb', borderRadius: '6px', gap: '8px'
