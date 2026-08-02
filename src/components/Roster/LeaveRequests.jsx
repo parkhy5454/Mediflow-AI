@@ -112,7 +112,17 @@ const LeaveRequests = ({ currentUser }) => {
           <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px' }}>
             신청일: {new Date(r.createdAt).toLocaleString()}
           </div>
-          {r.reviewNote && <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>처리 메모: {r.reviewNote}</div>}
+          {r.reviewNote && (
+            <div style={{
+              marginTop: '6px', padding: '8px 10px', borderRadius: '6px',
+              backgroundColor: r.status === 'rejected' ? '#fef2f2' : '#f0fdf4',
+              border: `1px solid ${r.status === 'rejected' ? '#fecaca' : '#bbf7d0'}`,
+              fontSize: '13px', fontWeight: '700',
+              color: r.status === 'rejected' ? '#991b1b' : '#166534'
+            }}>
+              처리 메모: {r.reviewNote}
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end' }}>
