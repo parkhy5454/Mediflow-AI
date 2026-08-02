@@ -1,5 +1,6 @@
 // src/components/Auth/Login.jsx
 import React, { useState, useEffect } from 'react';
+import { formatPhoneNumber } from '../../utils/phoneUtils';
 
 const Login = ({ onLoginSuccess }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -197,7 +198,7 @@ const Login = ({ onLoginSuccess }) => {
                 <input
                   type="tel"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
                   placeholder="010-1234-5678"
                   style={inputStyle}
                 />
