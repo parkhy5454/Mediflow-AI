@@ -32,7 +32,7 @@ const ProfileEditModal = ({ currentUser, onClose, onSaved }) => {
     try {
       const res = await fetch('/api/auth/profile', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentUser.token}` },
         body: JSON.stringify({ name: name.trim(), phone: phone.trim() })
       });
       const data = await res.json();
