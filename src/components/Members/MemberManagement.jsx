@@ -7,6 +7,8 @@ const AUDIT_ACTION_LABEL = {
   role_change: '권한 변경',
   password_reset: '비밀번호 초기화',
   roster_delete: '근무표 삭제',
+  roster_publish: '근무표 발행',
+  roster_unpublish: '근무표 발행 취소',
   swap_approved: '근무 변경 승인',
   swap_rejected: '근무 변경 거절',
   leave_approved: '휴가 승인',
