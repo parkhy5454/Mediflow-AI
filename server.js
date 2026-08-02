@@ -1723,7 +1723,8 @@ const toPublicSubscription = (s) => ({
   cardCompany: s.card_company,
   cardLast4: s.card_last4,
   pricePerNurse: s.price_per_nurse,
-  nextBillingDate: s.next_billing_date
+  nextBillingDate: s.next_billing_date,
+  prepaidUntil: s.prepaid_until
 });
 
 // 그 병원의 활성 간호사 수를 센다 (요금 계산 기준)
@@ -1812,6 +1813,7 @@ app.get('/api/subscription/billing-history', async (req, res) => {
       amount: h.amount,
       nurseCount: h.nurse_count_at_billing,
       status: h.status,
+      type: h.type || 'monthly',
       failureReason: h.failure_reason,
       billedAt: h.billed_at
     })));
@@ -1878,6 +1880,105 @@ app.post('/api/subscription/register-card', async (req, res) => {
   } catch (err) {
     console.error('register card error:', err);
     res.status(500).json({ error: '카드 등록 중 오류가 발생했습니다.' });
+  }
+});
+
+// 다년 선결제 할인율: 1년 10%, 2년 15%, 3년 20%, 4년 25%, 5년 30%
+const PREPAY_DISCOUNTS = { 1: 0.10, 2: 0.15, 3: 0.20, 4: 0.25, 5: 0.30 };
+
+// 선결제 금액 계산 (요청 위조 방지를 위해 서버에서 항상 다시 계산해서 검증에 사용)
+const calcPrepayAmount = (nurseCount, pricePerNurse, years) => {
+  const discount = PREPAY_DISCOUNTS[years];
+  if (discount === undefined) return null;
+  const fullAmount = nurseCount * pricePerNurse * 12 * years;
+  return Math.round(fullAmount * (1 - discount));
+};
+
+// 선결제 확정 — 프론트에서 토스 결제창(1회성 결제)이 성공한 뒤 이 API로 검증+반영한다.
+app.post('/api/subscription/prepay/confirm', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    if (requester.role !== 'admin') return res.status(403).json({ error: '관리자만 선결제를 진행할 수 있습니다.' });
+    if (!TOSS_SECRET_KEY) return res.status(500).json({ error: '결제 서비스가 아직 설정되지 않았습니다.' });
+
+    const { years, paymentKey, orderId, amount } = req.body;
+    const yearsNum = Number(years);
+    if (!PREPAY_DISCOUNTS[yearsNum]) {
+      return res.status(400).json({ error: '올바르지 않은 선결제 기간입니다.' });
+    }
+    if (!paymentKey || !orderId || !amount) {
+      return res.status(400).json({ error: 'paymentKey, orderId, amount가 필요합니다.' });
+    }
+
+    // 클라이언트가 보낸 금액이 조작되지 않았는지 서버에서 다시 계산해서 확인
+    const subscription = await ensureSubscription(requester.hospital_code);
+    const nurseCount = await countActiveNurses(requester.hospital_code);
+    const expectedAmount = calcPrepayAmount(nurseCount, subscription.price_per_nurse || 3000, yearsNum);
+    if (expectedAmount !== Number(amount)) {
+      return res.status(400).json({ error: '결제 금액이 일치하지 않습니다. 다시 시도해주세요.' });
+    }
+
+    // 토스페이먼츠 결제 승인(확정) API 호출
+    const tossRes = await fetch(`${TOSS_API_BASE}/payments/confirm`, {
+      method: 'POST',
+      headers: { Authorization: tossAuthHeader(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paymentKey, orderId, amount: Number(amount) })
+    });
+    const tossData = await tossRes.json();
+    if (!tossRes.ok) {
+      console.error('toss prepay confirm failed:', tossData);
+      await supabase.from('mediflow_billing_history').insert({
+        hospital_code: requester.hospital_code,
+        amount: Number(amount),
+        nurse_count_at_billing: nurseCount,
+        status: 'failed',
+        type: 'prepay',
+        failure_reason: tossData.message || '결제 승인 실패'
+      });
+      return res.status(400).json({ error: tossData.message || '결제 승인에 실패했습니다.' });
+    }
+
+    // 이미 선결제가 남아있으면 그 이후부터, 아니면 오늘부터 N년 연장
+    const now = new Date();
+    const currentPrepaidUntil = subscription.prepaid_until ? new Date(subscription.prepaid_until) : null;
+    const baseDate = currentPrepaidUntil && currentPrepaidUntil > now ? currentPrepaidUntil : now;
+    const newPrepaidUntil = new Date(baseDate);
+    newPrepaidUntil.setFullYear(newPrepaidUntil.getFullYear() + yearsNum);
+    const newPrepaidUntilStr = newPrepaidUntil.toISOString().slice(0, 10);
+
+    const { error: updateError } = await supabase
+      .from('mediflow_subscriptions')
+      .update({
+        status: 'active',
+        prepaid_until: newPrepaidUntilStr,
+        next_billing_date: newPrepaidUntilStr, // 선결제 기간 동안은 자동청구가 이 날짜까지 안 일어남
+        updated_at: new Date().toISOString()
+      })
+      .eq('hospital_code', requester.hospital_code);
+    if (updateError) throw updateError;
+
+    await supabase.from('mediflow_billing_history').insert({
+      hospital_code: requester.hospital_code,
+      amount: Number(amount),
+      nurse_count_at_billing: nurseCount,
+      status: 'success',
+      type: 'prepay',
+      toss_payment_key: paymentKey
+    });
+
+    logAudit({
+      hospitalCode: requester.hospital_code,
+      actorUserId: requester.id,
+      actorName: requester.name,
+      action: 'subscription_prepaid',
+      targetDescription: `${yearsNum}년 선결제 완료 (${Number(amount).toLocaleString()}원, ~${newPrepaidUntilStr})`
+    });
+
+    res.json({ success: true, prepaidUntil: newPrepaidUntilStr });
+  } catch (err) {
+    console.error('prepay confirm error:', err);
+    res.status(500).json({ error: '선결제 처리 중 오류가 발생했습니다.' });
   }
 });
 
