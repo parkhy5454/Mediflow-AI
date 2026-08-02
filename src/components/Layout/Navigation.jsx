@@ -14,9 +14,9 @@ const Navigation = ({ activeTab, setActiveTab, currentUser }) => {
     { id: 'roster', label: '근무표', icon: Calendar },
     { id: 'swap-requests', label: '근무 변경 요청', icon: Repeat },
     { id: 'leave-requests', label: '휴가 신청', icon: Umbrella },
+    { id: 'settings', label: '근무표 설정', icon: Settings },
     { id: 'members', label: '회원 관리', icon: UserCheck },
     { id: 'subscription', label: '구독 관리', icon: CreditCard },
-    { id: 'settings', label: '설정', icon: Settings },
     ...(isDeveloperAccount ? [{ id: 'admin', label: '운영자 대시보드', icon: ShieldCheck }] : [])
   ];
 
