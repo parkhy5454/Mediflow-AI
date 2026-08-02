@@ -39,7 +39,7 @@ const selectStyle = {
 
 const labelStyle = { display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: '600', color: '#374151' };
 
-const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, selectedYear, getCurrentMonthRoster }) => {
+const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, selectedYear, getCurrentMonthRoster, refetchRoster }) => {
   const { requests, loading, error, createRequest, volunteer, cancelRequest, decide } = useSwapRequests(currentUser, selectedYear, selectedMonth);
 
   const shiftTypes = rosterConfig?.shifts ? Object.keys(rosterConfig.shifts) : [];
@@ -133,7 +133,12 @@ const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, select
     setBusyId(requestId);
     const result = await decide(requestId, 'approved');
     setBusyId(null);
-    if (!result.success) alert(result.message);
+    if (!result.success) {
+      alert(result.message);
+    } else if (refetchRoster) {
+      // 승인으로 서버의 근무표가 바뀌었으니, 캘린더/대시보드가 보고 있는 roster 상태도 다시 불러와서 맞춰준다.
+      refetchRoster();
+    }
   };
 
   const handleReject = async (requestId) => {
