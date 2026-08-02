@@ -64,7 +64,9 @@ export const useRoster = (nurses, selectedMonth, selectedYear, updateNurses, cur
       return { 
         success: true, 
         message: result.message, 
-        workloadSummary: result.workloadSummary 
+        workloadSummary: result.workloadSummary,
+        continuityInfo: result.continuityInfo,
+        shiftTypes: result.shiftTypes
       };
     } else {
       return { success: false, message: result.message };
