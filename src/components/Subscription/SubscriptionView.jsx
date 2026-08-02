@@ -27,12 +27,21 @@ const daysLeft = (dateStr) => {
 };
 
 const SubscriptionView = ({ currentUser }) => {
-  const { subscription, billingHistory, loading, error, registerCard } = useSubscription(currentUser);
+  const { subscription, billingHistory, loading, error, registerCard, cancelSubscription } = useSubscription(currentUser);
   const [registering, setRegistering] = useState(false);
   const [registerError, setRegisterError] = useState('');
   const [prepayingYears, setPrepayingYears] = useState(null);
   const [prepayError, setPrepayError] = useState('');
+  const [cancelling, setCancelling] = useState(false);
   const isAdmin = currentUser.role === 'admin';
+
+  const handleCancelSubscription = async () => {
+    if (!window.confirm('정말 구독을 해지하시겠습니까? 다음 결제부터 자동으로 청구되지 않습니다.')) return;
+    setCancelling(true);
+    const result = await cancelSubscription();
+    setCancelling(false);
+    if (!result.success) alert(result.message);
+  };
 
   const handleRegisterCard = async () => {
     setRegisterError('');
@@ -145,6 +154,11 @@ const SubscriptionView = ({ currentUser }) => {
             최근 결제가 실패했습니다. 카드 정보를 확인하고 다시 등록해주세요.
           </p>
         )}
+        {subscription?.status === 'cancelled' && (
+          <p style={{ margin: 0, fontSize: '13px', color: statusInfo.color }}>
+            구독이 해지되어 자동결제가 중단된 상태입니다. 다시 시작하려면 카드를 등록해주세요.
+          </p>
+        )}
         {subscription?.prepaidUntil && new Date(subscription.prepaidUntil) > new Date() && (
           <p style={{ margin: '6px 0 0', fontSize: '13px', color: statusInfo.color }}>
             🏷️ 선결제 적용 중 — {formatDate(subscription.prepaidUntil)}까지 자동결제가 청구되지 않습니다.
@@ -253,6 +267,19 @@ const SubscriptionView = ({ currentUser }) => {
         )}
         {registerError && (
           <p style={{ color: '#dc2626', fontSize: '12px', marginTop: '10px' }}>{registerError}</p>
+        )}
+        {isAdmin && subscription?.status !== 'cancelled' && (
+          <button
+            onClick={handleCancelSubscription}
+            disabled={cancelling}
+            style={{
+              marginTop: '10px', padding: '0', border: 'none', background: 'none',
+              color: '#9ca3af', fontSize: '11px', textDecoration: 'underline',
+              cursor: cancelling ? 'not-allowed' : 'pointer', display: 'block'
+            }}
+          >
+            {cancelling ? '처리 중...' : '구독 해지하기'}
+          </button>
         )}
       </div>
 
