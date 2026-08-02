@@ -175,13 +175,16 @@ const HospitalRosterSystem = () => {
 
   const {
     roster,
+    rosterMeta,
     generateBalancedRoster,
     getCurrentMonthRoster,
     getRosterStats,
     generateNurseAssignmentChart,
     clearRoster,
     hasRosterData,
-    refetchRoster
+    refetchRoster,
+    publishRoster,
+    unpublishRoster
   } = useRoster(nurses, selectedMonth, selectedYear, updateNurses, currentUser);
 
   const { rosterConfig, updateRosterConfig } = useRosterConfig(currentUser);
@@ -257,6 +260,9 @@ const HospitalRosterSystem = () => {
             currentUser={currentUser}
             generateBalancedRoster={(approvedLeaves) => generateBalancedRoster(rosterConfig, approvedLeaves)}
             clearRoster={() => clearRoster(selectedMonth, selectedYear)}
+            rosterMeta={rosterMeta}
+            publishRoster={publishRoster}
+            unpublishRoster={unpublishRoster}
           />
         )}
 
