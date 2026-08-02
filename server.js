@@ -766,18 +766,35 @@ app.get('/api/roster/:monthKey', async (req, res) => {
 
     const { data, error } = await supabase
       .from('mediflow_roster')
-      .select('roster_data')
+      .select('roster_data, is_published, published_at, published_by_name')
       .eq('hospital_code', requester.hospital_code)
       .eq('month_key', req.params.monthKey)
       .maybeSingle();
 
     if (error) throw error;
-    res.json({ roster: data ? data.roster_data : {} });
+    res.json({
+      roster: data ? data.roster_data : {},
+      isPublished: !!(data && data.is_published),
+      publishedAt: data?.published_at || null,
+      publishedByName: data?.published_by_name || null
+    });
   } catch (err) {
     console.error('roster get error:', err);
     res.status(500).json({ error: '근무표 조회 중 오류가 발생했습니다.' });
   }
 });
+
+// 발행된 근무표인지 확인하는 공용 헬퍼 (수정/삭제 시 재사용)
+const checkRosterPublished = async (hospitalCode, monthKey) => {
+  const { data, error } = await supabase
+    .from('mediflow_roster')
+    .select('is_published')
+    .eq('hospital_code', hospitalCode)
+    .eq('month_key', monthKey)
+    .maybeSingle();
+  if (error) throw error;
+  return !!(data && data.is_published);
+};
 
 app.put('/api/roster/:monthKey', async (req, res) => {
   try {
@@ -786,6 +803,12 @@ app.put('/api/roster/:monthKey', async (req, res) => {
 
     const { roster } = req.body;
     if (!roster) return res.status(400).json({ error: 'roster 데이터가 필요합니다.' });
+
+    // [추가] 발행된 근무표는 통째로 덮어쓰기(재생성 저장)를 막는다.
+    // (근무 변경/휴가 승인처럼 부분 수정하는 다른 엔드포인트들은 이 검사를 거치지 않으므로 계속 동작함)
+    if (await checkRosterPublished(requester.hospital_code, req.params.monthKey)) {
+      return res.status(403).json({ error: '발행된 근무표는 재생성할 수 없습니다. 먼저 발행을 취소해주세요.' });
+    }
 
     const { error } = await supabase
       .from('mediflow_roster')
@@ -804,10 +827,83 @@ app.put('/api/roster/:monthKey', async (req, res) => {
   }
 });
 
+// 근무표 발행 (관리자만) — 발행하면 실수로 재생성/삭제되지 않도록 잠긴다.
+app.put('/api/roster/:monthKey/publish', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    if (requester.role !== 'admin') return res.status(403).json({ error: '관리자만 발행할 수 있습니다.' });
+
+    const { error } = await supabase
+      .from('mediflow_roster')
+      .update({
+        is_published: true,
+        published_at: new Date().toISOString(),
+        published_by_user_id: requester.id,
+        published_by_name: requester.name
+      })
+      .eq('hospital_code', requester.hospital_code)
+      .eq('month_key', req.params.monthKey);
+    if (error) throw error;
+
+    logAudit({
+      hospitalCode: requester.hospital_code,
+      actorUserId: requester.id,
+      actorName: requester.name,
+      action: 'roster_publish',
+      targetDescription: `${req.params.monthKey} 근무표 발행`
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('roster publish error:', err);
+    res.status(500).json({ error: '근무표 발행 중 오류가 발생했습니다.' });
+  }
+});
+
+// 근무표 발행 취소 (관리자만)
+app.put('/api/roster/:monthKey/unpublish', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    if (requester.role !== 'admin') return res.status(403).json({ error: '관리자만 발행을 취소할 수 있습니다.' });
+
+    const { error } = await supabase
+      .from('mediflow_roster')
+      .update({
+        is_published: false,
+        published_at: null,
+        published_by_user_id: null,
+        published_by_name: null
+      })
+      .eq('hospital_code', requester.hospital_code)
+      .eq('month_key', req.params.monthKey);
+    if (error) throw error;
+
+    logAudit({
+      hospitalCode: requester.hospital_code,
+      actorUserId: requester.id,
+      actorName: requester.name,
+      action: 'roster_unpublish',
+      targetDescription: `${req.params.monthKey} 근무표 발행 취소`
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('roster unpublish error:', err);
+    res.status(500).json({ error: '근무표 발행 취소 중 오류가 발생했습니다.' });
+  }
+});
+
 app.delete('/api/roster/:monthKey', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
     if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+    // [추가] 발행된 근무표는 삭제도 막는다.
+    if (await checkRosterPublished(requester.hospital_code, req.params.monthKey)) {
+      return res.status(403).json({ error: '발행된 근무표는 삭제할 수 없습니다. 먼저 발행을 취소해주세요.' });
+    }
 
     const { error } = await supabase
       .from('mediflow_roster')
