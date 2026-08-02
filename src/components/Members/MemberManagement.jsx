@@ -1,6 +1,7 @@
 // src/components/Members/MemberManagement.jsx
 import React, { useState, useEffect } from 'react';
 import { UserCheck, ShieldCheck, Loader2 } from 'lucide-react';
+import { formatPhoneNumber } from '../../utils/phoneUtils';
 
 const MemberManagement = ({ currentUser, onUserUpdate }) => {
   const [members, setMembers] = useState([]);
@@ -180,7 +181,7 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
                       )}
                     </div>
                     <div style={{ fontSize: '12px', color: '#6b7280' }}>{m.email}</div>
-                    {m.phone && <div style={{ fontSize: '12px', color: '#9ca3af' }}>{m.phone}</div>}
+                    {m.phone && <div style={{ fontSize: '12px', color: '#9ca3af' }}>{formatPhoneNumber(m.phone)}</div>}
                   </div>
                   <div style={{ flex: 1 }}>
                     <span style={{
