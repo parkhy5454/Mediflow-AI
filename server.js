@@ -1724,7 +1724,14 @@ const toPublicSubscription = (s) => ({
   cardLast4: s.card_last4,
   pricePerNurse: s.price_per_nurse,
   nextBillingDate: s.next_billing_date,
-  prepaidUntil: s.prepaid_until
+  prepaidUntil: s.prepaid_until,
+  bizRegistrationNumber: s.biz_registration_number,
+  bizCompanyName: s.biz_company_name,
+  bizCeoName: s.biz_ceo_name,
+  bizAddress: s.biz_address,
+  bizType: s.biz_type,
+  bizCategory: s.biz_category,
+  invoiceEmail: s.invoice_email
 });
 
 // 그 병원의 활성 간호사 수를 센다 (요금 계산 기준)
@@ -1815,6 +1822,7 @@ app.get('/api/subscription/billing-history', async (req, res) => {
       status: h.status,
       type: h.type || 'monthly',
       failureReason: h.failure_reason,
+      receiptUrl: h.receipt_url,
       billedAt: h.billed_at
     })));
   } catch (err) {
@@ -1995,14 +2003,19 @@ app.post('/api/subscription/prepay/confirm', async (req, res) => {
       .eq('hospital_code', requester.hospital_code);
     if (updateError) throw updateError;
 
-    await supabase.from('mediflow_billing_history').insert({
+    const { data: insertedHistory } = await supabase.from('mediflow_billing_history').insert({
       hospital_code: requester.hospital_code,
       amount: Number(amount),
       nurse_count_at_billing: nurseCount,
       status: 'success',
       type: 'prepay',
-      toss_payment_key: paymentKey
-    });
+      toss_payment_key: paymentKey,
+      receipt_url: tossData.receipt?.url || null
+    }).select().single();
+
+    // [수정] 카드 결제는 "신용카드매출전표"가 세금계산서를 대신하는 정식 증빙이라
+    // 결제 성공 시 자동으로 전자세금계산서를 발행하지 않는다.
+    // 병원이 회계상 굳이 필요하다고 요청하면 관리자가 결제 내역에서 수동으로 발행한다.
 
     logAudit({
       hospitalCode: requester.hospital_code,
@@ -2070,16 +2083,18 @@ app.post('/api/subscription/run-billing', async (req, res) => {
         const tossData = await tossRes.json();
 
         if (tossRes.ok) {
-          await supabase.from('mediflow_billing_history').insert({
+          const { data: insertedHistory } = await supabase.from('mediflow_billing_history').insert({
             hospital_code: sub.hospital_code,
             amount,
             nurse_count_at_billing: nurseCount,
             status: 'success',
-            toss_payment_key: tossData.paymentKey
-          });
+            toss_payment_key: tossData.paymentKey,
+            receipt_url: tossData.receipt?.url || null
+          }).select().single();
           await supabase.from('mediflow_subscriptions')
             .update({ status: 'active', next_billing_date: nextDateStr, updated_at: new Date().toISOString() })
             .eq('hospital_code', sub.hospital_code);
+          // [수정] 카드 결제는 신용카드매출전표가 정식 증빙이라 자동 발행하지 않음 (수동 발행만 지원)
           results.push({ hospitalCode: sub.hospital_code, success: true, amount });
         } else {
           await supabase.from('mediflow_billing_history').insert({
