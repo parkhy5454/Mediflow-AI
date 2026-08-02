@@ -1435,6 +1435,8 @@ const toPublicLeaveRequest = (l) => ({
   status: l.status,
   userId: l.user_id,
   requesterName: l.requester_name,
+  nurseId: l.nurse_id,
+  nurseName: l.nurse_name,
   reviewedByUserId: l.reviewed_by_user_id,
   reviewNote: l.review_note,
   createdAt: l.created_at,
@@ -1446,13 +1448,25 @@ app.post('/api/leave-requests', async (req, res) => {
     const requester = await getRequesterHospital(req);
     if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
 
-    const { startDate, endDate, reason } = req.body;
+    const { startDate, endDate, reason, nurseId } = req.body;
     if (!startDate || !endDate) {
       return res.status(400).json({ error: '시작일과 종료일을 입력해주세요.' });
     }
     if (new Date(endDate) < new Date(startDate)) {
       return res.status(400).json({ error: '종료일이 시작일보다 빠를 수 없습니다.' });
     }
+    if (!nurseId) {
+      return res.status(400).json({ error: '본인이 어떤 간호사인지 선택해주세요. (근무표 자동 제외 반영을 위해 필요합니다)' });
+    }
+
+    const { data: nurse, error: nurseError } = await supabase
+      .from('mediflow_nurses')
+      .select('id, name')
+      .eq('id', nurseId)
+      .eq('hospital_code', requester.hospital_code)
+      .maybeSingle();
+    if (nurseError) throw nurseError;
+    if (!nurse) return res.status(404).json({ error: '간호사를 찾을 수 없습니다.' });
 
     const { data: inserted, error } = await supabase
       .from('leave_requests')
@@ -1460,6 +1474,8 @@ app.post('/api/leave-requests', async (req, res) => {
         hospital_code: requester.hospital_code,
         user_id: requester.id,
         requester_name: requester.name,
+        nurse_id: nurse.id,
+        nurse_name: nurse.name,
         start_date: startDate,
         end_date: endDate,
         reason: reason || null,
