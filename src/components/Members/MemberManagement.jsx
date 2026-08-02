@@ -35,7 +35,7 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
     setError('');
     try {
       const res = await fetch('/api/auth/users', {
-        headers: { 'x-user-id': currentUser.id }
+        headers: { 'Authorization': `Bearer ${currentUser.token}` }
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '회원 목록을 가져오지 못했습니다.');
@@ -50,7 +50,7 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
   const fetchAuditLog = async () => {
     setAuditLoading(true);
     try {
-      const res = await fetch('/api/audit-log', { headers: { 'x-user-id': currentUser.id } });
+      const res = await fetch('/api/audit-log', { headers: { 'Authorization': `Bearer ${currentUser.token}` } });
       const data = await res.json();
       if (res.ok) setAuditLog(data);
     } catch (err) {
@@ -76,7 +76,7 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
     try {
       const res = await fetch(`/api/auth/users/${targetId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentUser.token}` },
         body: JSON.stringify({ role: newRole })
       });
       const data = await res.json();
@@ -102,7 +102,7 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
     try {
       const res = await fetch(`/api/auth/users/${targetId}/reset-password`, {
         method: 'PUT',
-        headers: { 'x-user-id': currentUser.id }
+        headers: { 'Authorization': `Bearer ${currentUser.token}` }
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '비밀번호 초기화에 실패했습니다.');
