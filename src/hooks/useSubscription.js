@@ -54,5 +54,20 @@ export const useSubscription = (currentUser) => {
     }
   };
 
-  return { subscription, billingHistory, loading, error, fetchSubscription, registerCard };
+  const cancelSubscription = async () => {
+    try {
+      const res = await fetch('/api/subscription/cancel', {
+        method: 'PUT',
+        headers: authHeaders(currentUser, true)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '구독 해지에 실패했습니다.');
+      await fetchSubscription();
+      return { success: true };
+    } catch (err) {
+      return { success: false, message: err.message };
+    }
+  };
+
+  return { subscription, billingHistory, loading, error, fetchSubscription, registerCard, cancelSubscription };
 };
