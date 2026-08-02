@@ -1,7 +1,15 @@
 // src/components/Members/MemberManagement.jsx
 import React, { useState, useEffect } from 'react';
-import { UserCheck, ShieldCheck, Loader2, KeyRound, Copy, X } from 'lucide-react';
+import { UserCheck, ShieldCheck, Loader2, KeyRound, Copy, X, History } from 'lucide-react';
 import { formatPhoneNumber } from '../../utils/phoneUtils';
+
+const AUDIT_ACTION_LABEL = {
+  role_change: '권한 변경',
+  password_reset: '비밀번호 초기화',
+  roster_delete: '근무표 삭제',
+  swap_approved: '근무 변경 승인',
+  swap_rejected: '근무 변경 거절'
+};
 
 const MemberManagement = ({ currentUser, onUserUpdate }) => {
   const [members, setMembers] = useState([]);
@@ -12,6 +20,8 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
   const [resettingId, setResettingId] = useState(null);
   // 방금 발급한 임시 비밀번호. 딱 한 번만 화면에 보여주고, 닫으면 다시는 어디서도 볼 수 없다.
   const [resetResult, setResetResult] = useState(null);
+  const [auditLog, setAuditLog] = useState([]);
+  const [auditLoading, setAuditLoading] = useState(false);
 
   const fetchMembers = async () => {
     setLoading(true);
@@ -30,8 +40,22 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
     }
   };
 
+  const fetchAuditLog = async () => {
+    setAuditLoading(true);
+    try {
+      const res = await fetch('/api/audit-log', { headers: { 'x-user-id': currentUser.id } });
+      const data = await res.json();
+      if (res.ok) setAuditLog(data);
+    } catch (err) {
+      console.error('감사 로그 조회 실패:', err);
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchMembers();
+    if (currentUser.role === 'admin') fetchAuditLog();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -56,6 +80,7 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
       if (targetId === currentUser.id && onUserUpdate) {
         onUserUpdate({ role: newRole });
       }
+      fetchAuditLog();
     } catch (err) {
       setActionError(err.message || '역할 변경 중 오류가 발생했습니다.');
     } finally {
@@ -75,6 +100,7 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '비밀번호 초기화에 실패했습니다.');
       setResetResult(data);
+      fetchAuditLog();
     } catch (err) {
       setActionError(err.message || '비밀번호 초기화 중 오류가 발생했습니다.');
     } finally {
@@ -287,6 +313,48 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
         <UserCheck size={14} />
         총 {members.length}명의 회원이 {currentUser.hospitalName}에 소속되어 있습니다.
       </p>
+
+      {isAdmin && (
+        <div style={{ marginTop: '28px' }}>
+          <h3 style={{ fontSize: '14px', color: '#1f2937', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+            <History size={16} /> 최근 관리자 활동
+          </h3>
+          {auditLoading ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#9ca3af', fontSize: '12px', padding: '10px 0' }}>
+              <Loader2 size={14} className="animate-spin" /> 불러오는 중...
+            </div>
+          ) : auditLog.length === 0 ? (
+            <p style={{ fontSize: '12px', color: '#9ca3af' }}>아직 기록된 활동이 없습니다.</p>
+          ) : (
+            <div style={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '10px', overflow: 'hidden' }}>
+              {auditLog.map((l, idx) => (
+                <div
+                  key={l.id}
+                  style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px',
+                    padding: '10px 16px',
+                    borderBottom: idx === auditLog.length - 1 ? 'none' : '1px solid #f3f4f6'
+                  }}
+                >
+                  <div style={{ fontSize: '13px', color: '#374151' }}>
+                    <span style={{
+                      fontSize: '10px', fontWeight: '700', padding: '2px 7px', borderRadius: '10px',
+                      backgroundColor: '#eff6ff', color: '#1d4ed8', marginRight: '8px'
+                    }}>
+                      {AUDIT_ACTION_LABEL[l.action] || l.action}
+                    </span>
+                    {l.targetDescription}
+                    <span style={{ color: '#9ca3af' }}> — {l.actorName}</span>
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#9ca3af', flexShrink: 0 }}>
+                    {new Date(l.createdAt).toLocaleString()}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {resetResult && (
         <div style={{
