@@ -2,6 +2,7 @@
 // 모든 로그인 사용자가 버그신고/기능제안/기타 문의를 보낼 수 있는 플로팅 버튼 + 모달.
 import React, { useState } from 'react';
 import { MessageCircle, X, Bug, Lightbulb, HelpCircle, CheckCircle2 } from 'lucide-react';
+import { formatPhoneNumber } from '../../utils/phoneUtils';
 
 const TYPE_OPTIONS = [
   { value: 'bug', label: '버그 신고', icon: Bug, color: '#dc2626' },
@@ -178,7 +179,7 @@ const FeedbackButton = ({ currentUser }) => {
                   <input
                     type="tel"
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
                     placeholder="010-0000-0000"
                     style={{ width: '100%', padding: '10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box' }}
                   />
