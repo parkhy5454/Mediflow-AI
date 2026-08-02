@@ -57,6 +57,7 @@ const bcrypt = require('bcryptjs');
 const { createClient } = require('@supabase/supabase-js');
 const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 app.use(cors());
@@ -78,6 +79,37 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.warn('[경고] SUPABASE_URL 또는 SUPABASE_SERVICE_ROLE_KEY 환경변수가 설정되지 않았습니다. 회원가입/로그인이 동작하지 않습니다.');
 }
+
+// ------------------------------------------------------------------
+// [추가] 로그인 인증을 "클라이언트가 보내는 x-user-id 값을 그대로 믿는" 방식에서
+// "서버가 서명한 토큰을 검증하는" 방식으로 전환한다.
+// - 기존 방식은 사용자의 uuid만 알면(비밀번호 없이도) 그 사람인 척 API를 호출할 수 있는
+//   구조적 취약점이 있었다. 이제는 로그인 시 서버가 발급한 서명된 토큰이 있어야만
+//   본인으로 인증된다.
+// ------------------------------------------------------------------
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.warn('[경고] JWT_SECRET 환경변수가 설정되지 않았습니다. 로그인 토큰 발급/검증이 동작하지 않습니다.');
+}
+
+// 로그인/회원가입 성공 시 호출 — 그 사용자만 만들 수 있는 서명된 토큰을 발급한다.
+const issueAuthToken = (userId) => {
+  return jwt.sign({ userId }, JWT_SECRET || 'insecure-fallback-secret', { expiresIn: '30d' });
+};
+
+// 매 요청마다 호출 — Authorization: Bearer <토큰> 헤더를 검증해서 진짜 사용자 id를 꺼낸다.
+// 토큰이 없거나, 위조되었거나, 만료되었으면 null을 반환한다(=로그인 안 된 것으로 취급).
+const getAuthUserId = (req) => {
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  if (!token || !JWT_SECRET) return null;
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    return decoded.userId;
+  } catch (err) {
+    return null; // 위조/만료된 토큰
+  }
+};
 
 const supabase = createClient(SUPABASE_URL || '', SUPABASE_SERVICE_ROLE_KEY || '');
 
@@ -231,7 +263,7 @@ app.post('/api/auth/signup', authLimiter, async (req, res) => {
 
     if (insertError) throw insertError;
 
-    res.status(201).json({ user: toPublicUser(inserted) });
+    res.status(201).json({ user: toPublicUser(inserted), token: issueAuthToken(inserted.id) });
   } catch (err) {
     console.error('signup error:', err);
     res.status(500).json({ error: '회원가입 중 오류가 발생했습니다.' });
@@ -261,7 +293,7 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
       return res.status(401).json({ error: '이메일 또는 비밀번호가 올바르지 않습니다.' });
     }
 
-    res.json({ user: toPublicUser(user) });
+    res.json({ user: toPublicUser(user), token: issueAuthToken(user.id) });
   } catch (err) {
     console.error('login error:', err);
     res.status(500).json({ error: '로그인 중 오류가 발생했습니다.' });
@@ -375,11 +407,11 @@ app.put('/api/auth/change-password', authLimiter, async (req, res) => {
 });
 
 // ------------------------------------------------------------------
-// 같은 병원 소속 회원 목록 조회 (가입 회원 확인 화면에서 사용, x-user-id 헤더로 요청자 식별)
+// 같은 병원 소속 회원 목록 조회 (가입 회원 확인 화면에서 사용, Authorization 토큰으로 요청자 식별)
 // ------------------------------------------------------------------
 app.get('/api/auth/users', async (req, res) => {
   try {
-    const userId = req.headers['x-user-id'];
+    const userId = getAuthUserId(req);
     if (!userId) {
       return res.status(401).json({ error: '로그인이 필요합니다.' });
     }
@@ -417,7 +449,7 @@ app.get('/api/auth/users', async (req, res) => {
 // ------------------------------------------------------------------
 app.put('/api/auth/users/:targetId', async (req, res) => {
   try {
-    const userId = req.headers['x-user-id'];
+    const userId = getAuthUserId(req);
     const { role } = req.body;
 
     if (role !== 'admin' && role !== 'member') {
@@ -524,11 +556,11 @@ app.get('/api/audit-log', async (req, res) => {
 
 
 // ------------------------------------------------------------------
-// 공용 헬퍼: x-user-id 헤더로 요청자를 찾고, 그 사람의 병원 코드(hospital_code)를 반환한다.
+// 공용 헬퍼: Authorization 토큰으로 요청자를 찾고, 그 사람의 병원 코드(hospital_code)를 반환한다.
 // 모든 병원 데이터(간호사/근무표/설정) API는 이 병원 코드로 완전히 분리된다.
 // ------------------------------------------------------------------
 const getRequesterHospital = async (req) => {
-  const userId = req.headers['x-user-id'];
+  const userId = getAuthUserId(req);
   if (!userId) return null;
   const { data: requester, error } = await supabase
     .from('mediflow_users')
@@ -936,7 +968,7 @@ const ADMIN_EMAIL = 'parkhy5454@gmail.com';
 
 app.get('/api/admin/platform-stats', async (req, res) => {
   try {
-    const userId = req.headers['x-user-id'];
+    const userId = getAuthUserId(req);
     const { data: requester } = await supabase
       .from('mediflow_users')
       .select('*')
@@ -1053,7 +1085,7 @@ app.post('/api/feedback', async (req, res) => {
 // 개발자 전용: 전체 병원의 문의 목록 조회
 app.get('/api/feedback', async (req, res) => {
   try {
-    const userId = req.headers['x-user-id'];
+    const userId = getAuthUserId(req);
     const { data: requester } = await supabase
       .from('mediflow_users')
       .select('*')
@@ -1080,7 +1112,7 @@ app.get('/api/feedback', async (req, res) => {
 // 개발자 전용: 문의 상태/답변 업데이트
 app.put('/api/feedback/:id', async (req, res) => {
   try {
-    const userId = req.headers['x-user-id'];
+    const userId = getAuthUserId(req);
     const { data: requester } = await supabase
       .from('mediflow_users')
       .select('*')
