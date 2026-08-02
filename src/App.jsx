@@ -178,7 +178,8 @@ const HospitalRosterSystem = () => {
     getRosterStats,
     generateNurseAssignmentChart,
     clearRoster,
-    hasRosterData
+    hasRosterData,
+    refetchRoster
   } = useRoster(nurses, selectedMonth, selectedYear, updateNurses, currentUser);
 
   const { rosterConfig, updateRosterConfig } = useRosterConfig(currentUser);
@@ -192,7 +193,8 @@ const HospitalRosterSystem = () => {
     setSelectedMonth,
     setSelectedYear,
     rosterConfig,
-    getCurrentMonthRoster
+    getCurrentMonthRoster,
+    refetchRoster
   };
 
   // 로그인 여부를 확인하는 동안 잠깐 빈 화면 (깜빡임 방지)
