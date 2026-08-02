@@ -254,7 +254,10 @@ const AdminDashboard = ({ currentUser }) => {
                               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                               fontSize: '13px', padding: '6px 10px', backgroundColor: '#f9fafb', borderRadius: '6px'
                             }}>
-                              <span>{m.name} <span style={{ color: '#9ca3af', fontSize: '11px' }}>({m.email})</span></span>
+                              <span>
+                                {m.name} <span style={{ color: '#9ca3af', fontSize: '11px' }}>({m.email})</span>
+                                {m.phone && <span style={{ color: '#9ca3af', fontSize: '11px' }}> · {m.phone}</span>}
+                              </span>
                               <span style={{
                                 fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '10px',
                                 backgroundColor: m.role === 'admin' ? '#fef3c7' : '#f3f4f6',
