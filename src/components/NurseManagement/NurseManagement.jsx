@@ -28,7 +28,7 @@ const NurseManagement = ({
     if (!currentUser) return;
     (async () => {
       try {
-        const res = await fetch('/api/auth/users', { headers: { 'x-user-id': currentUser.id } });
+        const res = await fetch('/api/auth/users', { headers: { 'Authorization': `Bearer ${currentUser.token}` } });
         const data = await res.json();
         if (res.ok && Array.isArray(data)) {
           // 같은 이름이 여러 명이면 이메일을 붙여 구분
