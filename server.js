@@ -1420,6 +1420,175 @@ app.put('/api/swap-requests/:id/decision', async (req, res) => {
   }
 });
 
+// ------------------------------------------------------------------
+// 🏖 휴가 신청 (기간 단위)
+// - 누구나(로그인한 회원) 신청 가능. 본인 신청은 본인이, 전체 목록은 관리자만 볼 수 있다.
+// - 승인해도 근무표를 자동으로 바꾸지는 않는다 (기록·확인용). 실제 반영은 관리자가
+//   근무표를 생성하거나 근무 변경 요청을 통해 별도로 처리한다.
+// ------------------------------------------------------------------
+
+const toPublicLeaveRequest = (l) => ({
+  id: l.id,
+  startDate: l.start_date,
+  endDate: l.end_date,
+  reason: l.reason,
+  status: l.status,
+  userId: l.user_id,
+  requesterName: l.requester_name,
+  reviewedByUserId: l.reviewed_by_user_id,
+  reviewNote: l.review_note,
+  createdAt: l.created_at,
+  reviewedAt: l.reviewed_at
+});
+
+app.post('/api/leave-requests', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+    const { startDate, endDate, reason } = req.body;
+    if (!startDate || !endDate) {
+      return res.status(400).json({ error: '시작일과 종료일을 입력해주세요.' });
+    }
+    if (new Date(endDate) < new Date(startDate)) {
+      return res.status(400).json({ error: '종료일이 시작일보다 빠를 수 없습니다.' });
+    }
+
+    const { data: inserted, error } = await supabase
+      .from('leave_requests')
+      .insert({
+        hospital_code: requester.hospital_code,
+        user_id: requester.id,
+        requester_name: requester.name,
+        start_date: startDate,
+        end_date: endDate,
+        reason: reason || null,
+        status: 'pending'
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.status(201).json(toPublicLeaveRequest(inserted));
+  } catch (err) {
+    console.error('leave request create error:', err);
+    res.status(500).json({ error: '휴가 신청 등록 중 오류가 발생했습니다.' });
+  }
+});
+
+// 목록 조회: 관리자는 병원 전체, 일반 사용자는 본인 것만
+app.get('/api/leave-requests', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+    let query = supabase
+      .from('leave_requests')
+      .select('*')
+      .eq('hospital_code', requester.hospital_code)
+      .order('created_at', { ascending: false });
+
+    if (requester.role !== 'admin') {
+      query = query.eq('user_id', requester.id);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    res.json(data.map(toPublicLeaveRequest));
+  } catch (err) {
+    console.error('leave request list error:', err);
+    res.status(500).json({ error: '휴가 신청 목록 조회 중 오류가 발생했습니다.' });
+  }
+});
+
+// 본인 신청 취소 (아직 처리 전인 것만)
+app.put('/api/leave-requests/:id/cancel', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+    const { data: existing, error: fetchError } = await supabase
+      .from('leave_requests')
+      .select('*')
+      .eq('id', req.params.id)
+      .eq('hospital_code', requester.hospital_code)
+      .maybeSingle();
+    if (fetchError) throw fetchError;
+    if (!existing) return res.status(404).json({ error: '신청을 찾을 수 없습니다.' });
+    if (existing.user_id !== requester.id && requester.role !== 'admin') {
+      return res.status(403).json({ error: '본인이 신청한 휴가만 취소할 수 있습니다.' });
+    }
+    if (existing.status !== 'pending') {
+      return res.status(409).json({ error: '이미 처리된 신청은 취소할 수 없습니다.' });
+    }
+
+    const { data: updated, error: updateError } = await supabase
+      .from('leave_requests')
+      .update({ status: 'cancelled' })
+      .eq('id', req.params.id)
+      .select()
+      .single();
+    if (updateError) throw updateError;
+
+    res.json(toPublicLeaveRequest(updated));
+  } catch (err) {
+    console.error('leave request cancel error:', err);
+    res.status(500).json({ error: '휴가 신청 취소 중 오류가 발생했습니다.' });
+  }
+});
+
+// 관리자 승인/거절
+app.put('/api/leave-requests/:id/decision', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    if (requester.role !== 'admin') return res.status(403).json({ error: '관리자만 승인/거절할 수 있습니다.' });
+
+    const { decision, note } = req.body;
+    if (!['approved', 'rejected'].includes(decision)) {
+      return res.status(400).json({ error: '올바르지 않은 처리 결과입니다.' });
+    }
+
+    const { data: existing, error: fetchError } = await supabase
+      .from('leave_requests')
+      .select('*')
+      .eq('id', req.params.id)
+      .eq('hospital_code', requester.hospital_code)
+      .maybeSingle();
+    if (fetchError) throw fetchError;
+    if (!existing) return res.status(404).json({ error: '신청을 찾을 수 없습니다.' });
+    if (existing.status !== 'pending') {
+      return res.status(409).json({ error: '이미 처리된 신청입니다.' });
+    }
+
+    const { data: updated, error: updateError } = await supabase
+      .from('leave_requests')
+      .update({
+        status: decision,
+        reviewed_by_user_id: requester.id,
+        review_note: note || null,
+        reviewed_at: new Date().toISOString()
+      })
+      .eq('id', req.params.id)
+      .select()
+      .single();
+    if (updateError) throw updateError;
+
+    logAudit({
+      hospitalCode: requester.hospital_code,
+      actorUserId: requester.id,
+      actorName: requester.name,
+      action: decision === 'approved' ? 'leave_approved' : 'leave_rejected',
+      targetDescription: `${existing.requester_name} 휴가(${existing.start_date} ~ ${existing.end_date}) ${decision === 'approved' ? '승인' : '거절'}`
+    });
+
+    res.json(toPublicLeaveRequest(updated));
+  } catch (err) {
+    console.error('leave request decision error:', err);
+    res.status(500).json({ error: '휴가 신청 처리 중 오류가 발생했습니다.' });
+  }
+});
+
 // [추가] 위의 API 라우트들에서 try/catch로 못 잡고 그대로 터진(정말 예상 못한) 에러를
 // 마지막으로 한 번 더 Sentry에 보고하는 안전망. DSN이 없으면 아무 동작 안 함.
 if (process.env.SENTRY_DSN_BACKEND) {
