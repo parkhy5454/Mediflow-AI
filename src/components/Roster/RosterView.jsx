@@ -221,7 +221,8 @@ import RosterTable from './RosterTable';
 import ExportButtons from './ExportButtons';
 import CycleContinuityDisplay from './CycleContinuityDisplay';
 import RosterResultModal from './RosterResultModal';
-import { getMonthName } from '../../utils/dateUtils';
+import { useLeaveRequests } from '../../hooks/useLeaveRequests';
+import { getMonthName, getDaysInMonth } from '../../utils/dateUtils';
 import { shiftLabel } from '../../constants/shiftTypes';
 
 const RosterView = ({ 
@@ -233,12 +234,16 @@ const RosterView = ({
   getCurrentMonthRoster,
   rosterConfig,
   nurses,
-  clearRoster
+  clearRoster,
+  currentUser
 }) => {
   const monthRoster = getCurrentMonthRoster();
   const hasRosterData = Object.keys(monthRoster).length > 0;
   // [수정] alert() 대신 예쁜 모달로 근무표 생성 결과를 보여주기 위한 상태
   const [rosterResult, setRosterResult] = useState(null);
+
+  // [추가] 승인된 휴가를 근무표 생성에 반영하기 위해 조회. 관리자는 병원 전체 신청이 다 보인다.
+  const { requests: leaveRequests } = useLeaveRequests(currentUser);
 
   // [추가] 예전(간호사 명단이 바뀌기 전) 근무표를 지우는 기능. 되돌릴 수 없어 확인창을 띄운다.
   const handleClearRoster = () => {
@@ -251,7 +256,15 @@ const RosterView = ({
   };
 
   const handleGenerateRoster = () => {
-    const result = generateBalancedRoster();
+    // 이번에 생성하는 달과 겹치는 "승인됨" 휴가만 추려서 함께 반영한다.
+    const daysInMonth = getDaysInMonth(selectedMonth, selectedYear);
+    const pad = (n) => String(n).padStart(2, '0');
+    const monthStart = `${selectedYear}-${pad(selectedMonth + 1)}-01`;
+    const monthEnd = `${selectedYear}-${pad(selectedMonth + 1)}-${pad(daysInMonth)}`;
+    const approvedLeaves = (leaveRequests || [])
+      .filter(r => r.status === 'approved' && r.nurseId && r.startDate <= monthEnd && r.endDate >= monthStart);
+
+    const result = generateBalancedRoster(approvedLeaves);
     if (result && result.message) {
       setRosterResult(result);
     }
