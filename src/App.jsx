@@ -113,6 +113,7 @@ import ForcedPasswordChange from './components/Auth/ForcedPasswordChange';
 import MemberManagement from './components/Members/MemberManagement';
 import SwapRequests from './components/Roster/SwapRequests';
 import LeaveRequests from './components/Roster/LeaveRequests';
+import SubscriptionView from './components/Subscription/SubscriptionView';
 import AdminDashboard from './components/Admin/AdminDashboard';
 import FeedbackButton from './components/Feedback/FeedbackButton';
 import { useNurses } from './hooks/useNurses';
@@ -160,6 +161,44 @@ const HospitalRosterSystem = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+
+  // [추가] 토스페이먼츠 카드 등록 결제창에서 돌아왔을 때(authKey/customerKey가 URL에 붙어서 옴)
+  // 서버에 빌링키 발급을 요청하고, 구독 관리 탭으로 이동시킨다.
+  useEffect(() => {
+    if (!currentUser) return;
+    const params = new URLSearchParams(window.location.search);
+    const authKey = params.get('authKey');
+    const customerKey = params.get('customerKey');
+    const billingAuth = params.get('billingAuth');
+
+    if (authKey && customerKey) {
+      (async () => {
+        try {
+          const res = await fetch('/api/subscription/register-card', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+            body: JSON.stringify({ authKey, customerKey })
+          });
+          const data = await res.json();
+          if (res.ok) {
+            alert('카드가 정상적으로 등록되었습니다.');
+          } else {
+            alert(data.error || '카드 등록에 실패했습니다.');
+          }
+        } catch (err) {
+          alert('카드 등록 중 오류가 발생했습니다.');
+        } finally {
+          window.history.replaceState({}, '', window.location.pathname);
+          setActiveTab('subscription');
+        }
+      })();
+    } else if (billingAuth === 'fail') {
+      alert('카드 등록이 취소되었거나 실패했습니다.');
+      window.history.replaceState({}, '', window.location.pathname);
+      setActiveTab('subscription');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id]);
 
   // Custom hooks for state management
   const {
@@ -279,6 +318,10 @@ const HospitalRosterSystem = () => {
 
         {activeTab === 'members' && (
           <MemberManagement currentUser={currentUser} onUserUpdate={handleUserUpdate} />
+        )}
+
+        {activeTab === 'subscription' && (
+          <SubscriptionView currentUser={currentUser} />
         )}
 
         {activeTab === 'admin' && (
