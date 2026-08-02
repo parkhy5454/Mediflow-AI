@@ -225,6 +225,35 @@ app.put('/api/auth/users/:targetId/reset-password', async (req, res) => {
 });
 
 // ------------------------------------------------------------------
+// 본인 프로필 수정 (이름, 전화번호). 기존 가입자가 나중에 전화번호를 채워 넣을 때도 사용.
+// ------------------------------------------------------------------
+app.put('/api/auth/profile', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+
+    const { name, phone } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: '이름을 입력해주세요.' });
+    }
+
+    const { data: updated, error } = await supabase
+      .from('mediflow_users')
+      .update({ name: name.trim(), phone: phone ? phone.trim() : null })
+      .eq('id', requester.id)
+      .select()
+      .single();
+    if (error) throw error;
+
+    res.json({ user: toPublicUser(updated) });
+  } catch (err) {
+    console.error('profile update error:', err);
+    res.status(500).json({ error: '내 정보 수정 중 오류가 발생했습니다.' });
+  }
+});
+
+
+// ------------------------------------------------------------------
 // 본인 비밀번호 변경 (임시 비밀번호로 로그인한 뒤 강제로 새 비밀번호 설정할 때 사용)
 // ------------------------------------------------------------------
 app.put('/api/auth/change-password', async (req, res) => {
