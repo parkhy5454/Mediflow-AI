@@ -42,7 +42,7 @@ const FeedbackButton = ({ currentUser }) => {
     try {
       const res = await fetch('/api/feedback', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentUser.token}` },
         body: JSON.stringify({ type, title: title.trim(), message: message.trim(), phone: phone.trim() || undefined })
       });
       const data = await res.json();
