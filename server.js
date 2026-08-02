@@ -7,7 +7,48 @@
 // 필요한 환경변수 (Render > Environment 탭에서 등록):
 //   SUPABASE_URL              - Supabase 프로젝트 URL
 //   SUPABASE_SERVICE_ROLE_KEY - Supabase Service Role 키 (절대 프론트엔드에 노출하지 말 것)
+//   SENTRY_DSN_BACKEND         - Sentry(에러 모니터링) 백엔드 프로젝트 DSN (선택, 없으면 그냥 콘솔 로그만)
 //   PORT                      - Render가 자동으로 지정해줌 (없으면 5000 사용)
+
+const Sentry = require('@sentry/node');
+
+// [추가] 에러 모니터링(Sentry). DSN이 설정되어 있을 때만 활성화된다.
+// 다른 코드보다 먼저 초기화해야 이후에 발생하는 에러를 놓치지 않는다.
+if (process.env.SENTRY_DSN_BACKEND) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN_BACKEND,
+    environment: process.env.NODE_ENV || 'production',
+    tracesSampleRate: 0.1
+  });
+
+  // [핵심] 이 서버 코드 전체에 이미 'xxx error:' 형태의 console.error(err)가 수십 군데 있다.
+  // 하나하나 Sentry.captureException()으로 바꾸는 대신, console.error 자체를 가로채서
+  // Error 객체가 들어오면 자동으로 Sentry에도 보고하게 만든다. 이렇게 하면 기존 로그들이
+  // 전부 그대로 Sentry에서도 보여서, "콘솔에만 조용히 찍히고 아무도 못 보는" 문제가 근본적으로 사라진다.
+  const originalConsoleError = console.error;
+  console.error = (...args) => {
+    originalConsoleError(...args);
+    const errorArg = args.find(a => a instanceof Error);
+    if (errorArg) {
+      Sentry.captureException(errorArg);
+    } else {
+      // Supabase 에러 객체처럼 Error 인스턴스가 아닌 { code, message, details } 형태도 있어서,
+      // 마지막 인자가 객체면 메시지로 감싸서라도 보고한다.
+      const last = args[args.length - 1];
+      if (last && typeof last === 'object') {
+        Sentry.captureException(new Error(`${args[0] || ''} ${JSON.stringify(last)}`));
+      }
+    }
+  };
+
+  // try/catch로 못 잡은(정말 예상 못 한) 에러까지 잡는 최후의 안전망
+  process.on('unhandledRejection', (reason) => {
+    console.error('unhandled rejection:', reason);
+  });
+  process.on('uncaughtException', (err) => {
+    console.error('uncaught exception:', err);
+  });
+}
 
 const express = require('express');
 const cors = require('cors');
@@ -1259,6 +1300,12 @@ app.put('/api/swap-requests/:id/decision', async (req, res) => {
     res.status(500).json({ error: '요청 처리 중 오류가 발생했습니다.' });
   }
 });
+
+// [추가] 위의 API 라우트들에서 try/catch로 못 잡고 그대로 터진(정말 예상 못한) 에러를
+// 마지막으로 한 번 더 Sentry에 보고하는 안전망. DSN이 없으면 아무 동작 안 함.
+if (process.env.SENTRY_DSN_BACKEND) {
+  Sentry.setupExpressErrorHandler(app);
+}
 
 // ------------------------------------------------------------------
 // 프로덕션 배포 시: React 빌드 결과물(build 폴더)을 정적으로 서빙
