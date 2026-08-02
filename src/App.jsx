@@ -254,7 +254,8 @@ const HospitalRosterSystem = () => {
         {activeTab === 'roster' && (
           <RosterView 
             {...sharedProps}
-            generateBalancedRoster={() => generateBalancedRoster(rosterConfig)}
+            currentUser={currentUser}
+            generateBalancedRoster={(approvedLeaves) => generateBalancedRoster(rosterConfig, approvedLeaves)}
             clearRoster={() => clearRoster(selectedMonth, selectedYear)}
           />
         )}
@@ -267,7 +268,7 @@ const HospitalRosterSystem = () => {
         )}
 
         {activeTab === 'leave-requests' && (
-          <LeaveRequests currentUser={currentUser} />
+          <LeaveRequests currentUser={currentUser} nurses={nurses} />
         )}
 
         {activeTab === 'members' && (
