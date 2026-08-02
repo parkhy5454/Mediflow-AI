@@ -34,6 +34,7 @@ const toPublicUser = (u) => ({
   id: u.id,
   email: u.email,
   name: u.name,
+  phone: u.phone || '',
   hospitalName: u.hospital_name,
   hospitalCode: u.hospital_code,
   role: u.role,
@@ -76,7 +77,7 @@ app.get('/api/auth/hospital-status', async (req, res) => {
 // ------------------------------------------------------------------
 app.post('/api/auth/signup', async (req, res) => {
   try {
-    const { email, password, name, hospitalName, hospitalCode, wantsAdmin } = req.body;
+    const { email, password, name, phone, hospitalName, hospitalCode, wantsAdmin } = req.body;
 
     if (!email || !password || !name || !hospitalName || !hospitalCode) {
       return res.status(400).json({ error: '이메일, 비밀번호, 이름, 병원명, 병원 코드를 모두 입력해주세요.' });
@@ -121,6 +122,7 @@ app.post('/api/auth/signup', async (req, res) => {
         email: normalizedEmail,
         password: passwordHash,
         name: name.trim(),
+        phone: phone ? phone.trim() : null,
         hospital_name: hospitalName.trim(),
         hospital_code: normalizedHospitalCode,
         role
