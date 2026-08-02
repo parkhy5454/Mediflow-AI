@@ -109,6 +109,7 @@ import NurseManagement from './components/NurseManagement/NurseManagement';
 import RosterView from './components/Roster/RosterView';
 import Settings from './components/Settings/Settings';
 import Login from './components/Auth/Login';
+import ForcedPasswordChange from './components/Auth/ForcedPasswordChange';
 import MemberManagement from './components/Members/MemberManagement';
 import SwapRequests from './components/Roster/SwapRequests';
 import AdminDashboard from './components/Admin/AdminDashboard';
@@ -205,6 +206,17 @@ const HospitalRosterSystem = () => {
   // [추가] 로그인 안 된 상태면 로그인/회원가입 화면만 보여준다.
   if (!currentUser) {
     return <Login onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  // [추가] 관리자/운영자가 비밀번호를 초기화해준 계정이면, 새 비밀번호를 설정하기 전까지
+  // 다른 화면을 못 보게 막는다.
+  if (currentUser.mustChangePassword) {
+    return (
+      <ForcedPasswordChange
+        currentUser={currentUser}
+        onChanged={(updatedUser) => handleUserUpdate(updatedUser)}
+      />
+    );
   }
 
   return (
