@@ -74,6 +74,10 @@ const Login = ({ onLoginSuccess }) => {
       setError('이름, 병원명, 병원 코드를 모두 입력해주세요.');
       return;
     }
+    if (!isLogin && !(password.length >= 8 && /[a-zA-Z]/.test(password) && /[0-9]/.test(password))) {
+      setError('비밀번호는 영문과 숫자를 포함해 8자 이상이어야 합니다.');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -301,7 +305,7 @@ const Login = ({ onLoginSuccess }) => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="6자 이상 입력해주세요"
+              placeholder={isLogin ? '비밀번호' : '영문+숫자 포함 8자 이상'}
               style={inputStyle}
             />
           </div>
