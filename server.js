@@ -60,6 +60,10 @@ const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
 
 const app = express();
+// [추가] Render는 프록시(로드밸런서) 뒤에서 앱을 실행하며 X-Forwarded-For 헤더로 실제
+// 클라이언트 IP를 전달한다. 이 설정이 없으면 express-rate-limit이 모든 요청을 같은 IP로
+// 오인해서(또는 헤더를 신뢰 못 해 경고를 내며) 요청 제한을 정확히 적용하지 못한다.
+app.set('trust proxy', 1);
 app.use(cors());
 app.use(express.json());
 
