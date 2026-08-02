@@ -36,7 +36,7 @@ const AdminDashboard = ({ currentUser }) => {
     try {
       const res = await fetch(`/api/auth/users/${targetId}/reset-password`, {
         method: 'PUT',
-        headers: { 'x-user-id': currentUser.id }
+        headers: { 'Authorization': `Bearer ${currentUser.token}` }
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '비밀번호 초기화에 실패했습니다.');
@@ -59,7 +59,7 @@ const AdminDashboard = ({ currentUser }) => {
     setError('');
     try {
       const res = await fetch('/api/admin/platform-stats', {
-        headers: { 'x-user-id': currentUser.id }
+        headers: { 'Authorization': `Bearer ${currentUser.token}` }
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '통계를 불러오지 못했습니다.');
@@ -74,7 +74,7 @@ const AdminDashboard = ({ currentUser }) => {
   const fetchFeedback = async () => {
     setFeedbackLoading(true);
     try {
-      const res = await fetch('/api/feedback', { headers: { 'x-user-id': currentUser.id } });
+      const res = await fetch('/api/feedback', { headers: { 'Authorization': `Bearer ${currentUser.token}` } });
       const data = await res.json();
       if (res.ok) setFeedbackItems(data);
     } catch (err) {
@@ -95,7 +95,7 @@ const AdminDashboard = ({ currentUser }) => {
     try {
       const res = await fetch(`/api/feedback/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentUser.token}` },
         body: JSON.stringify(updates)
       });
       const data = await res.json();
