@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 
 const authHeaders = (currentUser, withBody = false) => {
-  const headers = { 'x-user-id': currentUser?.id };
+  const headers = { 'Authorization': `Bearer ${currentUser?.token}` };
   if (withBody) headers['Content-Type'] = 'application/json';
   return headers;
 };

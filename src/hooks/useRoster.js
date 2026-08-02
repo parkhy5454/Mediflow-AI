@@ -17,7 +17,7 @@ export const useRoster = (nurses, selectedMonth, selectedYear, updateNurses, cur
     if (!currentUser) return;
     try {
       const res = await fetch(`/api/roster/${key}`, {
-        headers: { 'x-user-id': currentUser.id }
+        headers: { 'Authorization': `Bearer ${currentUser.token}` }
       });
       const data = await res.json();
       if (res.ok) {
@@ -48,7 +48,7 @@ export const useRoster = (nurses, selectedMonth, selectedYear, updateNurses, cur
     if (!currentUser) return;
     fetch(`/api/roster/${key}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'x-user-id': currentUser.id },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentUser.token}` },
       body: JSON.stringify({ roster: rosterData })
     }).catch(err => console.error('근무표 저장 실패:', err));
   };
@@ -187,7 +187,7 @@ export const useRoster = (nurses, selectedMonth, selectedYear, updateNurses, cur
     if (currentUser) {
       fetch(`/api/roster/${key}`, {
         method: 'DELETE',
-        headers: { 'x-user-id': currentUser.id }
+        headers: { 'Authorization': `Bearer ${currentUser.token}` }
       }).catch(err => console.error('근무표 삭제 실패:', err));
     }
     return true;
@@ -200,7 +200,7 @@ export const useRoster = (nurses, selectedMonth, selectedYear, updateNurses, cur
     try {
       const res = await fetch(`/api/roster/${key}/publish`, {
         method: 'PUT',
-        headers: { 'x-user-id': currentUser.id }
+        headers: { 'Authorization': `Bearer ${currentUser.token}` }
       });
       const data = await res.json();
       if (!res.ok) return { success: false, message: data.error || '발행에 실패했습니다.' };
@@ -220,7 +220,7 @@ export const useRoster = (nurses, selectedMonth, selectedYear, updateNurses, cur
     try {
       const res = await fetch(`/api/roster/${key}/unpublish`, {
         method: 'PUT',
-        headers: { 'x-user-id': currentUser.id }
+        headers: { 'Authorization': `Bearer ${currentUser.token}` }
       });
       const data = await res.json();
       if (!res.ok) return { success: false, message: data.error || '발행 취소에 실패했습니다.' };
