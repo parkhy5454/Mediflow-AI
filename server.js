@@ -625,7 +625,7 @@ app.get('/api/admin/platform-stats', async (req, res) => {
       const h = ensureHospital(u.hospital_code, u.hospital_name);
       h.totalMembers++;
       if (u.role === 'admin') h.adminCount++; else h.memberCount++;
-      h.members.push({ name: u.name, email: u.email, role: u.role, createdAt: u.created_at });
+      h.members.push({ name: u.name, email: u.email, phone: u.phone || '', role: u.role, createdAt: u.created_at });
     });
 
     (allNurses || []).forEach(n => {
