@@ -43,7 +43,7 @@ const SubscriptionView = ({ currentUser }) => {
       const tossPayments = window.TossPayments(TOSS_CLIENT_KEY);
       const payment = tossPayments.payment({ customerKey });
       const redirectBase = `${window.location.origin}${window.location.pathname}`;
-      await payment.requestBillingAuth('CARD', {
+      await payment.requestBillingAuth('카드', {
         successUrl: `${redirectBase}?billingAuth=success`,
         failUrl: `${redirectBase}?billingAuth=fail`
       });
