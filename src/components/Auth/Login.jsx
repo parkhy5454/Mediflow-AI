@@ -6,6 +6,7 @@ const Login = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
   const [hospitalName, setHospitalName] = useState('');
   const [hospitalCode, setHospitalCode] = useState('');
   const [wantsAdmin, setWantsAdmin] = useState(false);
@@ -17,6 +18,7 @@ const Login = ({ onLoginSuccess }) => {
 
   const resetSignupFields = () => {
     setName('');
+    setPhone('');
     setHospitalName('');
     setHospitalCode('');
     setWantsAdmin(false);
@@ -70,6 +72,7 @@ const Login = ({ onLoginSuccess }) => {
             email: email.trim(),
             password,
             name: name.trim(),
+            phone: phone.trim(),
             hospitalName: hospitalName.trim(),
             hospitalCode: hospitalCode.trim(),
             wantsAdmin: hospitalHasAdmin === false && wantsAdmin === true
@@ -175,6 +178,21 @@ const Login = ({ onLoginSuccess }) => {
                   placeholder="홍길동"
                   style={inputStyle}
                 />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: '500', color: '#374151' }}>
+                  전화번호 (선택)
+                </label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="010-1234-5678"
+                  style={inputStyle}
+                />
+                <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px' }}>
+                  근무 변경/대타 요청 시 동료가 연락할 수 있도록 등록해두면 좋습니다.
+                </p>
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: '500', color: '#374151' }}>
