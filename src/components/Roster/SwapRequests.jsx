@@ -39,14 +39,17 @@ const selectStyle = {
 
 const labelStyle = { display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: '600', color: '#374151' };
 
-const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, selectedYear, getCurrentMonthRoster, refetchRoster }) => {
-  const { requests, loading, error, createRequest, volunteer, cancelRequest, decide } = useSwapRequests(currentUser, selectedYear, selectedMonth);
+const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, selectedYear, getCurrentMonthRoster, refetchRoster, departmentOptions, selectedDepartment, setSelectedDepartment }) => {
+  const { requests: allRequests, loading, error, createRequest, volunteer, cancelRequest, decide } = useSwapRequests(currentUser, selectedYear, selectedMonth);
 
   const shiftTypes = rosterConfig?.shifts ? Object.keys(rosterConfig.shifts) : [];
   const daysInMonth = getDaysInMonth(selectedMonth, selectedYear);
   const monthRoster = getCurrentMonthRoster ? getCurrentMonthRoster() : {};
   const isAdmin = currentUser.role === 'admin';
-  const activeNurses = (nurses || []).filter(n => n.status === 'active');
+  // [추가] 부서(병동)별로 빨리 대응할 수 있도록, 선택된 부서 소속 간호사와 요청만 보여준다.
+  const activeNurses = (nurses || []).filter(n => n.status === 'active' && (n.department || '') === selectedDepartment);
+  const nurseDeptById = new Map((nurses || []).map(n => [n.id, n.department || '']));
+  const requests = allRequests.filter(r => nurseDeptById.get(r.fromNurseId) === selectedDepartment);
 
   const [formOpen, setFormOpen] = useState(false);
   const [requestType, setRequestType] = useState('cover');
@@ -286,6 +289,25 @@ const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, select
 
   return (
     <div style={{ padding: '20px' }}>
+      {departmentOptions && departmentOptions.length > 0 && (
+        <div style={{ marginBottom: '14px' }}>
+          <label style={{ fontSize: '12px', fontWeight: '600', color: '#6b7280', marginRight: '8px' }}>
+            부서(병동)
+          </label>
+          <select
+            value={selectedDepartment}
+            onChange={(e) => setSelectedDepartment(e.target.value)}
+            style={{
+              padding: '8px 12px', borderRadius: '6px', border: '1px solid #d1d5db',
+              fontSize: '14px', fontWeight: '600', color: '#1f2937', backgroundColor: 'white'
+            }}
+          >
+            {departmentOptions.map(dept => (
+              <option key={dept || '_unset'} value={dept}>{dept || '미지정'}</option>
+            ))}
+          </select>
+        </div>
+      )}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Repeat size={22} style={{ color: '#3b82f6' }} />
