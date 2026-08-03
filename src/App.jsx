@@ -161,6 +161,8 @@ const HospitalRosterSystem = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  // [추가] 근무표를 병원 전체가 아니라 부서(병동)별로 따로 관리하기 위한 선택 상태.
+  const [selectedDepartment, setSelectedDepartment] = useState('');
 
   // [추가] 토스페이먼츠 카드 등록 결제창에서 돌아왔을 때(authKey/customerKey가 URL에 붙어서 옴)
   // 서버에 빌링키 발급을 요청하고, 구독 관리 탭으로 이동시킨다.
@@ -241,6 +243,26 @@ const HospitalRosterSystem = () => {
     updateNurses
   } = useNurses(currentUser);
 
+  // [추가] 간호사들에 등록된 부서(병동) 목록을 자동으로 뽑아낸다. 부서가 비어있는 간호사는
+  // "미지정"으로 묶인다. 목록이 바뀌면(간호사 새로 추가 등) 자동으로 갱신된다.
+  const departmentOptions = Array.from(
+    new Set(nurses.map(n => n.department || ''))
+  ).sort((a, b) => {
+    if (a === '') return 1; // "미지정"은 맨 뒤로
+    if (b === '') return -1;
+    return a.localeCompare(b, 'ko');
+  });
+
+  // 아직 부서를 선택 안 했거나, 선택했던 부서가 더 이상 존재하지 않으면(간호사 목록이 바뀌어서)
+  // 목록의 첫 번째 부서로 자동 이동한다.
+  useEffect(() => {
+    if (departmentOptions.length === 0) return;
+    if (!departmentOptions.includes(selectedDepartment)) {
+      setSelectedDepartment(departmentOptions[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [departmentOptions.join('|')]);
+
   const {
     roster,
     rosterMeta,
@@ -253,9 +275,9 @@ const HospitalRosterSystem = () => {
     refetchRoster,
     publishRoster,
     unpublishRoster
-  } = useRoster(nurses, selectedMonth, selectedYear, updateNurses, currentUser);
+  } = useRoster(nurses, selectedMonth, selectedYear, updateNurses, currentUser, selectedDepartment);
 
-  const { rosterConfig, updateRosterConfig } = useRosterConfig(currentUser);
+  const { rosterConfig, updateRosterConfig } = useRosterConfig(currentUser, selectedDepartment);
 
   const sharedProps = {
     nurses,
@@ -267,7 +289,10 @@ const HospitalRosterSystem = () => {
     setSelectedYear,
     rosterConfig,
     getCurrentMonthRoster,
-    refetchRoster
+    refetchRoster,
+    departmentOptions,
+    selectedDepartment,
+    setSelectedDepartment
   };
 
   // 로그인 여부를 확인하는 동안 잠깐 빈 화면 (깜빡임 방지)
@@ -361,6 +386,9 @@ const HospitalRosterSystem = () => {
           <Settings 
             rosterConfig={rosterConfig}
             updateRosterConfig={updateRosterConfig}
+            departmentOptions={departmentOptions}
+            selectedDepartment={selectedDepartment}
+            setSelectedDepartment={setSelectedDepartment}
           />
         )}
       </div>
