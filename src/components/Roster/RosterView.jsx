@@ -238,7 +238,10 @@ const RosterView = ({
   currentUser,
   rosterMeta,
   publishRoster,
-  unpublishRoster
+  unpublishRoster,
+  departmentOptions,
+  selectedDepartment,
+  setSelectedDepartment
 }) => {
   const monthRoster = getCurrentMonthRoster();
   const hasRosterData = Object.keys(monthRoster).length > 0;
@@ -248,7 +251,9 @@ const RosterView = ({
 
   const isAdmin = currentUser?.role === 'admin';
   const monthKey = `${selectedYear}-${selectedMonth}`;
-  const meta = (rosterMeta && rosterMeta[monthKey]) || { isPublished: false };
+  // [수정] rosterMeta는 이제 부서까지 합쳐진 키로 저장되므로, 조회할 때도 같은 방식으로 키를 맞춰야 한다.
+  const storageKey = `${monthKey}::${selectedDepartment || '_'}`;
+  const meta = (rosterMeta && rosterMeta[storageKey]) || { isPublished: false };
 
   // [추가] 승인된 휴가를 근무표 생성에 반영하기 위해 조회. 관리자는 병원 전체 신청이 다 보인다.
   const { requests: leaveRequests } = useLeaveRequests(currentUser);
@@ -345,6 +350,25 @@ const RosterView = ({
 
   return (
     <div style={{ padding: '20px' }}>
+      {departmentOptions && departmentOptions.length > 0 && (
+        <div style={{ marginBottom: '14px' }}>
+          <label style={{ fontSize: '12px', fontWeight: '600', color: '#6b7280', marginRight: '8px' }}>
+            부서(병동)
+          </label>
+          <select
+            value={selectedDepartment}
+            onChange={(e) => setSelectedDepartment(e.target.value)}
+            style={{
+              padding: '8px 12px', borderRadius: '6px', border: '1px solid #d1d5db',
+              fontSize: '14px', fontWeight: '600', color: '#1f2937', backgroundColor: 'white'
+            }}
+          >
+            {departmentOptions.map(dept => (
+              <option key={dept || '_unset'} value={dept}>{dept || '미지정'}</option>
+            ))}
+          </select>
+        </div>
+      )}
       <div style={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
@@ -472,7 +496,7 @@ const RosterView = ({
         
         return isNextMonth && (
           <CycleContinuityDisplay 
-            nurses={nurses}
+            nurses={nurses.filter(n => (n.department || '') === selectedDepartment)}
             rosterConfig={rosterConfig}
           />
         );
@@ -492,7 +516,7 @@ const RosterView = ({
             selectedMonth={selectedMonth}
             selectedYear={selectedYear}
             rosterConfig={rosterConfig}
-            nurses={nurses}
+            nurses={nurses.filter(n => (n.department || '') === selectedDepartment)}
             disabled={!hasRosterData}
           />
         </div>
