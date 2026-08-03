@@ -16,7 +16,7 @@ const numberInputStyle = {
   boxSizing: 'border-box'
 };
 
-const Settings = ({ rosterConfig, updateRosterConfig }) => {
+const Settings = ({ rosterConfig, updateRosterConfig, departmentOptions, selectedDepartment, setSelectedDepartment }) => {
   // 서버에서 불러온 원본과 별개로, 화면에서 편집 중인 임시 값을 따로 들고 있는다.
   const [draft, setDraft] = useState(rosterConfig);
   const [saving, setSaving] = useState(false);
@@ -71,10 +71,33 @@ const Settings = ({ rosterConfig, updateRosterConfig }) => {
   return (
     <div style={{ padding: '20px', paddingBottom: '90px' }}>
       <h2 style={{ marginBottom: '4px', color: '#1f2937' }}>근무표 설정</h2>
-      <p style={{ marginBottom: '20px', color: '#6b7280', fontSize: '13px' }}>
+      <p style={{ marginBottom: '14px', color: '#6b7280', fontSize: '13px' }}>
         4교대(데이/이브닝/나이트/미들) 시스템 기준으로 교대별 필요 인원과 근무/휴무 일수를 설정합니다.
         값을 바꾼 뒤 아래 <strong>저장</strong> 버튼을 눌러야 실제로 반영됩니다.
       </p>
+
+      {departmentOptions && departmentOptions.length > 0 && (
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ fontSize: '12px', fontWeight: '600', color: '#6b7280', marginRight: '8px' }}>
+            부서(병동)
+          </label>
+          <select
+            value={selectedDepartment}
+            onChange={(e) => setSelectedDepartment(e.target.value)}
+            style={{
+              padding: '8px 12px', borderRadius: '6px', border: '1px solid #d1d5db',
+              fontSize: '14px', fontWeight: '600', color: '#1f2937', backgroundColor: 'white'
+            }}
+          >
+            {departmentOptions.map(dept => (
+              <option key={dept || '_unset'} value={dept}>{dept || '미지정'}</option>
+            ))}
+          </select>
+          <p style={{ margin: '6px 0 0', fontSize: '11px', color: '#9ca3af' }}>
+            부서마다 필요 인원과 근무/휴무 일수를 따로 설정할 수 있습니다. 지금 편집 중인 설정은 위에서 선택한 부서 것입니다.
+          </p>
+        </div>
+      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         {SHIFT_TYPES.map(shiftCode => {
