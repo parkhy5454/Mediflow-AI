@@ -367,7 +367,7 @@ const HospitalRosterSystem = () => {
         )}
 
         {activeTab === 'leave-requests' && (
-          <LeaveRequests currentUser={currentUser} nurses={nurses} />
+          <LeaveRequests currentUser={currentUser} nurses={nurses} departmentOptions={departmentOptions} selectedDepartment={selectedDepartment} setSelectedDepartment={setSelectedDepartment} />
         )}
 
         {activeTab === 'members' && (
