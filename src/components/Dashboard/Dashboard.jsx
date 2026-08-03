@@ -142,8 +142,16 @@ const Dashboard = ({
   getRosterStats, 
   generateNurseAssignmentChart,
   rosterConfig,
-  getCurrentMonthRoster
+  getCurrentMonthRoster,
+  departmentOptions,
+  selectedDepartment,
+  setSelectedDepartment
 }) => {
+  // [추가] 대시보드 통계도 병원 전체가 아니라 현재 선택된 부서(병동) 기준으로 보여준다.
+  // (근무표/근무표 설정 탭과 같은 selectedDepartment를 공유한다)
+  const deptNurses = nurses.filter(n => (n.department || '') === selectedDepartment);
+  const deptActiveNurses = activeNurses.filter(n => (n.department || '') === selectedDepartment);
+
   const stats = getRosterStats();
   const assignmentData = generateNurseAssignmentChart();
   const monthRoster = getCurrentMonthRoster();
@@ -151,6 +159,25 @@ const Dashboard = ({
 
   return (
     <div style={{ padding: '20px' }}>
+      {departmentOptions && departmentOptions.length > 0 && (
+        <div style={{ marginBottom: '14px' }}>
+          <label style={{ fontSize: '12px', fontWeight: '600', color: '#6b7280', marginRight: '8px' }}>
+            부서(병동)
+          </label>
+          <select
+            value={selectedDepartment}
+            onChange={(e) => setSelectedDepartment(e.target.value)}
+            style={{
+              padding: '8px 12px', borderRadius: '6px', border: '1px solid #d1d5db',
+              fontSize: '14px', fontWeight: '600', color: '#1f2937', backgroundColor: 'white'
+            }}
+          >
+            {departmentOptions.map(dept => (
+              <option key={dept || '_unset'} value={dept}>{dept || '미지정'}</option>
+            ))}
+          </select>
+        </div>
+      )}
       <div style={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
@@ -176,7 +203,7 @@ const Dashboard = ({
               selectedMonth={selectedMonth}
               selectedYear={selectedYear}
               rosterConfig={rosterConfig}
-              nurses={nurses}
+              nurses={deptNurses}
               disabled={!hasRosterData}
             />
           </div>
@@ -184,14 +211,14 @@ const Dashboard = ({
       </div>
       
       <StatsCards 
-        nurses={nurses}
-        activeNurses={activeNurses}
+        nurses={deptNurses}
+        activeNurses={deptActiveNurses}
         stats={stats}
       />
 
       {/* Balance Analysis - NEW */}
       <BalanceAnalysis 
-        nurses={nurses}
+        nurses={deptNurses}
         selectedMonth={selectedMonth}
         selectedYear={selectedYear}
         rosterConfig={rosterConfig}
