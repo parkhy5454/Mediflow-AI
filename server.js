@@ -753,11 +753,13 @@ app.get('/api/roster-config', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
     if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    const department = req.query.department || '';
 
     const { data, error } = await supabase
       .from('mediflow_roster_config')
       .select('config')
       .eq('hospital_code', requester.hospital_code)
+      .eq('department', department)
       .maybeSingle();
 
     if (error) throw error;
@@ -772,6 +774,7 @@ app.put('/api/roster-config', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
     if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    const department = req.query.department || '';
 
     const { config } = req.body;
     if (!config) return res.status(400).json({ error: 'config가 필요합니다.' });
@@ -780,9 +783,10 @@ app.put('/api/roster-config', async (req, res) => {
       .from('mediflow_roster_config')
       .upsert({
         hospital_code: requester.hospital_code,
+        department,
         config,
         updated_at: new Date().toISOString()
-      }, { onConflict: 'hospital_code' });
+      }, { onConflict: 'hospital_code,department' });
 
     if (error) throw error;
     res.json({ success: true });
@@ -799,11 +803,13 @@ app.get('/api/roster/:monthKey', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
     if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    const department = req.query.department || '';
 
     const { data, error } = await supabase
       .from('mediflow_roster')
       .select('roster_data, is_published, published_at, published_by_name')
       .eq('hospital_code', requester.hospital_code)
+      .eq('department', department)
       .eq('month_key', req.params.monthKey)
       .maybeSingle();
 
@@ -821,11 +827,12 @@ app.get('/api/roster/:monthKey', async (req, res) => {
 });
 
 // 발행된 근무표인지 확인하는 공용 헬퍼 (수정/삭제 시 재사용)
-const checkRosterPublished = async (hospitalCode, monthKey) => {
+const checkRosterPublished = async (hospitalCode, department, monthKey) => {
   const { data, error } = await supabase
     .from('mediflow_roster')
     .select('is_published')
     .eq('hospital_code', hospitalCode)
+    .eq('department', department)
     .eq('month_key', monthKey)
     .maybeSingle();
   if (error) throw error;
@@ -836,13 +843,14 @@ app.put('/api/roster/:monthKey', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
     if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    const department = req.query.department || '';
 
     const { roster } = req.body;
     if (!roster) return res.status(400).json({ error: 'roster 데이터가 필요합니다.' });
 
     // [추가] 발행된 근무표는 통째로 덮어쓰기(재생성 저장)를 막는다.
     // (근무 변경/휴가 승인처럼 부분 수정하는 다른 엔드포인트들은 이 검사를 거치지 않으므로 계속 동작함)
-    if (await checkRosterPublished(requester.hospital_code, req.params.monthKey)) {
+    if (await checkRosterPublished(requester.hospital_code, department, req.params.monthKey)) {
       return res.status(403).json({ error: '발행된 근무표는 재생성할 수 없습니다. 먼저 발행을 취소해주세요.' });
     }
 
@@ -850,10 +858,11 @@ app.put('/api/roster/:monthKey', async (req, res) => {
       .from('mediflow_roster')
       .upsert({
         hospital_code: requester.hospital_code,
+        department,
         month_key: req.params.monthKey,
         roster_data: roster,
         updated_at: new Date().toISOString()
-      }, { onConflict: 'hospital_code,month_key' });
+      }, { onConflict: 'hospital_code,department,month_key' });
 
     if (error) throw error;
     res.json({ success: true });
@@ -869,6 +878,7 @@ app.put('/api/roster/:monthKey/publish', async (req, res) => {
     const requester = await getRequesterHospital(req);
     if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
     if (requester.role !== 'admin') return res.status(403).json({ error: '관리자만 발행할 수 있습니다.' });
+    const department = req.query.department || '';
 
     const { error } = await supabase
       .from('mediflow_roster')
@@ -879,6 +889,7 @@ app.put('/api/roster/:monthKey/publish', async (req, res) => {
         published_by_name: requester.name
       })
       .eq('hospital_code', requester.hospital_code)
+      .eq('department', department)
       .eq('month_key', req.params.monthKey);
     if (error) throw error;
 
@@ -887,7 +898,7 @@ app.put('/api/roster/:monthKey/publish', async (req, res) => {
       actorUserId: requester.id,
       actorName: requester.name,
       action: 'roster_publish',
-      targetDescription: `${req.params.monthKey} 근무표 발행`
+      targetDescription: `${department ? department + ' ' : ''}${req.params.monthKey} 근무표 발행`
     });
 
     res.json({ success: true });
@@ -903,6 +914,7 @@ app.put('/api/roster/:monthKey/unpublish', async (req, res) => {
     const requester = await getRequesterHospital(req);
     if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
     if (requester.role !== 'admin') return res.status(403).json({ error: '관리자만 발행을 취소할 수 있습니다.' });
+    const department = req.query.department || '';
 
     const { error } = await supabase
       .from('mediflow_roster')
@@ -913,6 +925,7 @@ app.put('/api/roster/:monthKey/unpublish', async (req, res) => {
         published_by_name: null
       })
       .eq('hospital_code', requester.hospital_code)
+      .eq('department', department)
       .eq('month_key', req.params.monthKey);
     if (error) throw error;
 
@@ -921,7 +934,7 @@ app.put('/api/roster/:monthKey/unpublish', async (req, res) => {
       actorUserId: requester.id,
       actorName: requester.name,
       action: 'roster_unpublish',
-      targetDescription: `${req.params.monthKey} 근무표 발행 취소`
+      targetDescription: `${department ? department + ' ' : ''}${req.params.monthKey} 근무표 발행 취소`
     });
 
     res.json({ success: true });
@@ -935,9 +948,10 @@ app.delete('/api/roster/:monthKey', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
     if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    const department = req.query.department || '';
 
     // [추가] 발행된 근무표는 삭제도 막는다.
-    if (await checkRosterPublished(requester.hospital_code, req.params.monthKey)) {
+    if (await checkRosterPublished(requester.hospital_code, department, req.params.monthKey)) {
       return res.status(403).json({ error: '발행된 근무표는 삭제할 수 없습니다. 먼저 발행을 취소해주세요.' });
     }
 
@@ -945,6 +959,7 @@ app.delete('/api/roster/:monthKey', async (req, res) => {
       .from('mediflow_roster')
       .delete()
       .eq('hospital_code', requester.hospital_code)
+      .eq('department', department)
       .eq('month_key', req.params.monthKey);
 
     if (error) throw error;
@@ -954,7 +969,7 @@ app.delete('/api/roster/:monthKey', async (req, res) => {
       actorUserId: requester.id,
       actorName: requester.name,
       action: 'roster_delete',
-      targetDescription: `${req.params.monthKey} 근무표 삭제`
+      targetDescription: `${department ? department + ' ' : ''}${req.params.monthKey} 근무표 삭제`
     });
 
     res.json({ success: true });
@@ -1433,11 +1448,21 @@ app.put('/api/swap-requests/:id/decision', async (req, res) => {
     }
 
     // decision === 'approved' → 실제 근무표에 반영
+    // [수정] 근무표가 이제 병동(부서)별로 나뉘어 저장되므로, 간호사의 소속 부서를 먼저 확인해서
+    // 그 부서의 근무표를 대상으로 처리한다.
+    const { data: fromNurseForDept } = await supabase
+      .from('mediflow_nurses')
+      .select('department')
+      .eq('id', swapReq.from_nurse_id)
+      .maybeSingle();
+    const department = fromNurseForDept?.department || '';
+
     const monthKey = `${swapReq.selected_year}-${swapReq.selected_month}`;
     const { data: rosterRow, error: rosterFetchError } = await supabase
       .from('mediflow_roster')
       .select('roster_data')
       .eq('hospital_code', requester.hospital_code)
+      .eq('department', department)
       .eq('month_key', monthKey)
       .maybeSingle();
     if (rosterFetchError) throw rosterFetchError;
@@ -1521,10 +1546,11 @@ app.put('/api/swap-requests/:id/decision', async (req, res) => {
       .from('mediflow_roster')
       .upsert({
         hospital_code: requester.hospital_code,
+        department,
         month_key: monthKey,
         roster_data: roster,
         updated_at: new Date().toISOString()
-      }, { onConflict: 'hospital_code,month_key' });
+      }, { onConflict: 'hospital_code,department,month_key' });
     if (rosterSaveError) throw rosterSaveError;
 
     const { data: updatedReq, error: updateReqError } = await supabase
