@@ -7,7 +7,7 @@
 <meta name="description" content="4교대 병원 근무표를 자동으로 균형 있게 배정하고, 대타·휴가까지 한 곳에서 관리하세요." />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Serif+SC:wght@500;700&family=Noto+Sans+SC:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
 <!-- Kakao JS SDK — used by the "카카오톡" share option. Requires a JavaScript key from
      https://developers.kakao.com/console/app (앱 설정 > 플랫폼 > Web 에 nduty.kr, www.nduty.kr 등록 필요). -->
@@ -25,7 +25,7 @@
     --slate-light:#8A93A3;
     --line:#D7DCE3;
     --line-dark:#293349;
-    --serif:'Noto Serif KR', serif;
+    --serif:'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
     --sans:'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
   }
   *{box-sizing:border-box;}
@@ -41,10 +41,10 @@
     overflow-wrap:break-word;
   }
   :lang(en) body, body:lang(en){word-break:normal;}
-  :lang(zh) body, body:lang(zh){font-family:'Pretendard','Noto Sans SC',sans-serif;}
+  :lang(zh) body, body:lang(zh),
   :lang(zh) h1, :lang(zh) h2, :lang(zh) h3, :lang(zh) h4,
   :lang(zh) .brand, :lang(zh) .shift-card h3, :lang(zh) .num{
-    font-family:'Noto Serif SC','Noto Serif KR',serif;
+    font-family:'Pretendard','Noto Sans SC',sans-serif;
   }
   .wrap{max-width:1120px;margin:0 auto;padding:0 24px;}
   a{color:inherit;}
