@@ -18,8 +18,8 @@ const Navigation = ({ activeTab, setActiveTab, currentUser }) => {
     { id: 'leave-requests', label: t('휴가 신청'), icon: Umbrella },
     { id: 'settings', label: t('근무표 설정'), icon: Settings },
     { id: 'members', label: t('회원 관리'), icon: UserCheck },
-    { id: 'subscription', label: t('구독 관리'), icon: CreditCard },
-    ...(isDeveloperAccount ? [{ id: 'admin', label: t('운영자 대시보드'), icon: ShieldCheck }] : [])
+    ...(isDeveloperAccount ? [{ id: 'admin', label: t('운영자 대시보드'), icon: ShieldCheck }] : []),
+    { id: 'subscription', label: t('구독 관리'), icon: CreditCard }
   ];
 
   return (
