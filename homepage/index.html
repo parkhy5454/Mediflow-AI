@@ -222,8 +222,8 @@
     background:var(--ink);color:var(--white);border-radius:20px;padding:44px 48px;
     display:flex;justify-content:space-between;align-items:center;gap:32px;margin-bottom:28px;flex-wrap:wrap;
   }
-  .price-hero .num{font-family:var(--serif);font-size:44px;font-weight:700;}
-  .price-hero .num small{font-family:var(--sans);font-size:15px;font-weight:500;color:#93A0B8;}
+  .price-hero .num{font-family:var(--serif);font-size:44px;font-weight:700;white-space:nowrap;}
+  .price-hero .num small{font-family:var(--sans);font-size:15px;font-weight:500;color:#93A0B8;white-space:nowrap;}
   .price-hero p{color:#B7BFCC;font-size:14px;max-width:340px;margin:8px 0 0;}
   .discount-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
   .discount-card{
@@ -254,7 +254,9 @@
     .flow{grid-template-columns:1fr 1fr;row-gap:32px;}
     .flow::before{display:none;}
     .discount-grid{grid-template-columns:repeat(2,1fr);}
-    .price-hero{flex-direction:column;align-items:flex-start;}
+    .price-hero{flex-direction:column;align-items:flex-start;padding:28px 24px;}
+    .price-hero .num{font-size:30px;}
+    .price-hero .num small{font-size:12.5px;}
     .nav .wrap{padding:0 16px;}
     .brand{font-size:17px;}
     .nav-links{gap:8px;}
