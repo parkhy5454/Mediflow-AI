@@ -132,7 +132,6 @@ import BalanceAnalysis from './BalanceAnalysis';
 import CalendarView from './CalendarView';
 import ExportButtons from '../Roster/ExportButtons';
 import { getMonthName } from '../../utils/dateUtils';
-import Footer from '../../footer';
 
 import { useTranslation } from 'react-i18next';
 
@@ -238,7 +237,6 @@ const Dashboard = ({
         rosterConfig={rosterConfig}
         getCurrentMonthRoster={getCurrentMonthRoster}
       />
-      <Footer/>
     </div>
   );
 };
