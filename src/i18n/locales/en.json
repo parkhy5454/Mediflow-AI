@@ -53,6 +53,7 @@
   "{{value}}(월 환산 {{formatWon}})": "{{value}} (equivalent to {{formatWon}}/month)",
   "{{years}}년 선결제": "{{years}}-year prepay",
   "{{years}}년 선결제가 완료되었습니다. ({{prepaidUntil}}까지 적용)": "Prepayment for {{years}} year(s) is complete. (Applied until {{prepaidUntil}})",
+  "{{years}}년 이상 선결제": "{{years}}+ year prepay",
   "{{year}}년 {{month}}": "{{month}} {{year}}",
   "{{year}}년 {{month}} PDF 내보내기가 시작되었습니다.": "PDF export for {{month}} {{year}} has started.",
   "{{year}}년 {{month}} 근무표가 생성되었습니다": "The {{month}} {{year}} roster has been generated",

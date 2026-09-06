@@ -11,7 +11,7 @@ const TOSS_CLIENT_KEY = process.env.REACT_APP_TOSS_CLIENT_KEY;
 // 서버(server.js의 PREPAY_DISCOUNTS)와 반드시 같은 값으로 유지해야 함 — 화면 표시용이며,
 // 실제 결제 금액은 서버가 다시 계산해서 검증하므로 여기 값이 달라도 결제 자체가 틀어지진 않지만
 // 사용자에게 보여주는 금액과 실제 청구 금액이 어긋나 보일 수 있으니 항상 맞춰둘 것.
-const PREPAY_DISCOUNTS = { 1: 0.10, 2: 0.15, 3: 0.20, 4: 0.25, 5: 0.30 };
+const PREPAY_DISCOUNTS = { 1: 0.10, 2: 0.15, 3: 0.20, 4: 0.25, 5: 0.30, 6: 0.40 };
 
 const STATUS_INFO = {
   trial: { label: '무료 체험 중', bg: '#eff6ff', color: '#1d4ed8', icon: Clock },
@@ -206,6 +206,7 @@ const SubscriptionView = ({ currentUser }) => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {Object.entries(PREPAY_DISCOUNTS).map(([yearsStr, discount]) => {
             const years = Number(yearsStr);
+            const isMaxTier = years === Math.max(...Object.keys(PREPAY_DISCOUNTS).map(Number));
             const nurseCount = subscription?.activeNurseCount ?? 0;
             const pricePerNurse = subscription?.pricePerNurse || 3000;
             const fullAmount = nurseCount * pricePerNurse * 12 * years;
@@ -222,9 +223,10 @@ const SubscriptionView = ({ currentUser }) => {
               >
                 <div>
                   <div style={{ fontSize: '13px', fontWeight: '700', color: '#1f2937' }}>
-                                      {t('{{years}}년 선결제', {
-                      years: years
-                    })} <span style={{ color: '#16a34a', fontWeight: '700' }}>{t('{{value}}% 할인', {
+                                      {isMaxTier
+                      ? t('{{years}}년 이상 선결제', { years: years - 1 })
+                      : t('{{years}}년 선결제', { years: years })
+                    } <span style={{ color: '#16a34a', fontWeight: '700' }}>{t('{{value}}% 할인', {
                       value: Math.round(discount * 100)
                     })}</span>
                   </div>

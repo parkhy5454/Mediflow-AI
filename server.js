@@ -2071,8 +2071,8 @@ app.put('/api/subscription/cancel', async (req, res) => {
   }
 });
 
-// 다년 선결제 할인율: 1년 10%, 2년 15%, 3년 20%, 4년 25%, 5년 30%
-const PREPAY_DISCOUNTS = { 1: 0.10, 2: 0.15, 3: 0.20, 4: 0.25, 5: 0.30 };
+// 다년 선결제 할인율: 1년 10%, 2년 15%, 3년 20%, 4년 25%, 5년 30%, 6년(5년 이상 플랜) 40%
+const PREPAY_DISCOUNTS = { 1: 0.10, 2: 0.15, 3: 0.20, 4: 0.25, 5: 0.30, 6: 0.40 };
 
 // 선결제 금액 계산 (요청 위조 방지를 위해 서버에서 항상 다시 계산해서 검증에 사용)
 const calcPrepayAmount = (nurseCount, pricePerNurse, years) => {
