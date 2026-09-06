@@ -7,6 +7,8 @@ import React, { useState, useEffect } from 'react';
 import { Save, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { SHIFT_TYPES, shiftFullLabel, shiftTime } from '../../constants/shiftTypes';
 
+import { useTranslation } from 'react-i18next';
+
 const numberInputStyle = {
   width: '100%',
   padding: '10px',
@@ -17,6 +19,7 @@ const numberInputStyle = {
 };
 
 const Settings = ({ rosterConfig, updateRosterConfig, departmentOptions, selectedDepartment, setSelectedDepartment }) => {
+  const { t } = useTranslation();
   // 서버에서 불러온 원본과 별개로, 화면에서 편집 중인 임시 값을 따로 들고 있는다.
   const [draft, setDraft] = useState(rosterConfig);
   const [saving, setSaving] = useState(false);
@@ -70,16 +73,15 @@ const Settings = ({ rosterConfig, updateRosterConfig, departmentOptions, selecte
 
   return (
     <div style={{ padding: '20px', paddingBottom: '90px' }}>
-      <h2 style={{ marginBottom: '4px', color: '#1f2937' }}>근무표 설정</h2>
+      <h2 style={{ marginBottom: '4px', color: '#1f2937' }}>{t('근무표 설정')}</h2>
       <p style={{ marginBottom: '14px', color: '#6b7280', fontSize: '13px' }}>
-        4교대(데이/이브닝/나이트/미들) 시스템 기준으로 교대별 필요 인원과 근무/휴무 일수를 설정합니다.
-        값을 바꾼 뒤 아래 <strong>저장</strong> 버튼을 눌러야 실제로 반영됩니다.
+        {t('4교대(데이/이브닝/나이트/미들) 시스템 기준으로 교대별 필요 인원과 근무/휴무 일수를 설정합니다. 값을 바꾼 뒤 아래')} <strong>{t('저장')}</strong> {t('버튼을 눌러야 실제로 반영됩니다.')}
       </p>
 
       {departmentOptions && departmentOptions.length > 0 && (
         <div style={{ marginBottom: '20px' }}>
           <label style={{ fontSize: '12px', fontWeight: '600', color: '#6b7280', marginRight: '8px' }}>
-            부서(병동)
+            {t('부서(병동)')}
           </label>
           <select
             value={selectedDepartment}
@@ -94,7 +96,7 @@ const Settings = ({ rosterConfig, updateRosterConfig, departmentOptions, selecte
             ))}
           </select>
           <p style={{ margin: '6px 0 0', fontSize: '11px', color: '#9ca3af' }}>
-            부서마다 필요 인원과 근무/휴무 일수를 따로 설정할 수 있습니다. 지금 편집 중인 설정은 위에서 선택한 부서 것입니다.
+            {t('부서마다 필요 인원과 근무/휴무 일수를 따로 설정할 수 있습니다. 지금 편집 중인 설정은 위에서 선택한 부서 것입니다.')}
           </p>
         </div>
       )}
@@ -118,7 +120,7 @@ const Settings = ({ rosterConfig, updateRosterConfig, departmentOptions, selecte
               }}>
                 <div>
                   <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500', color: '#374151', fontSize: '13px' }}>
-                    필요 인원
+                    {t('필요 인원')}
                   </label>
                   <input
                     type="number"
@@ -131,7 +133,7 @@ const Settings = ({ rosterConfig, updateRosterConfig, departmentOptions, selecte
                 </div>
                 <div>
                   <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500', color: '#374151', fontSize: '13px' }}>
-                    연속 근무 기간 (일)
+                    {t('연속 근무 기간 (일)')}
                   </label>
                   <input
                     type="number"
@@ -144,7 +146,7 @@ const Settings = ({ rosterConfig, updateRosterConfig, departmentOptions, selecte
                 </div>
                 <div>
                   <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500', color: '#374151', fontSize: '13px' }}>
-                    근무 후 휴무 (일)
+                    {t('근무 후 휴무 (일)')}
                   </label>
                   <input
                     type="number"
@@ -161,7 +163,7 @@ const Settings = ({ rosterConfig, updateRosterConfig, departmentOptions, selecte
         })}
 
         <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
-          <h3 style={{ margin: '0 0 14px 0', color: '#1f2937', fontSize: '16px' }}>공통 설정</h3>
+          <h3 style={{ margin: '0 0 14px 0', color: '#1f2937', fontSize: '16px' }}>{t('공통 설정')}</h3>
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
@@ -216,16 +218,16 @@ const Settings = ({ rosterConfig, updateRosterConfig, departmentOptions, selecte
               backgroundColor: 'white', color: '#374151', fontSize: '13px', cursor: 'pointer'
             }}
           >
-            변경 취소
+            {t('변경 취소')}
           </button>
         )}
 
         {hasChanges && !saveResult && (
-          <span style={{ fontSize: '12px', color: '#9ca3af' }}>저장하지 않은 변경사항이 있습니다.</span>
+          <span style={{ fontSize: '12px', color: '#9ca3af' }}>{t('저장하지 않은 변경사항이 있습니다.')}</span>
         )}
         {saveResult?.success && (
           <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px', color: '#16a34a', fontWeight: '600' }}>
-            <CheckCircle2 size={16} /> 저장되었습니다.
+            <CheckCircle2 size={16} /> {t('저장되었습니다.')}
           </span>
         )}
         {saveResult && !saveResult.success && (

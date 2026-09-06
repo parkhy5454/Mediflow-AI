@@ -3,7 +3,10 @@
 import React from 'react';
 import { CheckCircle2, AlertTriangle, X, RefreshCcw } from 'lucide-react';
 
+import { useTranslation } from 'react-i18next';
+
 const RosterResultModal = ({ result, onClose }) => {
+  const { t } = useTranslation();
   if (!result) return null;
 
   const hasEmptyShifts = !!result.continuityInfo?.hasEmptyShifts;
@@ -39,8 +42,10 @@ const RosterResultModal = ({ result, onClose }) => {
             </h3>
             {nursesInTransition > 0 && (
               <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <RefreshCcw size={12} /> 간호사 {nursesInTransition}명이 근무 주기를 다음 달로 이어서 계속합니다
-              </p>
+                <RefreshCcw size={12} /> {t('간호사 {{nursesInTransition}}명이 근무 주기를 다음 달로 이어서 계속합니다', {
+                nursesInTransition: nursesInTransition
+              })}
+                            </p>
             )}
           </div>
         </div>
@@ -61,7 +66,7 @@ const RosterResultModal = ({ result, onClose }) => {
               backgroundColor: '#3b82f6', color: 'white', fontSize: '14px', fontWeight: '600', cursor: 'pointer'
             }}
           >
-            확인
+            {t('확인')}
           </button>
         </div>
       </div>

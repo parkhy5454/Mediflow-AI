@@ -3,7 +3,10 @@ import React, { useState } from 'react';
 import { QUALIFICATION_OPTIONS, EXPERIENCE_OPTIONS, DEPARTMENT_OPTIONS } from '../../constants/nurseOptions';
 import SelectOrCustom, { inputStyle } from '../Common/SelectOrCustom';
 
+import { useTranslation } from 'react-i18next';
+
 const AddNurseForm = ({ onAddNurse, onCancel, nameOptions = [] }) => {
+  const { t } = useTranslation();
   const [newNurse, setNewNurse] = useState({
     name: '',
     qualification: 'RN',
@@ -13,7 +16,7 @@ const AddNurseForm = ({ onAddNurse, onCancel, nameOptions = [] }) => {
 
   const handleSubmit = async () => {
     if (!newNurse.name.trim()) {
-      alert('간호사 이름을 입력해주세요');
+      alert(t('간호사 이름을 입력해주세요'));
       return;
     }
     
@@ -36,7 +39,7 @@ const AddNurseForm = ({ onAddNurse, onCancel, nameOptions = [] }) => {
       border: '1px solid #e5e7eb',
       marginBottom: '20px'
     }}>
-      <h3 style={{ marginBottom: '15px', color: '#1f2937' }}>새 간호사 추가</h3>
+      <h3 style={{ marginBottom: '15px', color: '#1f2937' }}>{t('새 간호사 추가')}</h3>
       <div style={{ 
         display: 'grid', 
         gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
@@ -52,7 +55,7 @@ const AddNurseForm = ({ onAddNurse, onCancel, nameOptions = [] }) => {
         ) : (
           <input
             type="text"
-            placeholder="간호사 이름"
+            placeholder={t('간호사 이름')}
             value={newNurse.name}
             onChange={(e) => setNewNurse({ ...newNurse, name: e.target.value })}
             style={inputStyle}
@@ -89,7 +92,7 @@ const AddNurseForm = ({ onAddNurse, onCancel, nameOptions = [] }) => {
             cursor: 'pointer'
           }}
         >
-          간호사 추가
+          {t('간호사 추가')}
         </button>
         <button 
           onClick={onCancel}
@@ -102,7 +105,7 @@ const AddNurseForm = ({ onAddNurse, onCancel, nameOptions = [] }) => {
             cursor: 'pointer'
           }}
         >
-          취소
+          {t('취소')}
         </button>
       </div>
     </div>

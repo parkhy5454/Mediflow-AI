@@ -5,6 +5,8 @@ import React, { useState } from 'react';
 import { X, UserCircle } from 'lucide-react';
 import { formatPhoneNumber } from '../../utils/phoneUtils';
 
+import { useTranslation } from 'react-i18next';
+
 const inputStyle = {
   width: '100%',
   padding: '10px 12px',
@@ -15,6 +17,7 @@ const inputStyle = {
 };
 
 const ProfileEditModal = ({ currentUser, onClose, onSaved }) => {
+  const { t } = useTranslation();
   const [name, setName] = useState(currentUser.name || '');
   const [phone, setPhone] = useState(currentUser.phone ? formatPhoneNumber(currentUser.phone) : '');
   const [error, setError] = useState('');
@@ -56,7 +59,7 @@ const ProfileEditModal = ({ currentUser, onClose, onSaved }) => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <UserCircle size={20} style={{ color: '#3b82f6' }} />
-            <h3 style={{ margin: 0, fontSize: '16px', color: '#1f2937' }}>내 정보 수정</h3>
+            <h3 style={{ margin: 0, fontSize: '16px', color: '#1f2937' }}>{t('내 정보 수정')}</h3>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}>
             <X size={18} />
@@ -66,7 +69,7 @@ const ProfileEditModal = ({ currentUser, onClose, onSaved }) => {
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div>
             <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: '500', color: '#374151' }}>
-              이름
+              {t('이름')}
             </label>
             <input
               type="text"
@@ -77,7 +80,7 @@ const ProfileEditModal = ({ currentUser, onClose, onSaved }) => {
           </div>
           <div>
             <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: '500', color: '#374151' }}>
-              전화번호 (선택)
+              {t('전화번호 (선택)')}
             </label>
             <input
               type="tel"
@@ -87,15 +90,15 @@ const ProfileEditModal = ({ currentUser, onClose, onSaved }) => {
               style={inputStyle}
             />
             <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px' }}>
-              근무 변경/대타 요청 시 동료가 연락할 수 있도록 등록해두면 좋습니다.
+              {t('근무 변경/대타 요청 시 동료가 연락할 수 있도록 등록해두면 좋습니다.')}
             </p>
           </div>
           <div>
             <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: '500', color: '#374151' }}>
-              이메일
+              {t('이메일')}
             </label>
             <input type="text" value={currentUser.email} disabled style={{ ...inputStyle, backgroundColor: '#f3f4f6', color: '#9ca3af' }} />
-            <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px' }}>이메일(아이디)은 변경할 수 없습니다.</p>
+            <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px' }}>{t('이메일(아이디)은 변경할 수 없습니다.')}</p>
           </div>
 
           {error && (

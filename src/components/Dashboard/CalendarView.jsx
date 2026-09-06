@@ -5,6 +5,8 @@ import React, { useState } from 'react';
 import { getDaysInMonth } from '../../utils/dateUtils';
 import { SHIFT_TYPES, shiftLabel, shiftColor } from '../../constants/shiftTypes';
 
+import { useTranslation } from 'react-i18next';
+
 const NAME_PREVIEW_COUNT = 3; // 기본으로 몇 명까지 보여줄지
 
 // 교대 한 줄(데이/이브닝/... 또는 휴무)을 담당하는 컴포넌트.
@@ -55,6 +57,7 @@ const NameLine = ({ label, count, size, names, color, isIssue }) => {
 };
 
 const CalendarView = ({ selectedMonth, selectedYear, rosterConfig, getCurrentMonthRoster }) => {
+  const { t } = useTranslation();
   const monthRoster = getCurrentMonthRoster();
   const daysInMonth = getDaysInMonth(selectedMonth, selectedYear);
   const firstDay = new Date(selectedYear, selectedMonth, 1).getDay();
@@ -122,7 +125,7 @@ const CalendarView = ({ selectedMonth, selectedYear, rosterConfig, getCurrentMon
       borderRadius: '8px',
       border: '1px solid #e5e7eb'
     }}>
-      <h3 style={{ marginBottom: '20px', color: '#1f2937' }}>월간 캘린더</h3>
+      <h3 style={{ marginBottom: '20px', color: '#1f2937' }}>{t('월간 캘린더')}</h3>
       <div>
         <div style={{
           display: 'grid',

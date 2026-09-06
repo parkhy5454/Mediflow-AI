@@ -1,8 +1,11 @@
 // src/components/Layout/Header.jsx
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import ProfileEditModal from './ProfileEditModal';
+import LanguageSwitcher from '../Common/LanguageSwitcher';
 
 const Header = ({ activeNurses, currentUser, onLogout, onUserUpdate }) => {
+  const { t } = useTranslation();
   const [showProfileModal, setShowProfileModal] = useState(false);
 
   return (
@@ -28,12 +31,12 @@ const Header = ({ activeNurses, currentUser, onLogout, onUserUpdate }) => {
             fontWeight: 'bold', 
             color: '#1f2937' 
           }}>
-            {currentUser?.hospitalName ? `${currentUser.hospitalName} 간호사 근무 관리 시스템` : '병원 간호사 근무 관리 시스템'}
+            {currentUser?.hospitalName ? `${currentUser.hospitalName} ${t('간호사 근무 관리 시스템')}` : t('병원 간호사 근무 관리 시스템')}
           </h1>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <span style={{ fontSize: '14px', color: '#6b7280' }}>
-            근무 중인 간호사: {activeNurses.length}명
+            {t('근무 중인 간호사: {{count}}명', { count: activeNurses.length })}
           </span>
           {currentUser && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -49,7 +52,7 @@ const Header = ({ activeNurses, currentUser, onLogout, onUserUpdate }) => {
                     padding: '2px 6px',
                     borderRadius: '10px'
                   }}>
-                    관리자
+                    {t('관리자')}
                   </span>
                 )}
               </span>
@@ -65,7 +68,7 @@ const Header = ({ activeNurses, currentUser, onLogout, onUserUpdate }) => {
                   cursor: 'pointer'
                 }}
               >
-                내 정보
+                {t('내 정보')}
               </button>
               <button
                 onClick={onLogout}
@@ -79,10 +82,11 @@ const Header = ({ activeNurses, currentUser, onLogout, onUserUpdate }) => {
                   cursor: 'pointer'
                 }}
               >
-                로그아웃
+                {t('로그아웃')}
               </button>
             </div>
           )}
+          <LanguageSwitcher />
         </div>
       </div>
 

@@ -4,6 +4,8 @@
 import React, { useState } from 'react';
 import { KeyRound } from 'lucide-react';
 
+import { useTranslation } from 'react-i18next';
+
 const inputStyle = {
   width: '100%',
   padding: '10px 12px',
@@ -14,6 +16,7 @@ const inputStyle = {
 };
 
 const ForcedPasswordChange = ({ currentUser, onChanged }) => {
+  const { t } = useTranslation();
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
@@ -53,34 +56,34 @@ const ForcedPasswordChange = ({ currentUser, onChanged }) => {
       <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '32px', width: '100%', maxWidth: '400px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
           <KeyRound size={22} style={{ color: '#3b82f6' }} />
-          <h2 style={{ margin: 0, color: '#1f2937' }}>새 비밀번호 설정</h2>
+          <h2 style={{ margin: 0, color: '#1f2937' }}>{t('새 비밀번호 설정')}</h2>
         </div>
         <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '24px', lineHeight: '1.5' }}>
-          관리자가 발급한 임시 비밀번호로 로그인하셨습니다. 계속 사용하시려면 본인만 아는 새 비밀번호로 바꿔주세요.
+          {t('관리자가 발급한 임시 비밀번호로 로그인하셨습니다. 계속 사용하시려면 본인만 아는 새 비밀번호로 바꿔주세요.')}
         </p>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div>
             <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: '500', color: '#374151' }}>
-              새 비밀번호
+              {t('새 비밀번호')}
             </label>
             <input
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="영문+숫자 포함 8자 이상"
+              placeholder={t('영문+숫자 포함 8자 이상')}
               style={inputStyle}
             />
           </div>
           <div>
             <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: '500', color: '#374151' }}>
-              새 비밀번호 확인
+              {t('새 비밀번호 확인')}
             </label>
             <input
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="다시 한번 입력"
+              placeholder={t('다시 한번 입력')}
               style={inputStyle}
             />
           </div>

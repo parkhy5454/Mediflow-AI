@@ -2,6 +2,8 @@
 // [수정] localStorage 대신 서버 API(Supabase)를 통해 병원별로 간호사 데이터를 저장/조회한다.
 import { useState, useEffect } from 'react';
 
+import { useTranslation } from 'react-i18next';
+
 const authHeaders = (currentUser, withBody = false) => {
   const headers = { 'Authorization': `Bearer ${currentUser?.token}` };
   if (withBody) headers['Content-Type'] = 'application/json';
@@ -9,6 +11,7 @@ const authHeaders = (currentUser, withBody = false) => {
 };
 
 export const useNurses = (currentUser) => {
+  const { t } = useTranslation();
   const [nurses, setNurses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -50,7 +53,7 @@ export const useNurses = (currentUser) => {
       return true;
     } catch (err) {
       console.error('간호사 추가 실패:', err);
-      alert('간호사 추가 중 오류가 발생했습니다.');
+      alert(t('간호사 추가 중 오류가 발생했습니다.'));
       return false;
     }
   };
@@ -86,13 +89,13 @@ export const useNurses = (currentUser) => {
       return true;
     } catch (err) {
       console.error('간호사 정보 수정 실패:', err);
-      alert('간호사 정보 수정 중 오류가 발생했습니다.');
+      alert(t('간호사 정보 수정 중 오류가 발생했습니다.'));
       return false;
     }
   };
 
   const deleteNurse = async (id) => {
-    if (!window.confirm('정말 이 간호사를 삭제하시겠습니까?')) return false;
+    if (!window.confirm(t('정말 이 간호사를 삭제하시겠습니까?'))) return false;
     setNurses(prev => prev.filter(nurse => nurse.id !== id));
     try {
       await fetch(`/api/nurses/${id}`, { method: 'DELETE', headers: authHeaders(currentUser) });
@@ -124,7 +127,7 @@ export const useNurses = (currentUser) => {
       return true;
     } catch (err) {
       console.error('간호사 일괄 저장 실패:', err);
-      alert('간호사 정보 서버 저장 중 네트워크 오류가 발생했습니다. 인터넷 연결을 확인하고 근무표를 다시 생성해주세요.');
+      alert(t('간호사 정보 서버 저장 중 네트워크 오류가 발생했습니다. 인터넷 연결을 확인하고 근무표를 다시 생성해주세요.'));
       return false;
     }
   };

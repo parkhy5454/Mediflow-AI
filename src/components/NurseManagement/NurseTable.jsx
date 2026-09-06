@@ -7,7 +7,10 @@ import SelectOrCustom, { inputStyle } from '../Common/SelectOrCustom';
 import { QUALIFICATION_OPTIONS, EXPERIENCE_OPTIONS, DEPARTMENT_OPTIONS } from '../../constants/nurseOptions';
 import { SHIFT_TYPES, shiftLabel } from '../../constants/shiftTypes';
 
+import { useTranslation } from 'react-i18next';
+
 const NurseTable = ({ nurses, updateNurseStatus, updateNurse, deleteNurse, nameOptions = [] }) => {
+  const { t } = useTranslation();
   const [editingId, setEditingId] = useState(null);
   const [editValues, setEditValues] = useState(null);
 
@@ -40,7 +43,7 @@ const NurseTable = ({ nurses, updateNurseStatus, updateNurse, deleteNurse, nameO
 
   const saveEdit = async (id) => {
     if (!editValues.name.trim()) {
-      alert('간호사 이름을 입력해주세요');
+      alert(t('간호사 이름을 입력해주세요'));
       return;
     }
     const success = await updateNurse(id, editValues);
@@ -64,7 +67,7 @@ const NurseTable = ({ nurses, updateNurseStatus, updateNurse, deleteNurse, nameO
           display: 'flex',
           alignItems: 'center'
         }}
-        title="수정"
+        title={t('수정')}
       >
         <Pencil size={14} />
       </button>
@@ -81,7 +84,7 @@ const NurseTable = ({ nurses, updateNurseStatus, updateNurse, deleteNurse, nameO
             display: 'flex',
             alignItems: 'center'
           }}
-          title="근무 중지"
+          title={t('근무 중지')}
         >
           <EyeOff size={14} />
         </button>
@@ -99,7 +102,7 @@ const NurseTable = ({ nurses, updateNurseStatus, updateNurse, deleteNurse, nameO
             display: 'flex',
             alignItems: 'center'
           }}
-          title="근무 재개"
+          title={t('근무 재개')}
         >
           <Eye size={14} />
         </button>
@@ -116,7 +119,7 @@ const NurseTable = ({ nurses, updateNurseStatus, updateNurse, deleteNurse, nameO
           display: 'flex',
           alignItems: 'center'
         }}
-        title="보관"
+        title={t('보관')}
       >
         <Archive size={14} />
       </button>
@@ -132,7 +135,7 @@ const NurseTable = ({ nurses, updateNurseStatus, updateNurse, deleteNurse, nameO
           display: 'flex',
           alignItems: 'center'
         }}
-        title="삭제"
+        title={t('삭제')}
       >
         <Trash2 size={14} />
       </button>
@@ -153,7 +156,7 @@ const NurseTable = ({ nurses, updateNurseStatus, updateNurse, deleteNurse, nameO
           display: 'flex',
           alignItems: 'center'
         }}
-        title="저장"
+        title={t('저장')}
       >
         <Check size={14} />
       </button>
@@ -169,7 +172,7 @@ const NurseTable = ({ nurses, updateNurseStatus, updateNurse, deleteNurse, nameO
           display: 'flex',
           alignItems: 'center'
         }}
-        title="취소"
+        title={t('취소')}
       >
         <X size={14} />
       </button>
@@ -182,20 +185,20 @@ const NurseTable = ({ nurses, updateNurseStatus, updateNurse, deleteNurse, nameO
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
           <thead style={{ backgroundColor: '#f9fafb' }}>
             <tr>
-              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>이름</th>
-              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>자격</th>
-              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>경력</th>
-              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>부서</th>
-              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>상태</th>
-              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>마지막 근무</th>
-              <th style={{ padding: '12px', textAlign: 'center', borderBottom: '1px solid #e5e7eb' }}>작업</th>
+              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>{t('이름')}</th>
+              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>{t('자격')}</th>
+              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>{t('경력')}</th>
+              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>{t('부서')}</th>
+              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>{t('상태')}</th>
+              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>{t('마지막 근무')}</th>
+              <th style={{ padding: '12px', textAlign: 'center', borderBottom: '1px solid #e5e7eb' }}>{t('작업')}</th>
             </tr>
           </thead>
           <tbody>
             {groups.length === 0 ? (
               <tr>
                 <td colSpan={7} style={{ padding: '30px', textAlign: 'center', color: '#9ca3af' }}>
-                  표시할 간호사가 없습니다.
+                  {t('표시할 간호사가 없습니다.')}
                 </td>
               </tr>
             ) : (
@@ -214,7 +217,9 @@ const NurseTable = ({ nurses, updateNurseStatus, updateNurse, deleteNurse, nameO
                         fontSize: '13px'
                       }}
                     >
-                      {department} <span style={{ fontWeight: '400', color: '#6366f1', fontSize: '12px' }}>({deptNurses.length}명)</span>
+                      {department} <span style={{ fontWeight: '400', color: '#6366f1', fontSize: '12px' }}>{t('({{length}}명)', {
+                        length: deptNurses.length
+                      })}</span>
                     </td>
                   </tr>
                   {deptNurses.map(nurse => {

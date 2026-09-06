@@ -7,6 +7,8 @@ import { useSwapRequests } from '../../hooks/useSwapRequests';
 import { getDaysInMonth } from '../../utils/dateUtils';
 import { shiftFullLabel } from '../../constants/shiftTypes';
 
+import { useTranslation } from 'react-i18next';
+
 const STATUS_LABEL = {
   pending: { text: '대타 모집중', bg: '#fef3c7', color: '#92400e' },
   ready_for_review: { text: '승인 대기', bg: '#dbeafe', color: '#1e40af' },
@@ -40,6 +42,7 @@ const selectStyle = {
 const labelStyle = { display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: '600', color: '#374151' };
 
 const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, selectedYear, getCurrentMonthRoster, refetchRoster, departmentOptions, selectedDepartment, setSelectedDepartment }) => {
+  const { t } = useTranslation();
   const { requests: allRequests, loading, error, createRequest, volunteer, cancelRequest, decide } = useSwapRequests(currentUser, selectedYear, selectedMonth);
 
   const shiftTypes = rosterConfig?.shifts ? Object.keys(rosterConfig.shifts) : [];
@@ -125,14 +128,14 @@ const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, select
   };
 
   const handleCancel = async (requestId) => {
-    if (!window.confirm('이 요청을 취소하시겠습니까?')) return;
+    if (!window.confirm(t('이 요청을 취소하시겠습니까?'))) return;
     setBusyId(requestId);
     await cancelRequest(requestId);
     setBusyId(null);
   };
 
   const handleApprove = async (requestId) => {
-    if (!window.confirm('승인하면 실제 근무표에 바로 반영됩니다. 계속할까요?')) return;
+    if (!window.confirm(t('승인하면 실제 근무표에 바로 반영됩니다. 계속할까요?'))) return;
     setBusyId(requestId);
     const result = await decide(requestId, 'approved');
     setBusyId(null);
@@ -183,9 +186,14 @@ const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, select
             <span style={{ fontSize: '11px', color: '#9ca3af' }}>{r.requestType === 'swap' ? '1:1 맞교환' : '공개 대타'}</span>
           </div>
           <div style={{ fontSize: '13px', color: '#1f2937', fontWeight: '500' }}>{describeRequest(r)}</div>
-          {r.reason && <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>사유: {r.reason}</div>}
+          {r.reason && <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>{t('사유: {{reason}}', {
+              reason: r.reason
+            })}</div>}
           <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px' }}>
-            요청자: {r.createdByUserName} · {new Date(r.createdAt).toLocaleString()}
+            {t('요청자: {{createdByUserName}} · {{value}}', {
+              createdByUserName: r.createdByUserName,
+              value: new Date(r.createdAt).toLocaleString()
+            })}
           </div>
           {r.reviewNote && (
             <div style={{
@@ -195,8 +203,10 @@ const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, select
               fontSize: '13px', fontWeight: '700',
               color: r.status === 'rejected' ? '#991b1b' : '#166534'
             }}>
-              처리 메모: {r.reviewNote}
-            </div>
+                          {t('처리 메모: {{reviewNote}}', {
+              reviewNote: r.reviewNote
+            })}
+                        </div>
           )}
         </div>
 
@@ -206,7 +216,7 @@ const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, select
             volunteerFor === r.id ? (
               <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                 <select value={volunteerNurseId} onChange={e => setVolunteerNurseId(e.target.value)} style={{ ...selectStyle, width: '140px' }}>
-                  <option value="">간호사 선택</option>
+                  <option value="">{t('간호사 선택')}</option>
                   {activeNurses.filter(n => n.id !== r.fromNurseId).map(n => (
                     <option key={n.id} value={n.id}>{n.name}</option>
                   ))}
@@ -219,7 +229,7 @@ const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, select
                   {busyId === r.id ? <Loader2 size={14} className="animate-spin" /> : '확정'}
                 </button>
                 <button onClick={() => { setVolunteerFor(null); setVolunteerNurseId(''); }} style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #d1d5db', backgroundColor: 'white', fontSize: '12px', cursor: 'pointer' }}>
-                  취소
+                  {t('취소')}
                 </button>
               </div>
             ) : (
@@ -227,7 +237,7 @@ const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, select
                 onClick={() => setVolunteerFor(r.id)}
                 style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', backgroundColor: '#3b82f6', color: 'white', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
               >
-                내가 대신 할게요
+                {t('내가 대신 할게요')}
               </button>
             )
           )}
@@ -239,14 +249,14 @@ const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, select
                 <input
                   value={rejectNote}
                   onChange={e => setRejectNote(e.target.value)}
-                  placeholder="거절 사유(선택)"
+                  placeholder={t('거절 사유(선택)')}
                   style={{ ...selectStyle, width: '140px' }}
                 />
                 <button onClick={() => handleReject(r.id)} disabled={busyId === r.id} style={{ padding: '6px 10px', borderRadius: '6px', border: 'none', backgroundColor: '#ef4444', color: 'white', fontSize: '12px', cursor: 'pointer' }}>
-                  거절 확정
+                  {t('거절 확정')}
                 </button>
                 <button onClick={() => { setRejectNoteFor(null); setRejectNote(''); }} style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #d1d5db', backgroundColor: 'white', fontSize: '12px', cursor: 'pointer' }}>
-                  취소
+                  {t('취소')}
                 </button>
               </div>
             ) : (
@@ -256,20 +266,20 @@ const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, select
                   disabled={busyId === r.id}
                   style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', borderRadius: '6px', border: 'none', backgroundColor: '#10b981', color: 'white', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
                 >
-                  {busyId === r.id ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} 승인
+                  {busyId === r.id ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} {t('승인')}
                 </button>
                 <button
                   onClick={() => setRejectNoteFor(r.id)}
                   style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', borderRadius: '6px', border: '1px solid #ef4444', backgroundColor: 'white', color: '#ef4444', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
                 >
-                  <X size={14} /> 거절
+                  <X size={14} /> {t('거절')}
                 </button>
               </div>
             )
           )}
           {r.status === 'ready_for_review' && !isAdmin && (
             <span style={{ fontSize: '11px', color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Clock size={12} /> 관리자 승인 대기 중
+              <Clock size={12} /> {t('관리자 승인 대기 중')}
             </span>
           )}
 
@@ -279,7 +289,7 @@ const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, select
               disabled={busyId === r.id}
               style={{ fontSize: '11px', color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
             >
-              요청 취소
+              {t('요청 취소')}
             </button>
           )}
         </div>
@@ -292,7 +302,7 @@ const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, select
       {departmentOptions && departmentOptions.length > 0 && (
         <div style={{ marginBottom: '14px' }}>
           <label style={{ fontSize: '12px', fontWeight: '600', color: '#6b7280', marginRight: '8px' }}>
-            부서(병동)
+            {t('부서(병동)')}
           </label>
           <select
             value={selectedDepartment}
@@ -311,55 +321,61 @@ const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, select
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Repeat size={22} style={{ color: '#3b82f6' }} />
-          <h2 style={{ color: '#1f2937', margin: 0 }}>근무 변경 요청</h2>
+          <h2 style={{ color: '#1f2937', margin: 0 }}>{t('근무 변경 요청')}</h2>
         </div>
         <button
           onClick={() => setFormOpen(v => !v)}
           style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '6px', border: 'none', backgroundColor: '#3b82f6', color: 'white', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}
         >
-          <Plus size={16} /> 새 요청
+          <Plus size={16} /> {t('새 요청')}
         </button>
       </div>
       <p style={{ color: '#6b7280', fontSize: '13px', marginBottom: '20px' }}>
-        1:1 맞교환은 상대방까지 지정해서 바로 승인 대기로 올라가고, 공개 대타는 지원자가 나타나면 승인 대기로 전환됩니다.
-        {isAdmin ? ' 관리자는 승인 대기 요청을 승인/거절할 수 있으며, 승인 즉시 근무표에 반영됩니다.' : ' 최종 반영은 관리자 승인 후에 이루어집니다.'}
-      </p>
+              {t(
+          "1:1 맞교환은 상대방까지 지정해서 바로 승인 대기로 올라가고, 공개 대타는 지원자가 나타나면 승인 대기로 전환됩니다. {{value}}",
+          {
+            value: isAdmin ? ' 관리자는 승인 대기 요청을 승인/거절할 수 있으며, 승인 즉시 근무표에 반영됩니다.' : ' 최종 반영은 관리자 승인 후에 이루어집니다.'
+          }
+        )}
+            </p>
 
       {formOpen && (
         <form onSubmit={handleSubmit} style={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '16px', marginBottom: '20px' }}>
           <div style={{ display: 'flex', gap: '16px', marginBottom: '14px' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer' }}>
-              <input type="radio" checked={requestType === 'cover'} onChange={() => setRequestType('cover')} /> 공개 대타 요청
+              <input type="radio" checked={requestType === 'cover'} onChange={() => setRequestType('cover')} /> {t('공개 대타 요청')}
             </label>
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer' }}>
-              <input type="radio" checked={requestType === 'swap'} onChange={() => setRequestType('swap')} /> 1:1 맞교환
+              <input type="radio" checked={requestType === 'swap'} onChange={() => setRequestType('swap')} /> {t('1:1 맞교환')}
             </label>
           </div>
 
           <div style={{ fontSize: '13px', fontWeight: '700', color: '#374151', marginBottom: '8px' }}>
-            내 근무 (바꾸고 싶은 근무)
+            {t('내 근무 (바꾸고 싶은 근무)')}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '16px' }}>
             <div>
-              <label style={labelStyle}>날짜</label>
+              <label style={labelStyle}>{t('날짜')}</label>
               <select value={fromDay} onChange={e => { setFromDay(e.target.value); setFromShiftType(''); setFromNurseId(''); }} style={selectStyle}>
-                <option value="">선택</option>
-                {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(d => <option key={d} value={d}>{d}일</option>)}
+                <option value="">{t('선택')}</option>
+                {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(d => <option key={d} value={d}>{t('{{d}}일', {
+                    d: d
+                  })}</option>)}
               </select>
             </div>
             <div>
-              <label style={labelStyle}>교대</label>
+              <label style={labelStyle}>{t('교대')}</label>
               <select value={fromShiftType} onChange={e => { setFromShiftType(e.target.value); setFromNurseId(''); }} style={selectStyle} disabled={!fromDay}>
-                <option value="">선택</option>
+                <option value="">{t('선택')}</option>
                 {shiftTypes.filter(s => getNursesForDayShift(fromDay, s).length > 0).map(s => (
                   <option key={s} value={s}>{shiftFullLabel(s)}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label style={labelStyle}>이름</label>
+              <label style={labelStyle}>{t('이름')}</label>
               <select value={fromNurseId} onChange={e => setFromNurseId(e.target.value)} style={selectStyle} disabled={!fromShiftType}>
-                <option value="">선택</option>
+                <option value="">{t('선택')}</option>
                 {getNursesForDayShift(fromDay, fromShiftType).map(n => (
                   <option key={n.id} value={n.id}>{n.name}</option>
                 ))}
@@ -370,29 +386,31 @@ const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, select
           {requestType === 'swap' && (
             <>
               <div style={{ fontSize: '13px', fontWeight: '700', color: '#374151', marginBottom: '8px' }}>
-                맞바꿀 상대방 근무
+                {t('맞바꿀 상대방 근무')}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '16px' }}>
                 <div>
-                  <label style={labelStyle}>날짜</label>
+                  <label style={labelStyle}>{t('날짜')}</label>
                   <select value={toDay} onChange={e => { setToDay(e.target.value); setToShiftType(''); setToNurseId(''); }} style={selectStyle}>
-                    <option value="">선택</option>
-                    {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(d => <option key={d} value={d}>{d}일</option>)}
+                    <option value="">{t('선택')}</option>
+                    {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(d => <option key={d} value={d}>{t('{{d}}일', {
+                        d: d
+                      })}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={labelStyle}>교대</label>
+                  <label style={labelStyle}>{t('교대')}</label>
                   <select value={toShiftType} onChange={e => { setToShiftType(e.target.value); setToNurseId(''); }} style={selectStyle} disabled={!toDay}>
-                    <option value="">선택</option>
+                    <option value="">{t('선택')}</option>
                     {shiftTypes.filter(s => getNursesForDayShift(toDay, s).length > 0).map(s => (
                       <option key={s} value={s}>{shiftFullLabel(s)}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label style={labelStyle}>이름</label>
+                  <label style={labelStyle}>{t('이름')}</label>
                   <select value={toNurseId} onChange={e => setToNurseId(e.target.value)} style={selectStyle} disabled={!toShiftType}>
-                    <option value="">선택</option>
+                    <option value="">{t('선택')}</option>
                     {getNursesForDayShift(toDay, toShiftType).filter(n => n.id !== fromNurseId).map(n => (
                       <option key={n.id} value={n.id}>{n.name}</option>
                     ))}
@@ -403,12 +421,12 @@ const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, select
           )}
 
           <div style={{ marginBottom: '14px' }}>
-            <label style={labelStyle}>사유 (선택)</label>
+            <label style={labelStyle}>{t('사유 (선택)')}</label>
             <textarea
               value={reason}
               onChange={e => setReason(e.target.value)}
               rows={2}
-              placeholder="예: 개인 사정으로 근무 변경이 필요합니다."
+              placeholder={t('예: 개인 사정으로 근무 변경이 필요합니다.')}
               style={{ ...selectStyle, resize: 'vertical' }}
             />
           </div>
@@ -424,7 +442,7 @@ const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, select
               {submitting ? '등록 중...' : '요청 등록'}
             </button>
             <button type="button" onClick={() => { resetForm(); setFormOpen(false); }} style={{ padding: '9px 16px', borderRadius: '6px', border: '1px solid #d1d5db', backgroundColor: 'white', color: '#374151', fontSize: '13px', cursor: 'pointer' }}>
-              취소
+              {t('취소')}
             </button>
           </div>
         </form>
@@ -432,7 +450,7 @@ const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, select
 
       {loading ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#6b7280', padding: '30px 0', justifyContent: 'center' }}>
-          <Loader2 size={18} className="animate-spin" /> 불러오는 중...
+          <Loader2 size={18} className="animate-spin" /> {t('불러오는 중...')}
         </div>
       ) : error ? (
         <p style={{ color: '#dc2626', fontSize: '13px' }}>{error}</p>
@@ -440,28 +458,34 @@ const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, select
         <>
           <div style={{ marginBottom: '24px' }}>
             <h3 style={{ fontSize: '14px', color: '#1f2937', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
-              <Users size={16} /> 대타 모집중 ({pendingCover.length})
-            </h3>
+              <Users size={16} /> {t('대타 모집중 ({{length}})', {
+              length: pendingCover.length
+            })}
+                        </h3>
             {pendingCover.length === 0 ? (
-              <p style={{ fontSize: '12px', color: '#9ca3af' }}>모집 중인 대타 요청이 없습니다.</p>
+              <p style={{ fontSize: '12px', color: '#9ca3af' }}>{t('모집 중인 대타 요청이 없습니다.')}</p>
             ) : pendingCover.map(renderRequestCard)}
           </div>
 
           <div style={{ marginBottom: '24px' }}>
             <h3 style={{ fontSize: '14px', color: '#1f2937', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
-              <Clock size={16} /> 승인 대기 ({readyForReview.length})
-            </h3>
+              <Clock size={16} /> {t('승인 대기 ({{length}})', {
+              length: readyForReview.length
+            })}
+                        </h3>
             {readyForReview.length === 0 ? (
-              <p style={{ fontSize: '12px', color: '#9ca3af' }}>승인 대기 중인 요청이 없습니다.</p>
+              <p style={{ fontSize: '12px', color: '#9ca3af' }}>{t('승인 대기 중인 요청이 없습니다.')}</p>
             ) : readyForReview.map(renderRequestCard)}
           </div>
 
           <div>
             <h3 style={{ fontSize: '14px', color: '#1f2937', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
-              <History size={16} /> 처리 완료 ({history.length})
-            </h3>
+              <History size={16} /> {t('처리 완료 ({{length}})', {
+              length: history.length
+            })}
+                        </h3>
             {history.length === 0 ? (
-              <p style={{ fontSize: '12px', color: '#9ca3af' }}>아직 처리된 요청이 없습니다.</p>
+              <p style={{ fontSize: '12px', color: '#9ca3af' }}>{t('아직 처리된 요청이 없습니다.')}</p>
             ) : history.map(renderRequestCard)}
           </div>
         </>

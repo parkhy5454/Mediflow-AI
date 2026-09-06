@@ -6,6 +6,8 @@ import NurseFilters from './NurseFilters';
 import NurseTable from './NurseTable';
 import { DEPARTMENT_LIST } from '../../constants/nurseOptions';
 
+import { useTranslation } from 'react-i18next';
+
 const NurseManagement = ({ 
   nurses, 
   addNurse, 
@@ -15,6 +17,7 @@ const NurseManagement = ({
   getFilteredNurses,
   currentUser
 }) => {
+  const { t } = useTranslation();
   const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -73,7 +76,6 @@ const NurseManagement = ({
   });
 
   return (
-    
     <div style={{ padding: '20px' }}>
       <div style={{ 
         display: 'flex', 
@@ -81,7 +83,7 @@ const NurseManagement = ({
         alignItems: 'center', 
         marginBottom: '20px' 
       }}>
-        <h2 style={{ color: '#1f2937' }}>간호사 관리</h2>
+        <h2 style={{ color: '#1f2937' }}>{t('간호사 관리')}</h2>
         <button 
           onClick={() => setShowAddForm(!showAddForm)}
           style={{
@@ -97,7 +99,7 @@ const NurseManagement = ({
           }}
         >
           <UserPlus size={18} />
-          간호사 추가
+          {t('간호사 추가')}
         </button>
       </div>
 

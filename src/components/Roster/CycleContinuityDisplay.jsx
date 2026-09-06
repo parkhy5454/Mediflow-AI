@@ -5,7 +5,10 @@ import React from 'react';
 import { Clock, UserCheck, UserX, Users } from 'lucide-react';
 import { SHIFT_TYPES, shiftFullLabel, shiftColor } from '../../constants/shiftTypes';
 
+import { useTranslation } from 'react-i18next';
+
 const CycleContinuityDisplay = ({ nurses, rosterConfig }) => {
+  const { t } = useTranslation();
   const shiftTypes = rosterConfig?.shifts ? Object.keys(rosterConfig.shifts) : SHIFT_TYPES;
 
   const isNotFullyInCycle = (nurse) => {
@@ -46,10 +49,10 @@ const CycleContinuityDisplay = ({ nurses, rosterConfig }) => {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
           <UserCheck size={20} style={{ color: '#0ea5e9' }} />
-          <h3 style={{ margin: 0, color: '#0c4a6e', fontSize: '16px' }}>월 전환 상태</h3>
+          <h3 style={{ margin: 0, color: '#0c4a6e', fontSize: '16px' }}>{t('월 전환 상태')}</h3>
         </div>
         <p style={{ margin: 0, color: '#0369a1' }}>
-          ✅ 다음 달 시작 시 모든 간호사가 근무 가능합니다. 근무 주기 연속성 처리가 필요 없습니다.
+          {t('✅ 다음 달 시작 시 모든 간호사가 근무 가능합니다. 근무 주기 연속성 처리가 필요 없습니다.')}
         </p>
       </div>
     );
@@ -65,7 +68,7 @@ const CycleContinuityDisplay = ({ nurses, rosterConfig }) => {
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '15px' }}>
         <Clock size={20} style={{ color: '#d97706' }} />
-        <h3 style={{ margin: 0, color: '#92400e', fontSize: '16px' }}>월 전환 - 근무 주기 연속성</h3>
+        <h3 style={{ margin: 0, color: '#92400e', fontSize: '16px' }}>{t('월 전환 - 근무 주기 연속성')}</h3>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px' }}>
@@ -80,8 +83,10 @@ const CycleContinuityDisplay = ({ nurses, rosterConfig }) => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
               <UserX size={16} style={{ color: '#d97706' }} />
               <strong style={{ color: '#92400e', fontSize: '14px' }}>
-                휴무 계속 ({nursesOffDuty.length}명)
-              </strong>
+                              {t('휴무 계속 ({{length}}명)', {
+                length: nursesOffDuty.length
+              })}
+                            </strong>
             </div>
             {nursesOffDuty.map(nurse => (
               <div key={nurse.id} style={{
@@ -90,7 +95,10 @@ const CycleContinuityDisplay = ({ nurses, rosterConfig }) => {
                 marginBottom: '4px',
                 paddingLeft: '8px'
               }}>
-                • {nurse.name}: {nurse.lastOffDutyRemaining}일 남음
+                {t('• {{name}}: {{lastOffDutyRemaining}}일 남음', {
+                  name: nurse.name,
+                  lastOffDutyRemaining: nurse.lastOffDutyRemaining
+                })}
               </div>
             ))}
           </div>
@@ -109,7 +117,10 @@ const CycleContinuityDisplay = ({ nurses, rosterConfig }) => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
                 <Clock size={16} style={{ color }} />
                 <strong style={{ color, fontSize: '14px' }}>
-                  {shiftFullLabel(shiftType)} 계속 ({list.length}명)
+                  {t('{{shiftFullLabel}} 계속 ({{length}}명)', {
+                    shiftFullLabel: shiftFullLabel(shiftType),
+                    length: list.length
+                  })}
                 </strong>
               </div>
               {list.map(nurse => {
@@ -123,7 +134,15 @@ const CycleContinuityDisplay = ({ nurses, rosterConfig }) => {
                     marginBottom: '4px',
                     paddingLeft: '8px'
                   }}>
-                    • {nurse.name}: {totalDays}일 중 {nurse.lastShiftCycleDay}일차 ({remaining}일 남음)
+                    {t(
+                      "• {{name}}: {{totalDays}}일 중 {{lastShiftCycleDay}}일차 ({{remaining}}일 남음)",
+                      {
+                        name: nurse.name,
+                        totalDays: totalDays,
+                        lastShiftCycleDay: nurse.lastShiftCycleDay,
+                        remaining: remaining
+                      }
+                    )}
                   </div>
                 );
               })}
@@ -142,8 +161,10 @@ const CycleContinuityDisplay = ({ nurses, rosterConfig }) => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
               <Users size={16} style={{ color: '#15803d' }} />
               <strong style={{ color: '#14532d', fontSize: '14px' }}>
-                즉시 근무 가능 ({nursesAvailable.length}명)
-              </strong>
+                              {t('즉시 근무 가능 ({{length}}명)', {
+                length: nursesAvailable.length
+              })}
+                            </strong>
             </div>
             <div style={{
               fontSize: '12px',
@@ -165,8 +186,9 @@ const CycleContinuityDisplay = ({ nurses, rosterConfig }) => {
         fontSize: '12px',
         color: '#78350f'
       }}>
-        <strong>🔄 근무 주기 연속성:</strong> 간호사는 다음 달 새로운 근무를 배정받기 전에 현재 진행 중인 근무 주기를 완료합니다.
-        이를 통해 적절한 휴식 기간을 보장하고 일과 삶의 균형을 유지합니다.
+        <strong>{t('🔄 근무 주기 연속성:')}</strong> {t(
+          "간호사는 다음 달 새로운 근무를 배정받기 전에 현재 진행 중인 근무 주기를 완료합니다. 이를 통해 적절한 휴식 기간을 보장하고 일과 삶의 균형을 유지합니다."
+        )}
       </div>
     </div>
   );

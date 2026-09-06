@@ -50,7 +50,7 @@
 //   return (
 //     <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
 //       <Header activeNurses={getActiveNurses()} />
-      
+
 //       <Navigation 
 //         activeTab={activeTab} 
 //         setActiveTab={setActiveTab} 
@@ -64,7 +64,7 @@
 //             generateNurseAssignmentChart={generateNurseAssignmentChart}
 //           />
 //         )}
-        
+
 //         {activeTab === 'nurses' && (
 //           <NurseManagement 
 //             nurses={nurses}
@@ -74,7 +74,7 @@
 //             getFilteredNurses={getFilteredNurses}
 //           />
 //         )}
-        
+
 //         {activeTab === 'roster' && (
 //           <RosterView 
 //             {...sharedProps}
@@ -82,7 +82,7 @@
 //             getCurrentMonthRoster={getCurrentMonthRoster}
 //           />
 //         )}
-        
+
 //         {activeTab === 'settings' && (
 //           <Settings 
 //             rosterConfig={rosterConfig}
@@ -92,7 +92,7 @@
 //       </div>
 //       <Footer/>
 //     </div>
-    
+
 //   );
 // };
 
@@ -120,7 +120,10 @@ import { useNurses } from './hooks/useNurses';
 import { useRoster } from './hooks/useRoster';
 import { useRosterConfig } from './hooks/useRosterConfig';
 
+import { useTranslation } from 'react-i18next';
+
 const HospitalRosterSystem = () => {
+  const { t } = useTranslation();
   // [추가] 로그인 상태 관리. 새로고침해도 로그인이 풀리지 않도록 localStorage에 저장해둔다.
   const [currentUser, setCurrentUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -183,19 +186,19 @@ const HospitalRosterSystem = () => {
           });
           const data = await res.json();
           if (res.ok) {
-            alert('카드가 정상적으로 등록되었습니다.');
+            alert(t('카드가 정상적으로 등록되었습니다.'));
           } else {
             alert(data.error || '카드 등록에 실패했습니다.');
           }
         } catch (err) {
-          alert('카드 등록 중 오류가 발생했습니다.');
+          alert(t('카드 등록 중 오류가 발생했습니다.'));
         } finally {
           window.history.replaceState({}, '', window.location.pathname);
           setActiveTab('subscription');
         }
       })();
     } else if (billingAuth === 'fail') {
-      alert('카드 등록이 취소되었거나 실패했습니다.');
+      alert(t('카드 등록이 취소되었거나 실패했습니다.'));
       window.history.replaceState({}, '', window.location.pathname);
       setActiveTab('subscription');
     } else if (params.get('prepayYears') && params.get('paymentKey') && params.get('orderId') && params.get('amount')) {
@@ -217,14 +220,14 @@ const HospitalRosterSystem = () => {
             alert(data.error || '선결제 처리에 실패했습니다.');
           }
         } catch (err) {
-          alert('선결제 처리 중 오류가 발생했습니다.');
+          alert(t('선결제 처리 중 오류가 발생했습니다.'));
         } finally {
           window.history.replaceState({}, '', window.location.pathname);
           setActiveTab('subscription');
         }
       })();
     } else if (params.get('prepayFail')) {
-      alert('선결제가 취소되었거나 실패했습니다.');
+      alert(t('선결제가 취소되었거나 실패했습니다.'));
       window.history.replaceState({}, '', window.location.pathname);
       setActiveTab('subscription');
     }

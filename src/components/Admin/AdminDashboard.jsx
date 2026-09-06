@@ -7,6 +7,8 @@ import {
   Inbox, Bug, Lightbulb, HelpCircle, Mail, Phone, Clock, CheckCircle2, KeyRound, Copy, X
 } from 'lucide-react';
 
+import { useTranslation } from 'react-i18next';
+
 const TYPE_INFO = {
   bug: { label: '버그 신고', icon: Bug, color: '#dc2626' },
   feature: { label: '기능 제안', icon: Lightbulb, color: '#d97706' },
@@ -20,6 +22,7 @@ const STATUS_INFO = {
 };
 
 const AdminDashboard = ({ currentUser }) => {
+  const { t } = useTranslation();
   const [view, setView] = useState('hospitals'); // 'hospitals' | 'feedback'
 
   const [stats, setStats] = useState(null);
@@ -31,7 +34,7 @@ const AdminDashboard = ({ currentUser }) => {
   const [resetResult, setResetResult] = useState(null);
 
   const resetPassword = async (targetId) => {
-    if (!window.confirm('운영자 권한으로 이 회원의 비밀번호를 초기화하시겠습니까?')) return;
+    if (!window.confirm(t('운영자 권한으로 이 회원의 비밀번호를 초기화하시겠습니까?'))) return;
     setResettingId(targetId);
     try {
       const res = await fetch(`/api/auth/users/${targetId}/reset-password`, {
@@ -118,10 +121,10 @@ const AdminDashboard = ({ currentUser }) => {
         <div>
           <h2 style={{ color: '#1f2937', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Building2 size={22} style={{ color: '#7c3aed' }} />
-            운영자 대시보드
+            {t('운영자 대시보드')}
           </h2>
           <p style={{ color: '#6b7280', fontSize: '13px', margin: '4px 0 0 0' }}>
-            모든 병원의 현황과 사용자 문의를 확인합니다. (개발자 전용)
+            {t('모든 병원의 현황과 사용자 문의를 확인합니다. (개발자 전용)')}
           </p>
         </div>
         <button
@@ -133,7 +136,7 @@ const AdminDashboard = ({ currentUser }) => {
           }}
         >
           <RefreshCw size={14} className={(loading || feedbackLoading) ? 'animate-spin' : ''} />
-          새로고침
+          {t('새로고침')}
         </button>
       </div>
 
@@ -149,7 +152,7 @@ const AdminDashboard = ({ currentUser }) => {
             cursor: 'pointer', fontSize: '13px', fontWeight: '600'
           }}
         >
-          <Building2 size={14} /> 병원 현황
+          <Building2 size={14} /> {t('병원 현황')}
         </button>
         <button
           onClick={() => setView('feedback')}
@@ -161,7 +164,7 @@ const AdminDashboard = ({ currentUser }) => {
             cursor: 'pointer', fontSize: '13px', fontWeight: '600', position: 'relative'
           }}
         >
-          <Inbox size={14} /> 문의함
+          <Inbox size={14} /> {t('문의함')}
           {newCount > 0 && (
             <span style={{
               backgroundColor: '#dc2626', color: 'white', fontSize: '10px', fontWeight: '700',
@@ -177,7 +180,7 @@ const AdminDashboard = ({ currentUser }) => {
         loading ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#6b7280', padding: '40px 0', justifyContent: 'center' }}>
             <Loader2 size={20} className="animate-spin" />
-            통계 불러오는 중...
+            {t('통계 불러오는 중...')}
           </div>
         ) : error ? (
           <div style={{ textAlign: 'center', color: '#dc2626', padding: '40px 0' }}>
@@ -197,7 +200,7 @@ const AdminDashboard = ({ currentUser }) => {
                 <Building2 size={24} />
                 <div>
                   <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{stats.totalHospitals}</div>
-                  <div>가입 병원</div>
+                  <div>{t('가입 병원')}</div>
                 </div>
               </div>
             </div>
@@ -206,7 +209,7 @@ const AdminDashboard = ({ currentUser }) => {
                 <Users size={24} />
                 <div>
                   <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{stats.totalUsers}</div>
-                  <div>전체 가입자</div>
+                  <div>{t('전체 가입자')}</div>
                 </div>
               </div>
             </div>
@@ -215,17 +218,17 @@ const AdminDashboard = ({ currentUser }) => {
                 <UserCheck size={24} />
                 <div>
                   <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{stats.totalNurses}</div>
-                  <div>등록된 간호사 수</div>
+                  <div>{t('등록된 간호사 수')}</div>
                 </div>
               </div>
             </div>
           </div>
 
           {/* 병원별 상세 */}
-          <h3 style={{ marginBottom: '14px', color: '#1f2937', fontSize: '16px' }}>병원별 현황</h3>
+          <h3 style={{ marginBottom: '14px', color: '#1f2937', fontSize: '16px' }}>{t('병원별 현황')}</h3>
           {stats.hospitals.length === 0 ? (
             <div style={{ textAlign: 'center', color: '#9ca3af', padding: '30px 0' }}>
-              아직 가입한 병원이 없습니다.
+              {t('아직 가입한 병원이 없습니다.')}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -253,13 +256,23 @@ const AdminDashboard = ({ currentUser }) => {
                         <div style={{ fontWeight: '700', color: '#1f2937', fontSize: '14px' }}>
                           {h.hospitalName}
                           <span style={{ fontWeight: '400', color: '#9ca3af', fontSize: '12px', marginLeft: '8px' }}>
-                            (코드: {h.hospitalCode})
-                          </span>
+                                                      {t('(코드: {{hospitalCode}})', {
+                            hospitalCode: h.hospitalCode
+                          })}
+                                                    </span>
                         </div>
                         <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
-                          가입자 {h.totalMembers}명 (관리자 {h.adminCount} · 일반 {h.memberCount}) &nbsp;·&nbsp;
-                          간호사 {h.totalNurses}명 (근무 가능 {h.activeNurses}) &nbsp;·&nbsp;
-                          근무표 생성 {h.rosterMonths.length}개월치
+                          {t(
+                            "가입자 {{totalMembers}}명 (관리자 {{adminCount}} · 일반 {{memberCount}}) · 간호사 {{totalNurses}}명 (근무 가능 {{activeNurses}}) · 근무표 생성 {{length}}개월치",
+                            {
+                              totalMembers: h.totalMembers,
+                              adminCount: h.adminCount,
+                              memberCount: h.memberCount,
+                              totalNurses: h.totalNurses,
+                              activeNurses: h.activeNurses,
+                              length: h.rosterMonths.length
+                            }
+                          )}
                         </div>
                       </div>
                       {isExpanded ? <ChevronUp size={18} style={{ color: '#9ca3af' }} /> : <ChevronDown size={18} style={{ color: '#9ca3af' }} />}
@@ -268,7 +281,7 @@ const AdminDashboard = ({ currentUser }) => {
                     {isExpanded && (
                       <div style={{ padding: '14px 16px', borderTop: '1px solid #f3f4f6' }}>
                         <div style={{ fontSize: '12px', fontWeight: '600', color: '#6b7280', marginBottom: '8px' }}>
-                          가입 회원 목록
+                          {t('가입 회원 목록')}
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '14px' }}>
                           {[...h.members].sort((a, b) => (a.role === 'admin' ? 0 : 1) - (b.role === 'admin' ? 0 : 1)).map((m, idx) => (
@@ -291,7 +304,7 @@ const AdminDashboard = ({ currentUser }) => {
                                 <button
                                   disabled={resettingId === m.id}
                                   onClick={() => resetPassword(m.id)}
-                                  title="비밀번호 초기화 (운영자 최후 수단)"
+                                  title={t('비밀번호 초기화 (운영자 최후 수단)')}
                                   style={{
                                     display: 'flex', alignItems: 'center', gap: '3px',
                                     fontSize: '10px', padding: '3px 8px', borderRadius: '6px',
@@ -310,7 +323,7 @@ const AdminDashboard = ({ currentUser }) => {
                         {h.rosterMonths.length > 0 && (
                           <>
                             <div style={{ fontSize: '12px', fontWeight: '600', color: '#6b7280', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <Calendar size={12} /> 근무표 생성 이력
+                              <Calendar size={12} /> {t('근무표 생성 이력')}
                             </div>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                               {h.rosterMonths.map((r, idx) => (
@@ -362,11 +375,11 @@ const AdminDashboard = ({ currentUser }) => {
           {feedbackLoading ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#6b7280', padding: '40px 0', justifyContent: 'center' }}>
               <Loader2 size={20} className="animate-spin" />
-              문의 목록 불러오는 중...
+              {t('문의 목록 불러오는 중...')}
             </div>
           ) : filteredFeedback.length === 0 ? (
             <div style={{ textAlign: 'center', color: '#9ca3af', padding: '40px 0' }}>
-              해당하는 문의가 없습니다.
+              {t('해당하는 문의가 없습니다.')}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -421,7 +434,7 @@ const AdminDashboard = ({ currentUser }) => {
                           cursor: 'pointer', opacity: (updatingId === f.id || f.status === 'in_progress') ? 0.5 : 1
                         }}
                       >
-                        <Clock size={12} /> 처리중으로 표시
+                        <Clock size={12} /> {t('처리중으로 표시')}
                       </button>
                       <button
                         disabled={updatingId === f.id || f.status === 'resolved'}
@@ -432,11 +445,11 @@ const AdminDashboard = ({ currentUser }) => {
                           cursor: 'pointer', opacity: (updatingId === f.id || f.status === 'resolved') ? 0.5 : 1
                         }}
                       >
-                        <CheckCircle2 size={12} /> 완료로 표시
+                        <CheckCircle2 size={12} /> {t('완료로 표시')}
                       </button>
                       <input
                         type="text"
-                        placeholder="답변/메모 (선택)"
+                        placeholder={t('답변/메모 (선택)')}
                         value={noteDrafts[f.id] ?? f.resolution_note ?? ''}
                         onChange={(e) => setNoteDrafts(prev => ({ ...prev, [f.id]: e.target.value }))}
                         style={{ flex: 1, minWidth: '160px', padding: '5px 10px', fontSize: '12px', border: '1px solid #e5e7eb', borderRadius: '6px' }}
@@ -466,15 +479,16 @@ const AdminDashboard = ({ currentUser }) => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <KeyRound size={18} style={{ color: '#3b82f6' }} />
-                <h3 style={{ margin: 0, fontSize: '16px', color: '#1f2937' }}>임시 비밀번호 발급됨</h3>
+                <h3 style={{ margin: 0, fontSize: '16px', color: '#1f2937' }}>{t('임시 비밀번호 발급됨')}</h3>
               </div>
               <button onClick={() => setResetResult(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}>
                 <X size={18} />
               </button>
             </div>
             <p style={{ fontSize: '13px', color: '#6b7280', margin: '8px 0 16px' }}>
-              <strong>{resetResult.userName}</strong>님({resetResult.userEmail})에게 아래 임시 비밀번호를 직접 전달해주세요.
-              이 창을 닫으면 다시는 확인할 수 없습니다.
+              <strong>{resetResult.userName}</strong>{t('님({{userEmail}})에게 아래 임시 비밀번호를 직접 전달해주세요. 이 창을 닫으면 다시는 확인할 수 없습니다.', {
+                userEmail: resetResult.userEmail
+              })}
             </p>
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -488,14 +502,14 @@ const AdminDashboard = ({ currentUser }) => {
                 onClick={() => navigator.clipboard?.writeText(resetResult.tempPassword)}
                 style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 10px', borderRadius: '6px', border: '1px solid #d1d5db', backgroundColor: 'white', fontSize: '11px', cursor: 'pointer' }}
               >
-                <Copy size={12} /> 복사
+                <Copy size={12} /> {t('복사')}
               </button>
             </div>
             <button
               onClick={() => setResetResult(null)}
               style={{ width: '100%', padding: '10px', borderRadius: '6px', border: 'none', backgroundColor: '#3b82f6', color: 'white', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}
             >
-              확인, 전달했습니다
+              {t('확인, 전달했습니다')}
             </button>
           </div>
         </div>

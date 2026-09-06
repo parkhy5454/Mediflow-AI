@@ -22,7 +22,7 @@
 //       <h2 style={{ marginBottom: '20px', color: '#1f2937' }}>
 //         Dashboard - {getMonthName(selectedMonth)} {selectedYear}
 //       </h2>
-      
+
 //       <StatsCards 
 //         nurses={nurses}
 //         activeNurses={activeNurses}
@@ -80,7 +80,7 @@
 //         <h2 style={{ color: '#1f2937', margin: 0 }}>
 //           Dashboard - {getMonthName(selectedMonth)} {selectedYear}
 //         </h2>
-        
+
 //         {/* Quick Export from Dashboard */}
 //         {hasRosterData && (
 //           <div style={{ 
@@ -100,7 +100,7 @@
 //           </div>
 //         )}
 //       </div>
-      
+
 //       <StatsCards 
 //         nurses={nurses}
 //         activeNurses={activeNurses}
@@ -117,7 +117,7 @@
 //       />
 //       <Footer/>
 //     </div>
-    
+
 //   );
 // };
 
@@ -134,6 +134,8 @@ import ExportButtons from '../Roster/ExportButtons';
 import { getMonthName } from '../../utils/dateUtils';
 import Footer from '../../footer';
 
+import { useTranslation } from 'react-i18next';
+
 const Dashboard = ({ 
   nurses, 
   activeNurses, 
@@ -147,6 +149,7 @@ const Dashboard = ({
   selectedDepartment,
   setSelectedDepartment
 }) => {
+  const { t } = useTranslation();
   // [추가] 대시보드 통계도 병원 전체가 아니라 현재 선택된 부서(병동) 기준으로 보여준다.
   // (근무표/근무표 설정 탭과 같은 selectedDepartment를 공유한다)
   const deptNurses = nurses.filter(n => (n.department || '') === selectedDepartment);
@@ -162,7 +165,7 @@ const Dashboard = ({
       {departmentOptions && departmentOptions.length > 0 && (
         <div style={{ marginBottom: '14px' }}>
           <label style={{ fontSize: '12px', fontWeight: '600', color: '#6b7280', marginRight: '8px' }}>
-            부서(병동)
+            {t('부서(병동)')}
           </label>
           <select
             value={selectedDepartment}
@@ -187,7 +190,10 @@ const Dashboard = ({
         gap: '15px'
       }}>
         <h2 style={{ color: '#1f2937', margin: 0 }}>
-          대시보드 - {selectedYear}년 {getMonthName(selectedMonth)}
+          {t('대시보드 - {{selectedYear}}년 {{getMonthName}}', {
+            selectedYear: selectedYear,
+            getMonthName: getMonthName(selectedMonth)
+          })}
         </h2>
         
         {/* Quick Export from Dashboard */}
@@ -209,7 +215,7 @@ const Dashboard = ({
           </div>
         )}
       </div>
-      
+
       <StatsCards 
         nurses={deptNurses}
         activeNurses={deptActiveNurses}
@@ -232,8 +238,8 @@ const Dashboard = ({
         rosterConfig={rosterConfig}
         getCurrentMonthRoster={getCurrentMonthRoster}
       />
-    <Footer/>
-     </div>
+      <Footer/>
+    </div>
   );
 };
 

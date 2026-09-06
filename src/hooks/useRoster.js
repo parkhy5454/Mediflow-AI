@@ -6,7 +6,10 @@ import { useState, useEffect } from 'react';
 import { generateRoster, applyApprovedLeaveToRoster } from '../services/rosterGenerator';
 import { getDaysInMonth } from '../utils/dateUtils';
 
+import { useTranslation } from 'react-i18next';
+
 export const useRoster = (nurses, selectedMonth, selectedYear, updateNurses, currentUser, department = '') => {
+  const { t } = useTranslation();
   const [roster, setRoster] = useState({});
   // [추가] 발행 상태(잠금 여부)를 월+부서별로 따로 관리. roster_data와 달리 메타 정보라서 분리.
   const [rosterMeta, setRosterMeta] = useState({});
@@ -190,7 +193,7 @@ export const useRoster = (nurses, selectedMonth, selectedYear, updateNurses, cur
     const key = `${year}-${month}`;
     const sKey = `${key}::${department || '_'}`;
     if (rosterMeta[sKey]?.isPublished) {
-      alert('이 근무표는 이미 발행되어 있어 초기화할 수 없습니다. 먼저 발행을 취소해주세요.');
+      alert(t('이 근무표는 이미 발행되어 있어 초기화할 수 없습니다. 먼저 발행을 취소해주세요.'));
       return false;
     }
     setRoster(prev => {

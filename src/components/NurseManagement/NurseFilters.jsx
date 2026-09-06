@@ -1,7 +1,10 @@
 // src/components/NurseManagement/NurseFilters.jsx
 import React from 'react';
 
+import { useTranslation } from 'react-i18next';
+
 const NurseFilters = ({ searchTerm, setSearchTerm, filterStatus, setFilterStatus, filterDepartment, setFilterDepartment, departments }) => {
+  const { t } = useTranslation();
   return (
     <div style={{ 
       display: 'flex', 
@@ -12,7 +15,7 @@ const NurseFilters = ({ searchTerm, setSearchTerm, filterStatus, setFilterStatus
     }}>
       <input
         type="text"
-        placeholder="간호사 검색..."
+        placeholder={t('간호사 검색...')}
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
         style={{
@@ -33,10 +36,10 @@ const NurseFilters = ({ searchTerm, setSearchTerm, filterStatus, setFilterStatus
           fontSize: '14px'
         }}
       >
-        <option value="all">전체 상태</option>
-        <option value="active">근무 가능</option>
-        <option value="disabled">근무 불가</option>
-        <option value="archived">보관됨</option>
+        <option value="all">{t('전체 상태')}</option>
+        <option value="active">{t('근무 가능')}</option>
+        <option value="disabled">{t('근무 불가')}</option>
+        <option value="archived">{t('보관됨')}</option>
       </select>
       <select
         value={filterDepartment}
@@ -48,7 +51,7 @@ const NurseFilters = ({ searchTerm, setSearchTerm, filterStatus, setFilterStatus
           fontSize: '14px'
         }}
       >
-        <option value="all">전체 부서</option>
+        <option value="all">{t('전체 부서')}</option>
         {departments.map(dept => (
           <option key={dept} value={dept}>{dept}</option>
         ))}

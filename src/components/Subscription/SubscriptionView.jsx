@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { CreditCard, CheckCircle2, AlertTriangle, Clock, Loader2, History, Percent } from 'lucide-react';
 import { useSubscription } from '../../hooks/useSubscription';
 
+import { useTranslation } from 'react-i18next';
+
 const TOSS_CLIENT_KEY = process.env.REACT_APP_TOSS_CLIENT_KEY;
 
 // 서버(server.js의 PREPAY_DISCOUNTS)와 반드시 같은 값으로 유지해야 함 — 화면 표시용이며,
@@ -27,6 +29,7 @@ const daysLeft = (dateStr) => {
 };
 
 const SubscriptionView = ({ currentUser }) => {
+  const { t } = useTranslation();
   const { subscription, billingHistory, loading, error, registerCard, cancelSubscription } = useSubscription(currentUser);
   const [registering, setRegistering] = useState(false);
   const [registerError, setRegisterError] = useState('');
@@ -36,7 +39,7 @@ const SubscriptionView = ({ currentUser }) => {
   const isAdmin = currentUser.role === 'admin';
 
   const handleCancelSubscription = async () => {
-    if (!window.confirm('정말 구독을 해지하시겠습니까? 다음 결제부터 자동으로 청구되지 않습니다.')) return;
+    if (!window.confirm(t('정말 구독을 해지하시겠습니까? 다음 결제부터 자동으로 청구되지 않습니다.'))) return;
     setCancelling(true);
     const result = await cancelSubscription();
     setCancelling(false);
@@ -111,7 +114,7 @@ const SubscriptionView = ({ currentUser }) => {
   if (loading) {
     return (
       <div style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '8px', color: '#6b7280' }}>
-        <Loader2 size={18} className="animate-spin" /> 불러오는 중...
+        <Loader2 size={18} className="animate-spin" /> {t('불러오는 중...')}
       </div>
     );
   }
@@ -127,7 +130,7 @@ const SubscriptionView = ({ currentUser }) => {
     <div style={{ padding: '20px', maxWidth: '640px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
         <CreditCard size={22} style={{ color: '#3b82f6' }} />
-        <h2 style={{ color: '#1f2937', margin: 0 }}>구독 관리</h2>
+        <h2 style={{ color: '#1f2937', margin: 0 }}>{t('구독 관리')}</h2>
       </div>
 
       {/* 상태 카드 */}
@@ -141,51 +144,60 @@ const SubscriptionView = ({ currentUser }) => {
         </div>
         {subscription?.status === 'trial' && (
           <p style={{ margin: 0, fontSize: '13px', color: statusInfo.color }}>
-            {trialDaysLeft > 0 ? `무료 체험이 ${trialDaysLeft}일 남았습니다.` : '무료 체험이 곧 종료됩니다.'} 체험 종료일: {formatDate(subscription.trialEndsAt)}
+            {t('{{value}} 체험 종료일: {{formatDate}}', {
+              value: trialDaysLeft > 0 ? `무료 체험이 ${trialDaysLeft}일 남았습니다.` : '무료 체험이 곧 종료됩니다.',
+              formatDate: formatDate(subscription.trialEndsAt)
+            })}
           </p>
         )}
         {subscription?.status === 'active' && (
           <p style={{ margin: 0, fontSize: '13px', color: statusInfo.color }}>
-            다음 결제일: {formatDate(subscription.nextBillingDate)}
-          </p>
+                      {t('다음 결제일: {{formatDate}}', {
+            formatDate: formatDate(subscription.nextBillingDate)
+          })}
+                    </p>
         )}
         {subscription?.status === 'past_due' && (
           <p style={{ margin: 0, fontSize: '13px', color: statusInfo.color }}>
-            최근 결제가 실패했습니다. 카드 정보를 확인하고 다시 등록해주세요.
+            {t('최근 결제가 실패했습니다. 카드 정보를 확인하고 다시 등록해주세요.')}
           </p>
         )}
         {subscription?.status === 'cancelled' && (
           <p style={{ margin: 0, fontSize: '13px', color: statusInfo.color }}>
-            구독이 해지되어 자동결제가 중단된 상태입니다. 다시 시작하려면 카드를 등록해주세요.
+            {t('구독이 해지되어 자동결제가 중단된 상태입니다. 다시 시작하려면 카드를 등록해주세요.')}
           </p>
         )}
         {subscription?.prepaidUntil && new Date(subscription.prepaidUntil) > new Date() && (
           <p style={{ margin: '6px 0 0', fontSize: '13px', color: statusInfo.color }}>
-            🏷️ 선결제 적용 중 — {formatDate(subscription.prepaidUntil)}까지 자동결제가 청구되지 않습니다.
-          </p>
+                      {t('🏷️ 선결제 적용 중 — {{formatDate}}까지 자동결제가 청구되지 않습니다.', {
+            formatDate: formatDate(subscription.prepaidUntil)
+          })}
+                    </p>
         )}
       </div>
 
       {/* 요금 안내 */}
       <div style={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '16px', marginBottom: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#6b7280', marginBottom: '6px' }}>
-          <span>요금제</span><span>활성 간호사 1명당 월 {formatWon(subscription?.pricePerNurse || 3000)}</span>
+          <span>{t('요금제')}</span><span>{t('활성 간호사 1명당 월 {{formatWon}}', {
+            formatWon: formatWon(subscription?.pricePerNurse || 3000)
+          })}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#6b7280', marginBottom: '6px' }}>
-          <span>현재 활성 간호사</span><span>{subscription?.activeNurseCount ?? 0}명</span>
+          <span>{t('현재 활성 간호사')}</span><span>{subscription?.activeNurseCount ?? 0}{t('명')}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '15px', fontWeight: '700', color: '#1f2937', marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed #e5e7eb' }}>
-          <span>예상 월 결제 금액</span><span>{formatWon(subscription?.estimatedMonthlyAmount)}</span>
+          <span>{t('예상 월 결제 금액')}</span><span>{formatWon(subscription?.estimatedMonthlyAmount)}</span>
         </div>
       </div>
 
       {/* 다년 선결제 할인 */}
       <div style={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '16px', marginBottom: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>
-          <Percent size={14} /> 선결제 할인
+          <Percent size={14} /> {t('선결제 할인')}
         </div>
         <p style={{ fontSize: '12px', color: '#9ca3af', margin: '0 0 12px' }}>
-          현재 활성 간호사 수({subscription?.activeNurseCount ?? 0}명) 기준으로 계산됩니다. 결제 후 기간 동안은 매달 자동결제가 청구되지 않습니다.
+          {t('현재 활성 간호사 수(')}{subscription?.activeNurseCount ?? 0}{t('명) 기준으로 계산됩니다. 결제 후 기간 동안은 매달 자동결제가 청구되지 않습니다.')}
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {Object.entries(PREPAY_DISCOUNTS).map(([yearsStr, discount]) => {
@@ -206,13 +218,20 @@ const SubscriptionView = ({ currentUser }) => {
               >
                 <div>
                   <div style={{ fontSize: '13px', fontWeight: '700', color: '#1f2937' }}>
-                    {years}년 선결제 <span style={{ color: '#16a34a', fontWeight: '700' }}>{Math.round(discount * 100)}% 할인</span>
+                                      {t('{{years}}년 선결제', {
+                      years: years
+                    })} <span style={{ color: '#16a34a', fontWeight: '700' }}>{t('{{value}}% 할인', {
+                      value: Math.round(discount * 100)
+                    })}</span>
                   </div>
                   <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
                     <span style={{ textDecoration: 'line-through' }}>{formatWon(fullAmount)}</span>
                     {' → '}
                     <strong style={{ color: '#374151' }}>{formatWon(discountedAmount)}</strong>
-                    {' '}(월 환산 {formatWon(monthlyEquivalent)})
+                    {t('{{value}}(월 환산 {{formatWon}})', {
+                      value: ' ',
+                      formatWon: formatWon(monthlyEquivalent)
+                    })}
                   </div>
                 </div>
                 {isAdmin ? (
@@ -229,7 +248,7 @@ const SubscriptionView = ({ currentUser }) => {
                     {prepayingYears === years ? '이동 중...' : '결제하기'}
                   </button>
                 ) : (
-                  <span style={{ fontSize: '11px', color: '#d1d5db' }}>관리자만 결제 가능</span>
+                  <span style={{ fontSize: '11px', color: '#d1d5db' }}>{t('관리자만 결제 가능')}</span>
                 )}
               </div>
             );
@@ -242,13 +261,16 @@ const SubscriptionView = ({ currentUser }) => {
 
       {/* 카드 정보 */}
       <div style={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '16px', marginBottom: '20px' }}>
-        <div style={{ fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '10px' }}>결제 카드</div>
+        <div style={{ fontSize: '13px', fontWeight: '600', color: '#374151', marginBottom: '10px' }}>{t('결제 카드')}</div>
         {subscription?.hasBillingKey ? (
           <p style={{ fontSize: '13px', color: '#6b7280', margin: '0 0 12px' }}>
-            등록됨: {subscription.cardCompany} ****-****-****-{subscription.cardLast4}
+            {t('등록됨: {{cardCompany}} ****-****-****-{{cardLast4}}', {
+              cardCompany: subscription.cardCompany,
+              cardLast4: subscription.cardLast4
+            })}
           </p>
         ) : (
-          <p style={{ fontSize: '13px', color: '#9ca3af', margin: '0 0 12px' }}>등록된 카드가 없습니다.</p>
+          <p style={{ fontSize: '13px', color: '#9ca3af', margin: '0 0 12px' }}>{t('등록된 카드가 없습니다.')}</p>
         )}
         {isAdmin ? (
           <button
@@ -263,7 +285,7 @@ const SubscriptionView = ({ currentUser }) => {
             {registering ? '이동 중...' : subscription?.hasBillingKey ? '카드 변경' : '카드 등록'}
           </button>
         ) : (
-          <p style={{ fontSize: '11px', color: '#9ca3af', margin: 0 }}>카드 등록/변경은 관리자만 할 수 있습니다.</p>
+          <p style={{ fontSize: '11px', color: '#9ca3af', margin: 0 }}>{t('카드 등록/변경은 관리자만 할 수 있습니다.')}</p>
         )}
         {registerError && (
           <p style={{ color: '#dc2626', fontSize: '12px', marginTop: '10px' }}>{registerError}</p>
@@ -286,10 +308,10 @@ const SubscriptionView = ({ currentUser }) => {
       {/* 결제 내역 */}
       <div>
         <h3 style={{ fontSize: '14px', color: '#1f2937', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
-          <History size={16} /> 결제 내역
+          <History size={16} /> {t('결제 내역')}
         </h3>
         {billingHistory.length === 0 ? (
-          <p style={{ fontSize: '12px', color: '#9ca3af' }}>아직 결제 내역이 없습니다.</p>
+          <p style={{ fontSize: '12px', color: '#9ca3af' }}>{t('아직 결제 내역이 없습니다.')}</p>
         ) : (
           <div style={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '10px', overflow: 'hidden' }}>
             {billingHistory.map((h, idx) => (
@@ -304,10 +326,12 @@ const SubscriptionView = ({ currentUser }) => {
                 <div>
                   <div style={{ fontSize: '13px', color: '#1f2937', fontWeight: '500' }}>
                     {formatWon(h.amount)}
-                    <span style={{ color: '#9ca3af', fontWeight: '400' }}> ({h.nurseCount}명 기준)</span>
+                    <span style={{ color: '#9ca3af', fontWeight: '400' }}> {t('({{nurseCount}}명 기준)', {
+                        nurseCount: h.nurseCount
+                      })}</span>
                     {h.type === 'prepay' && (
                       <span style={{ marginLeft: '6px', fontSize: '10px', fontWeight: '700', padding: '2px 6px', borderRadius: '8px', backgroundColor: '#fef3c7', color: '#92400e' }}>
-                        선결제
+                        {t('선결제')}
                       </span>
                     )}
                   </div>
@@ -319,7 +343,7 @@ const SubscriptionView = ({ currentUser }) => {
                       rel="noopener noreferrer"
                       style={{ fontSize: '11px', color: '#3b82f6', textDecoration: 'underline' }}
                     >
-                      카드매출전표 보기
+                      {t('카드매출전표 보기')}
                     </a>
                   )}
                 </div>

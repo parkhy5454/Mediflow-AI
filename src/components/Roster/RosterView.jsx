@@ -114,7 +114,7 @@
 //         <h2 style={{ color: '#1f2937', margin: 0 }}>
 //           Roster - {getMonthName(selectedMonth)} {selectedYear}
 //         </h2>
-        
+
 //         <div style={{ 
 //           display: 'flex', 
 //           gap: '10px', 
@@ -225,6 +225,8 @@ import { useLeaveRequests } from '../../hooks/useLeaveRequests';
 import { getMonthName, getDaysInMonth } from '../../utils/dateUtils';
 import { shiftLabel } from '../../constants/shiftTypes';
 
+import { useTranslation } from 'react-i18next';
+
 const RosterView = ({ 
   selectedMonth, 
   selectedYear, 
@@ -243,6 +245,7 @@ const RosterView = ({
   selectedDepartment,
   setSelectedDepartment
 }) => {
+  const { t } = useTranslation();
   const monthRoster = getCurrentMonthRoster();
   const hasRosterData = Object.keys(monthRoster).length > 0;
   // [수정] alert() 대신 예쁜 모달로 근무표 생성 결과를 보여주기 위한 상태
@@ -261,7 +264,7 @@ const RosterView = ({
   // [추가] 예전(간호사 명단이 바뀌기 전) 근무표를 지우는 기능. 되돌릴 수 없어 확인창을 띄운다.
   const handleClearRoster = () => {
     if (meta.isPublished) {
-      alert('이 근무표는 발행되어 있어 초기화할 수 없습니다. 먼저 발행을 취소해주세요.');
+      alert(t('이 근무표는 발행되어 있어 초기화할 수 없습니다. 먼저 발행을 취소해주세요.'));
       return;
     }
     const confirmed = window.confirm(
@@ -274,7 +277,7 @@ const RosterView = ({
 
   const handleGenerateRoster = () => {
     if (meta.isPublished) {
-      alert('이 근무표는 이미 발행되어 있어 재생성할 수 없습니다. 먼저 발행을 취소해주세요.');
+      alert(t('이 근무표는 이미 발행되어 있어 재생성할 수 없습니다. 먼저 발행을 취소해주세요.'));
       return;
     }
     // 이번에 생성하는 달과 겹치는 "승인됨" 휴가만 추려서 함께 반영한다.
@@ -300,7 +303,7 @@ const RosterView = ({
   };
 
   const handleUnpublish = async () => {
-    if (!window.confirm('발행을 취소하시겠습니까? 다시 수정 가능한 상태로 돌아갑니다.')) return;
+    if (!window.confirm(t('발행을 취소하시겠습니까? 다시 수정 가능한 상태로 돌아갑니다.'))) return;
     setPublishing(true);
     const result = await unpublishRoster(selectedMonth, selectedYear);
     setPublishing(false);
@@ -353,7 +356,7 @@ const RosterView = ({
       {departmentOptions && departmentOptions.length > 0 && (
         <div style={{ marginBottom: '14px' }}>
           <label style={{ fontSize: '12px', fontWeight: '600', color: '#6b7280', marginRight: '8px' }}>
-            부서(병동)
+            {t('부서(병동)')}
           </label>
           <select
             value={selectedDepartment}
@@ -378,14 +381,17 @@ const RosterView = ({
         gap: '15px'
       }}>
         <h2 style={{ color: '#1f2937', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-          근무표 - {selectedYear}년 {getMonthName(selectedMonth)}
+          {t('근무표 - {{selectedYear}}년 {{getMonthName}}', {
+            selectedYear: selectedYear,
+            getMonthName: getMonthName(selectedMonth)
+          })}
           {meta.isPublished && (
             <span style={{
               display: 'inline-flex', alignItems: 'center', gap: '4px',
               fontSize: '12px', fontWeight: '700', padding: '4px 10px', borderRadius: '12px',
               backgroundColor: '#eff6ff', color: '#1d4ed8'
             }}>
-              <Lock size={12} /> 발행됨
+              <Lock size={12} /> {t('발행됨')}
             </span>
           )}
         </h2>
@@ -414,7 +420,7 @@ const RosterView = ({
             }}
           >
             <Calendar size={18} />
-            근무표 생성
+            {t('근무표 생성')}
           </button>
           {hasRosterData && (
             <button
@@ -430,9 +436,9 @@ const RosterView = ({
                 fontSize: '14px',
                 fontWeight: '500'
               }}
-              title="이번 달 저장된 근무표 데이터를 삭제합니다"
+              title={t('이번 달 저장된 근무표 데이터를 삭제합니다')}
             >
-              근무표 초기화
+              {t('근무표 초기화')}
             </button>
           )}
           {isAdmin && hasRosterData && (
@@ -447,7 +453,7 @@ const RosterView = ({
                   cursor: publishing ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: '500'
                 }}
               >
-                <Unlock size={16} /> 발행 취소
+                <Unlock size={16} /> {t('발행 취소')}
               </button>
             ) : (
               <button
@@ -472,8 +478,13 @@ const RosterView = ({
           fontSize: '12px', color: '#1d4ed8', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe',
           borderRadius: '8px', padding: '10px 14px', marginTop: '-6px', marginBottom: '16px'
         }}>
-          🔒 이 근무표는 {meta.publishedByName ? `${meta.publishedByName}님이 ` : ''}발행하여 확정되었습니다. 재생성/초기화가 잠겨있으며, 근무 변경·휴가 승인은 계속 반영됩니다.
-        </p>
+                  {t(
+          "🔒 이 근무표는 {{value}}발행하여 확정되었습니다. 재생성/초기화가 잠겨있으며, 근무 변경·휴가 승인은 계속 반영됩니다.",
+          {
+            value: meta.publishedByName ? `${meta.publishedByName}님이 ` : ''
+          }
+        )}
+                </p>
       )}
 
       {/* Month/Year Selector */}
@@ -560,7 +571,7 @@ const RosterView = ({
               marginTop: '4px',
               display: 'block'
             }}>
-              ✅ 이 근무표를 내보내거나, 새로 생성해서 업데이트할 수 있습니다.
+              {t('✅ 이 근무표를 내보내거나, 새로 생성해서 업데이트할 수 있습니다.')}
             </span>
           ) : (
             <span style={{ 
@@ -569,7 +580,7 @@ const RosterView = ({
               marginTop: '4px',
               display: 'block'
             }}>
-              "근무표 생성" 버튼을 눌러 근무 주기 연속성을 반영한 근무표를 만드세요.
+              {t("\"근무표 생성\" 버튼을 눌러 근무 주기 연속성을 반영한 근무표를 만드세요.")}
             </span>
           )}
         </div>
@@ -604,9 +615,9 @@ const RosterView = ({
             i
           </div>
           <div style={{ fontSize: '13px', color: '#0c4a6e', lineHeight: '1.4' }}>
-            <strong>근무 주기 연속성 기능:</strong> 미래 달의 근무표를 생성할 때, 
-            간호사는 새로운 근무를 배정받기 전에 현재 진행 중인 근무 주기(데이/이브닝/나이트/미들 근무, 휴무 기간)를 자동으로 완료합니다. 
-            이를 통해 적절한 휴식 기간을 보장하고 일과 삶의 균형을 유지합니다.
+            <strong>{t('근무 주기 연속성 기능:')}</strong> {t(
+              "미래 달의 근무표를 생성할 때, 간호사는 새로운 근무를 배정받기 전에 현재 진행 중인 근무 주기(데이/이브닝/나이트/미들 근무, 휴무 기간)를 자동으로 완료합니다. 이를 통해 적절한 휴식 기간을 보장하고 일과 삶의 균형을 유지합니다."
+            )}
           </div>
         </div>
       </div>

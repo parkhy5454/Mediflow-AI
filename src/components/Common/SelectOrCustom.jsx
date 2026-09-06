@@ -3,6 +3,8 @@
 // AddNurseForm(추가)과 NurseTable(수정)에서 함께 사용한다.
 import React, { useState } from 'react';
 
+import { useTranslation } from 'react-i18next';
+
 const inputStyle = {
   width: '100%',
   padding: '10px',
@@ -13,6 +15,7 @@ const inputStyle = {
 };
 
 const SelectOrCustom = ({ value, onChange, options }) => {
+  const { t } = useTranslation();
   const [isCustom, setIsCustom] = useState(!options.some(o => o.value === value));
 
   if (isCustom) {
@@ -22,7 +25,7 @@ const SelectOrCustom = ({ value, onChange, options }) => {
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="직접 입력..."
+          placeholder={t('직접 입력...')}
           style={inputStyle}
         />
         <button
@@ -38,7 +41,7 @@ const SelectOrCustom = ({ value, onChange, options }) => {
             padding: 0
           }}
         >
-          ▾ 목록에서 선택
+          {t('▾ 목록에서 선택')}
         </button>
       </div>
     );
@@ -60,7 +63,7 @@ const SelectOrCustom = ({ value, onChange, options }) => {
       {options.map((opt) => (
         <option key={opt.value} value={opt.value}>{opt.label}</option>
       ))}
-      <option value="__custom__">✏️ 직접 입력...</option>
+      <option value="__custom__">{t('✏️ 직접 입력...')}</option>
     </select>
   );
 };

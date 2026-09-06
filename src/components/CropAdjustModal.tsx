@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Check, RotateCcw, X } from 'lucide-react';
 
+import { useTranslation } from 'react-i18next';
+
 interface Point {
   x: number;
   y: number;
@@ -373,6 +375,7 @@ export const warpDataUrlWithNormalizedCorners = (dataUrl: string, corners: Norma
 };
 
 export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfirm, onCancel }) => {
+  const { t } = useTranslation();
   const [imgEl, setImgEl] = useState<HTMLImageElement | null>(null);
   const [displaySize, setDisplaySize] = useState({ width: 0, height: 0 });
   const [corners, setCorners] = useState<Point[] | null>(null); // 표시 좌표계 기준
@@ -656,11 +659,13 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
         <div className="flex items-center justify-between p-4 border-b border-slate-800">
           <div>
             <h3 className="text-sm font-bold text-slate-100">{title || '테두리 확인 및 조정'}</h3>
-            <p className="text-[11px] text-slate-500 mt-0.5">안쪽을 밀어 전체 위치를, 네모 손잡이로 위/아래/좌우 한 변씩, 동그란 점으로 모서리를 조정하세요</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">{t('안쪽을 밀어 전체 위치를, 네모 손잡이로 위/아래/좌우 한 변씩, 동그란 점으로 모서리를 조정하세요')}</p>
             {autoDetected !== null && (
               <p className="text-[10px] font-mono mt-0.5 text-lime-500">
-                자동감지: {autoDetected ? '성공 (파란 사각형이 명함이 아니면 직접 드래그로 수정)' : '실패 (기본 위치 - 직접 맞춰주세요)'}
-              </p>
+                              {t('자동감지: {{value}}', {
+                value: autoDetected ? '성공 (파란 사각형이 명함이 아니면 직접 드래그로 수정)' : '실패 (기본 위치 - 직접 맞춰주세요)'
+              })}
+                            </p>
             )}
           </div>
           <button onClick={onCancel} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-slate-800 transition-colors">
@@ -678,11 +683,11 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
           {isDetecting ? (
             <div className="py-16 flex flex-col items-center gap-2">
               <div className="w-8 h-8 border-2 border-slate-700 border-t-blue-400 rounded-full animate-spin" />
-              <span className="text-xs text-slate-400">가장자리 인식 중...</span>
+              <span className="text-xs text-slate-400">{t('가장자리 인식 중...')}</span>
             </div>
           ) : (
             <div className="relative" style={{ width: displaySize.width, height: displaySize.height }}>
-              <img src={normalizedUrl || imageDataUrl} alt="크롭 대상" className="w-full h-full object-contain select-none pointer-events-none" draggable={false} />
+              <img src={normalizedUrl || imageDataUrl} alt={t('크롭 대상')} className="w-full h-full object-contain select-none pointer-events-none" draggable={false} />
               {corners && (
                 <svg
                   className="absolute inset-0 w-full h-full"
@@ -739,14 +744,14 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
         {warpError && (
           <div className="px-4 pt-3 flex flex-col gap-2">
             <div className="px-3 py-2.5 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-200 text-[11px] leading-relaxed">
-              <p className="font-bold mb-0.5">테두리 보정에 실패했어요</p>
+              <p className="font-bold mb-0.5">{t('테두리 보정에 실패했어요')}</p>
               <p className="text-rose-300/90 break-all">{warpError}</p>
             </div>
             <button
               onClick={handleConfirmAnyway}
               className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors"
             >
-              보정 없이 원본으로 계속 진행
+              {t('보정 없이 원본으로 계속 진행')}
             </button>
           </div>
         )}
@@ -758,14 +763,14 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
             className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors disabled:opacity-40"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            다시 맞추기
+            {t('다시 맞추기')}
           </button>
           <button
             onClick={async () => onConfirm(await resizeDataUrl(normalizedUrl || imageDataUrl))}
             disabled={isDetecting}
             className="flex-1 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors disabled:opacity-40"
           >
-            원본 그대로 사용
+            {t('원본 그대로 사용')}
           </button>
           <button
             onClick={handleConfirm}
@@ -775,12 +780,12 @@ export const CropAdjustModal: React.FC<Props> = ({ imageDataUrl, title, onConfir
             {isProcessing ? (
               <>
                 <div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                자르는 중...
+                {t('자르는 중...')}
               </>
             ) : (
               <>
                 <Check className="w-3.5 h-3.5" />
-                이대로 자르기
+                {t('이대로 자르기')}
               </>
             )}
           </button>

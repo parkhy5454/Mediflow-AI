@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import { MessageCircle, X, Bug, Lightbulb, HelpCircle, CheckCircle2 } from 'lucide-react';
 import { formatPhoneNumber } from '../../utils/phoneUtils';
 
+import { useTranslation } from 'react-i18next';
+
 const TYPE_OPTIONS = [
   { value: 'bug', label: '버그 신고', icon: Bug, color: '#dc2626' },
   { value: 'feature', label: '기능 제안', icon: Lightbulb, color: '#d97706' },
@@ -11,6 +13,7 @@ const TYPE_OPTIONS = [
 ];
 
 const FeedbackButton = ({ currentUser }) => {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [type, setType] = useState('bug');
   const [title, setTitle] = useState('');
@@ -77,7 +80,7 @@ const FeedbackButton = ({ currentUser }) => {
           justifyContent: 'center',
           zIndex: 40
         }}
-        title="문의하기"
+        title={t('문의하기')}
       >
         <MessageCircle size={22} />
       </button>
@@ -98,7 +101,7 @@ const FeedbackButton = ({ currentUser }) => {
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid #e5e7eb' }}>
-              <h3 style={{ margin: 0, fontSize: '16px', color: '#1f2937' }}>문의하기</h3>
+              <h3 style={{ margin: 0, fontSize: '16px', color: '#1f2937' }}>{t('문의하기')}</h3>
               <button onClick={resetAndClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}>
                 <X size={20} />
               </button>
@@ -107,10 +110,12 @@ const FeedbackButton = ({ currentUser }) => {
             {submitted ? (
               <div style={{ padding: '40px 20px', textAlign: 'center' }}>
                 <CheckCircle2 size={40} style={{ color: '#10b981', marginBottom: '12px' }} />
-                <p style={{ color: '#1f2937', fontWeight: '600', marginBottom: '6px' }}>문의가 접수되었습니다</p>
+                <p style={{ color: '#1f2937', fontWeight: '600', marginBottom: '6px' }}>{t('문의가 접수되었습니다')}</p>
                 <p style={{ color: '#6b7280', fontSize: '13px', marginBottom: '20px' }}>
-                  확인 후 등록하신 이메일{phone ? '이나 연락처' : ''}로 답변드릴게요.
-                </p>
+                                  {t('확인 후 등록하신 이메일{{value}}로 답변드릴게요.', {
+                  value: phone ? '이나 연락처' : ''
+                })}
+                                </p>
                 <button
                   onClick={resetAndClose}
                   style={{
@@ -118,13 +123,13 @@ const FeedbackButton = ({ currentUser }) => {
                     border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px'
                   }}
                 >
-                  닫기
+                  {t('닫기')}
                 </button>
               </div>
             ) : (
               <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '500', color: '#374151' }}>문의 유형</label>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '500', color: '#374151' }}>{t('문의 유형')}</label>
                   <div style={{ display: 'flex', gap: '8px' }}>
                     {TYPE_OPTIONS.map(opt => {
                       const Icon = opt.icon;
@@ -151,22 +156,22 @@ const FeedbackButton = ({ currentUser }) => {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '500', color: '#374151' }}>제목</label>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '500', color: '#374151' }}>{t('제목')}</label>
                   <input
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="간단히 요약해주세요"
+                    placeholder={t('간단히 요약해주세요')}
                     style={{ width: '100%', padding: '10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box' }}
                   />
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '500', color: '#374151' }}>내용</label>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '500', color: '#374151' }}>{t('내용')}</label>
                   <textarea
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    placeholder="자세히 적어주시면 빠르게 확인하는 데 도움이 돼요"
+                    placeholder={t('자세히 적어주시면 빠르게 확인하는 데 도움이 돼요')}
                     rows={4}
                     style={{ width: '100%', padding: '10px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box', resize: 'vertical' }}
                   />
@@ -174,7 +179,7 @@ const FeedbackButton = ({ currentUser }) => {
 
                 <div>
                   <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '500', color: '#374151' }}>
-                    연락처 <span style={{ color: '#9ca3af', fontWeight: '400' }}>(선택, 문자로 답변받고 싶을 때)</span>
+                    {t('연락처')} <span style={{ color: '#9ca3af', fontWeight: '400' }}>{t('(선택, 문자로 답변받고 싶을 때)')}</span>
                   </label>
                   <input
                     type="tel"
@@ -186,8 +191,10 @@ const FeedbackButton = ({ currentUser }) => {
                 </div>
 
                 <p style={{ fontSize: '11px', color: '#9ca3af', margin: 0 }}>
-                  답변은 가입하신 이메일({currentUser?.email})로 드립니다.
-                </p>
+                                  {t('답변은 가입하신 이메일({{value}})로 드립니다.', {
+                  value: currentUser?.email
+                })}
+                                </p>
 
                 {error && (
                   <p style={{ color: '#dc2626', fontSize: '13px', backgroundColor: '#fef2f2', padding: '8px 12px', borderRadius: '6px', margin: 0 }}>

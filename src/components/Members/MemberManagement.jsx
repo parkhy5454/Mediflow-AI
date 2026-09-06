@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { UserCheck, ShieldCheck, Loader2, KeyRound, Copy, X, History } from 'lucide-react';
 import { formatPhoneNumber } from '../../utils/phoneUtils';
 
+import { useTranslation } from 'react-i18next';
+
 const AUDIT_ACTION_LABEL = {
   role_change: '권한 변경',
   password_reset: '비밀번호 초기화',
@@ -19,6 +21,7 @@ const AUDIT_ACTION_LABEL = {
 };
 
 const MemberManagement = ({ currentUser, onUserUpdate }) => {
+  const { t } = useTranslation();
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -96,7 +99,7 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
   };
 
   const resetPassword = async (targetId) => {
-    if (!window.confirm('이 회원의 비밀번호를 초기화하시겠습니까? 기존 비밀번호는 더 이상 쓸 수 없게 됩니다.')) return;
+    if (!window.confirm(t('이 회원의 비밀번호를 초기화하시겠습니까? 기존 비밀번호는 더 이상 쓸 수 없게 됩니다.'))) return;
     setActionError('');
     setResettingId(targetId);
     try {
@@ -119,11 +122,13 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
     <div style={{ padding: '20px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
         <ShieldCheck size={22} style={{ color: '#3b82f6' }} />
-        <h2 style={{ color: '#1f2937', margin: 0 }}>회원 관리</h2>
+        <h2 style={{ color: '#1f2937', margin: 0 }}>{t('회원 관리')}</h2>
       </div>
       <p style={{ color: '#6b7280', fontSize: '13px', marginBottom: '20px' }}>
-        {currentUser.hospitalName} 소속 회원 목록입니다.
-        {isAdmin ? ' 관리자는 동료의 권한을 관리자/일반 사용자로 지정할 수 있습니다.' : ''}
+        {t('{{hospitalName}} 소속 회원 목록입니다. {{value}}', {
+          hospitalName: currentUser.hospitalName,
+          value: isAdmin ? ' 관리자는 동료의 권한을 관리자/일반 사용자로 지정할 수 있습니다.' : ''
+        })}
       </p>
 
       {actionError && (
@@ -145,7 +150,7 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
           marginBottom: '16px'
         }}>
           <div style={{ fontSize: '13px', color: '#92400e' }}>
-            ⚠️ 이 병원에는 아직 관리자가 없습니다. 근무표 설정 등 관리 기능을 쓰려면 관리자가 1명 필요합니다.
+            {t('⚠️ 이 병원에는 아직 관리자가 없습니다. 근무표 설정 등 관리 기능을 쓰려면 관리자가 1명 필요합니다.')}
           </div>
           {!isAdmin && (
             <button
@@ -173,7 +178,7 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
       {loading ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#6b7280', padding: '30px 0', justifyContent: 'center' }}>
           <Loader2 size={18} className="animate-spin" />
-          회원 목록 불러오는 중...
+          {t('회원 목록 불러오는 중...')}
         </div>
       ) : error ? (
         <div style={{ textAlign: 'center', color: '#dc2626', padding: '30px 0' }}>
@@ -182,7 +187,7 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
             onClick={fetchMembers}
             style={{ marginTop: '10px', padding: '8px 16px', backgroundColor: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '6px', cursor: 'pointer' }}
           >
-            다시 시도
+            {t('다시 시도')}
           </button>
         </div>
       ) : (
@@ -196,14 +201,14 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
             fontWeight: '600',
             color: '#6b7280'
           }}>
-            <div style={{ flex: 2 }}>이름 / 이메일</div>
-            <div style={{ flex: 1 }}>역할</div>
-            {isAdmin && <div style={{ flex: 2, textAlign: 'right' }}>권한 지정</div>}
+            <div style={{ flex: 2 }}>{t('이름 / 이메일')}</div>
+            <div style={{ flex: 1 }}>{t('역할')}</div>
+            {isAdmin && <div style={{ flex: 2, textAlign: 'right' }}>{t('권한 지정')}</div>}
           </div>
 
           {members.length === 0 ? (
             <div style={{ padding: '30px', textAlign: 'center', color: '#9ca3af', fontSize: '13px' }}>
-              표시할 회원이 없습니다.
+              {t('표시할 회원이 없습니다.')}
             </div>
           ) : (
             [...members].sort((a, b) => (a.role === 'admin' ? 0 : 1) - (b.role === 'admin' ? 0 : 1)).map((m) => {
@@ -231,7 +236,7 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
                           padding: '2px 6px',
                           borderRadius: '10px'
                         }}>
-                          나
+                          {t('나')}
                         </span>
                       )}
                     </div>
@@ -268,7 +273,7 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
                               opacity: (updatingId === m.id || m.role === 'admin') ? 0.5 : 1
                             }}
                           >
-                            관리자로 지정
+                            {t('관리자로 지정')}
                           </button>
                           <button
                             disabled={updatingId === m.id || m.role === 'member'}
@@ -284,7 +289,7 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
                               opacity: (updatingId === m.id || m.role === 'member') ? 0.5 : 1
                             }}
                           >
-                            일반 사용자로 지정
+                            {t('일반 사용자로 지정')}
                           </button>
                           <button
                             disabled={resettingId === m.id}
@@ -305,7 +310,7 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
                           </button>
                         </>
                       ) : (
-                        <span style={{ fontSize: '11px', color: '#9ca3af' }}>본인은 변경 불가</span>
+                        <span style={{ fontSize: '11px', color: '#9ca3af' }}>{t('본인은 변경 불가')}</span>
                       )}
                     </div>
                   )}
@@ -318,20 +323,23 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
 
       <p style={{ marginTop: '16px', fontSize: '11px', color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '6px' }}>
         <UserCheck size={14} />
-        총 {members.length}명의 회원이 {currentUser.hospitalName}에 소속되어 있습니다.
+        {t('총 {{length}}명의 회원이 {{hospitalName}}에 소속되어 있습니다.', {
+          length: members.length,
+          hospitalName: currentUser.hospitalName
+        })}
       </p>
 
       {isAdmin && (
         <div style={{ marginTop: '28px' }}>
           <h3 style={{ fontSize: '14px', color: '#1f2937', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
-            <History size={16} /> 최근 관리자 활동
+            <History size={16} /> {t('최근 관리자 활동')}
           </h3>
           {auditLoading ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#9ca3af', fontSize: '12px', padding: '10px 0' }}>
-              <Loader2 size={14} className="animate-spin" /> 불러오는 중...
+              <Loader2 size={14} className="animate-spin" /> {t('불러오는 중...')}
             </div>
           ) : auditLog.length === 0 ? (
-            <p style={{ fontSize: '12px', color: '#9ca3af' }}>아직 기록된 활동이 없습니다.</p>
+            <p style={{ fontSize: '12px', color: '#9ca3af' }}>{t('아직 기록된 활동이 없습니다.')}</p>
           ) : (
             <div style={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '10px', overflow: 'hidden' }}>
               {auditLog.map((l, idx) => (
@@ -373,15 +381,19 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <KeyRound size={18} style={{ color: '#3b82f6' }} />
-                <h3 style={{ margin: 0, fontSize: '16px', color: '#1f2937' }}>임시 비밀번호 발급됨</h3>
+                <h3 style={{ margin: 0, fontSize: '16px', color: '#1f2937' }}>{t('임시 비밀번호 발급됨')}</h3>
               </div>
               <button onClick={() => setResetResult(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}>
                 <X size={18} />
               </button>
             </div>
             <p style={{ fontSize: '13px', color: '#6b7280', margin: '8px 0 16px' }}>
-              <strong>{resetResult.userName}</strong>님({resetResult.userEmail})에게 아래 임시 비밀번호를 전화나 메시지로 직접 전달해주세요.
-              이 창을 닫으면 다시는 확인할 수 없습니다.
+              <strong>{resetResult.userName}</strong>{t(
+                "님({{userEmail}})에게 아래 임시 비밀번호를 전화나 메시지로 직접 전달해주세요. 이 창을 닫으면 다시는 확인할 수 없습니다.",
+                {
+                  userEmail: resetResult.userEmail
+                }
+              )}
             </p>
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -395,17 +407,17 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
                 onClick={() => navigator.clipboard?.writeText(resetResult.tempPassword)}
                 style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 10px', borderRadius: '6px', border: '1px solid #d1d5db', backgroundColor: 'white', fontSize: '11px', cursor: 'pointer' }}
               >
-                <Copy size={12} /> 복사
+                <Copy size={12} /> {t('복사')}
               </button>
             </div>
             <p style={{ fontSize: '11px', color: '#9ca3af', marginBottom: '16px' }}>
-              이 사용자는 다음 로그인 시 이 임시 비밀번호로 들어온 뒤, 반드시 본인만 아는 새 비밀번호로 바꿔야 계속 사용할 수 있습니다.
+              {t('이 사용자는 다음 로그인 시 이 임시 비밀번호로 들어온 뒤, 반드시 본인만 아는 새 비밀번호로 바꿔야 계속 사용할 수 있습니다.')}
             </p>
             <button
               onClick={() => setResetResult(null)}
               style={{ width: '100%', padding: '10px', borderRadius: '6px', border: 'none', backgroundColor: '#3b82f6', color: 'white', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}
             >
-              확인, 전달했습니다
+              {t('확인, 전달했습니다')}
             </button>
           </div>
         </div>

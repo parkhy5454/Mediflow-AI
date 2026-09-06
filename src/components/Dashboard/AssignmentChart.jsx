@@ -4,7 +4,10 @@ import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { SHIFT_TYPES, shiftLabel, shiftColor } from '../../constants/shiftTypes';
 
+import { useTranslation } from 'react-i18next';
+
 const AssignmentChart = ({ assignmentData, rosterConfig }) => {
+  const { t } = useTranslation();
   const shiftTypes = rosterConfig?.shifts ? Object.keys(rosterConfig.shifts) : SHIFT_TYPES;
 
   return (
@@ -16,7 +19,7 @@ const AssignmentChart = ({ assignmentData, rosterConfig }) => {
       marginBottom: '20px'
     }}>
       <h3 style={{ marginBottom: '20px', color: '#1f2937' }}>
-        월간 간호사 배정 차트
+        {t('월간 간호사 배정 차트')}
       </h3>
       <ResponsiveContainer width="100%" height={400}>
         <BarChart data={assignmentData}>

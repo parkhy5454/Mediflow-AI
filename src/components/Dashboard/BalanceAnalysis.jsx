@@ -12,11 +12,11 @@
 //       const thisMonthNight = nurse.lastMonthNight || 0;
 //       const cumulativeMorning = nurse.totalCumulativeMorning || thisMonthMorning;
 //       const cumulativeNight = nurse.totalCumulativeNight || thisMonthNight;
-      
+
 //       const thisMonthBalance = thisMonthMorning - thisMonthNight;
 //       const cumulativeBalance = cumulativeMorning - cumulativeNight;
 //       const balanceScore = nurse.balanceMetadata?.balanceScore || Math.abs(thisMonthBalance);
-      
+
 //       return {
 //         name: nurse.name,
 //         thisMonthMorning,
@@ -36,7 +36,7 @@
 //   const balancedNurses = balanceData.filter(n => n.isBalanced).length;
 //   const totalNurses = balanceData.length;
 //   const avgCumulativeBalance = balanceData.reduce((sum, n) => sum + Math.abs(n.cumulativeBalance), 0) / totalNurses;
-  
+
 //   // Get balance trend icon
 //   const getBalanceIcon = (balance, trend) => {
 //     if (Math.abs(balance) <= 1) return <CheckCircle size={16} style={{ color: '#10b981' }} />;
@@ -302,7 +302,10 @@ import { TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle } from 'luc
 // src/components/Dashboard/BalanceAnalysis.jsx (4교대 D/E/N/M 분포 분석으로 재설계)
 import { SHIFT_TYPES, shiftLabel, shiftColor } from '../../constants/shiftTypes';
 
+import { useTranslation } from 'react-i18next';
+
 const BalanceAnalysis = ({ nurses, rosterConfig }) => {
+  const { t } = useTranslation();
   const shiftTypes = rosterConfig?.shifts ? Object.keys(rosterConfig.shifts) : SHIFT_TYPES;
 
   // [수정] "주간 vs 야간" 이분법 대신, 누적 근무일이 교대 4종류에 얼마나 고르게
@@ -354,7 +357,7 @@ const BalanceAnalysis = ({ nurses, rosterConfig }) => {
       marginBottom: '20px'
     }}>
       <h3 style={{ marginBottom: '20px', color: '#1f2937', display: 'flex', alignItems: 'center', gap: '10px' }}>
-        📊 업무량 균형 분석 (4교대)
+        {t('📊 업무량 균형 분석 (4교대)')}
         <div style={{
           backgroundColor: balancedNurses === totalNurses ? '#dcfce7' : balancedNurses > totalNurses / 2 ? '#fef3c7' : '#fee2e2',
           color: balancedNurses === totalNurses ? '#166534' : balancedNurses > totalNurses / 2 ? '#92400e' : '#dc2626',
@@ -363,7 +366,10 @@ const BalanceAnalysis = ({ nurses, rosterConfig }) => {
           fontSize: '12px',
           fontWeight: '600'
         }}>
-          {balancedNurses}/{totalNurses}명 균형
+          {t('{{balancedNurses}}/{{totalNurses}}명 균형', {
+            balancedNurses: balancedNurses,
+            totalNurses: totalNurses
+          })}
         </div>
       </h3>
 
@@ -378,27 +384,27 @@ const BalanceAnalysis = ({ nurses, rosterConfig }) => {
           <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#0ea5e9' }}>
             {((balancedNurses / totalNurses) * 100).toFixed(0)}%
           </div>
-          <div style={{ fontSize: '12px', color: '#0369a1', marginTop: '4px' }}>완벽한 균형</div>
+          <div style={{ fontSize: '12px', color: '#0369a1', marginTop: '4px' }}>{t('완벽한 균형')}</div>
         </div>
 
         <div style={{ backgroundColor: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '8px', padding: '15px', textAlign: 'center' }}>
           <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#d97706' }}>
             {avgDeviation.toFixed(1)}
           </div>
-          <div style={{ fontSize: '12px', color: '#92400e', marginTop: '4px' }}>평균 편차 점수</div>
+          <div style={{ fontSize: '12px', color: '#92400e', marginTop: '4px' }}>{t('평균 편차 점수')}</div>
         </div>
 
         <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '15px', textAlign: 'center' }}>
           <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#dc2626' }}>
             {needsAttention}
           </div>
-          <div style={{ fontSize: '12px', color: '#991b1b', marginTop: '4px' }}>주의 필요</div>
+          <div style={{ fontSize: '12px', color: '#991b1b', marginTop: '4px' }}>{t('주의 필요')}</div>
         </div>
       </div>
 
       {/* 교대별 누적 근무일 차트 */}
       <div style={{ marginBottom: '25px' }}>
-        <h4 style={{ marginBottom: '15px', color: '#1f2937' }}>간호사별 누적 교대 분포</h4>
+        <h4 style={{ marginBottom: '15px', color: '#1f2937' }}>{t('간호사별 누적 교대 분포')}</h4>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={balanceData.map(n => ({ name: n.name, ...n.daysByShift }))}>
             <CartesianGrid strokeDasharray="3 3" />
@@ -415,19 +421,21 @@ const BalanceAnalysis = ({ nurses, rosterConfig }) => {
 
       {/* 상세 표 */}
       <div style={{ marginBottom: '20px' }}>
-        <h4 style={{ marginBottom: '15px', color: '#1f2937' }}>개인별 균형 상세</h4>
+        <h4 style={{ marginBottom: '15px', color: '#1f2937' }}>{t('개인별 균형 상세')}</h4>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
             <thead>
               <tr style={{ backgroundColor: '#f9fafb' }}>
-                <th style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>간호사</th>
+                <th style={{ padding: '12px 8px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>{t('간호사')}</th>
                 {shiftTypes.map(s => (
                   <th key={s} style={{ padding: '12px 8px', textAlign: 'center', borderBottom: '1px solid #e5e7eb' }}>
-                    {shiftLabel(s)} (누적)
-                  </th>
+                                      {t('{{shiftLabel}} (누적)', {
+                      shiftLabel: shiftLabel(s)
+                    })}
+                                    </th>
                 ))}
-                <th style={{ padding: '12px 8px', textAlign: 'center', borderBottom: '1px solid #e5e7eb' }}>편차</th>
-                <th style={{ padding: '12px 8px', textAlign: 'center', borderBottom: '1px solid #e5e7eb' }}>상태</th>
+                <th style={{ padding: '12px 8px', textAlign: 'center', borderBottom: '1px solid #e5e7eb' }}>{t('편차')}</th>
+                <th style={{ padding: '12px 8px', textAlign: 'center', borderBottom: '1px solid #e5e7eb' }}>{t('상태')}</th>
               </tr>
             </thead>
             <tbody>
@@ -479,21 +487,25 @@ const BalanceAnalysis = ({ nurses, rosterConfig }) => {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
             <AlertTriangle size={16} style={{ color: '#d97706' }} />
-            <strong style={{ color: '#92400e' }}>균형 조정 권장사항</strong>
+            <strong style={{ color: '#92400e' }}>{t('균형 조정 권장사항')}</strong>
           </div>
           <div style={{ fontSize: '13px', color: '#78350f', lineHeight: '1.5' }}>
             {balanceData
               .filter(n => n.maxDeviation > 1)
               .slice(0, 3)
               .map(nurse => (
-                <div key={nurse.name} style={{ marginBottom: '4px' }}>
-                  • <strong>{nurse.name}</strong>: {shiftLabel(nurse.leastShift)} 근무가 상대적으로 적음 - 다음 달은 {shiftLabel(nurse.leastShift)} 우선 배정 권장
+                <div key={nurse.name} style={{ marginBottom: '4px' }}>• <strong>{nurse.name}</strong>{t(': {{shiftLabel}} 근무가 상대적으로 적음 - 다음 달은 {{shiftLabel2}} 우선 배정 권장', {
+                    shiftLabel: shiftLabel(nurse.leastShift),
+                    shiftLabel2: shiftLabel(nurse.leastShift)
+                  })}
                 </div>
               ))}
             {balanceData.filter(n => n.maxDeviation > 1).length > 3 && (
               <div style={{ marginTop: '8px', fontSize: '12px', fontStyle: 'italic' }}>
-                그 외 {balanceData.filter(n => n.maxDeviation > 1).length - 3}명의 간호사가 균형 조정이 필요합니다...
-              </div>
+                              {t('그 외 {{value}}명의 간호사가 균형 조정이 필요합니다...', {
+                value: balanceData.filter(n => n.maxDeviation > 1).length - 3
+              })}
+                            </div>
             )}
           </div>
         </div>

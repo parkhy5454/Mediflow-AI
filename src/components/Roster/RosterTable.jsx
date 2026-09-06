@@ -4,6 +4,8 @@ import React from 'react';
 import { getDaysInMonth } from '../../utils/dateUtils';
 import { SHIFT_TYPES, shiftFullLabel } from '../../constants/shiftTypes';
 
+import { useTranslation } from 'react-i18next';
+
 // 교대별 배지 색상 (연한 배경 / 진한 글자)
 const SHIFT_BADGE_STYLE = {
   D: { backgroundColor: '#fef3c7', color: '#92400e' },
@@ -13,6 +15,7 @@ const SHIFT_BADGE_STYLE = {
 };
 
 const RosterTable = ({ selectedMonth, selectedYear, getCurrentMonthRoster, rosterConfig }) => {
+  const { t } = useTranslation();
   const monthRoster = getCurrentMonthRoster();
   const daysInMonth = getDaysInMonth(selectedMonth, selectedYear);
   const shiftTypes = rosterConfig?.shifts ? Object.keys(rosterConfig.shifts) : SHIFT_TYPES;
@@ -32,7 +35,7 @@ const RosterTable = ({ selectedMonth, selectedYear, getCurrentMonthRoster, roste
                 backgroundColor: '#f9fafb',
                 zIndex: 10
               }}>
-                날짜
+                {t('날짜')}
               </th>
               {shiftTypes.map(s => (
                 <th key={s} style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>
@@ -40,7 +43,7 @@ const RosterTable = ({ selectedMonth, selectedYear, getCurrentMonthRoster, roste
                 </th>
               ))}
               <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>
-                비번 (OFF)
+                {t('비번 (OFF)')}
               </th>
             </tr>
           </thead>

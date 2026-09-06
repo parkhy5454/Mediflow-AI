@@ -3,7 +3,10 @@ import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { TERMS_OF_SERVICE, PRIVACY_POLICY } from '../../legal/termsText';
 
+import { useTranslation } from 'react-i18next';
+
 const TermsModal = ({ onClose }) => {
+  const { t } = useTranslation();
   const [tab, setTab] = useState('terms'); // 'terms' | 'privacy'
 
   return (
@@ -23,7 +26,7 @@ const TermsModal = ({ onClose }) => {
                 color: tab === 'terms' ? '#1d4ed8' : '#6b7280'
               }}
             >
-              이용약관
+              {t('이용약관')}
             </button>
             <button
               onClick={() => setTab('privacy')}
@@ -33,7 +36,7 @@ const TermsModal = ({ onClose }) => {
                 color: tab === 'privacy' ? '#1d4ed8' : '#6b7280'
               }}
             >
-              개인정보처리방침
+              {t('개인정보처리방침')}
             </button>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af' }}>
@@ -48,7 +51,7 @@ const TermsModal = ({ onClose }) => {
             onClick={onClose}
             style={{ width: '100%', padding: '9px', borderRadius: '6px', border: 'none', backgroundColor: '#3b82f6', color: 'white', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}
           >
-            닫기
+            {t('닫기')}
           </button>
         </div>
       </div>

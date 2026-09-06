@@ -22,10 +22,10 @@
 
 //     setIsExporting(true);
 //     setExportType('pdf');
-    
+
 //     try {
 //       exportToPDF(monthRoster, selectedMonth, selectedYear, rosterConfig, nurses);
-      
+
 //       // Show success message after a short delay
 //       setTimeout(() => {
 //         setIsExporting(false);
@@ -47,10 +47,10 @@
 
 //     setIsExporting(true);
 //     setExportType('excel');
-    
+
 //     try {
 //       exportToExcel(monthRoster, selectedMonth, selectedYear, rosterConfig);
-      
+
 //       // Show success message after a short delay
 //       setTimeout(() => {
 //         setIsExporting(false);
@@ -111,7 +111,7 @@
 //         <Download size={16} />
 //         Export Roster:
 //       </div>
-      
+
 //       <button
 //         onClick={handlePDFExport}
 //         disabled={disabled || isExporting}
@@ -125,7 +125,7 @@
 //         )}
 //         {isExporting && exportType === 'pdf' ? 'Generating PDF...' : 'Export PDF'}
 //       </button>
-      
+
 //       <button
 //         onClick={handleExcelExport}
 //         disabled={disabled || isExporting}
@@ -150,6 +150,8 @@ import React, { useState } from 'react';
 import { Download, FileText, FileSpreadsheet, Loader2 } from 'lucide-react';
 import { exportToPDF, exportToExcel } from '../../services/exportService';
 
+import { useTranslation } from 'react-i18next';
+
 const ExportButtons = ({ 
   monthRoster, 
   selectedMonth, 
@@ -158,12 +160,13 @@ const ExportButtons = ({
   nurses,
   disabled = false 
 }) => {
+  const { t } = useTranslation();
   const [isExporting, setIsExporting] = useState(false);
   const [exportType, setExportType] = useState('');
 
   const handlePDFExport = async () => {
     if (Object.keys(monthRoster).length === 0) {
-      alert('내보낼 근무표 데이터가 없습니다. 먼저 근무표를 생성해주세요.');
+      alert(t('내보낼 근무표 데이터가 없습니다. 먼저 근무표를 생성해주세요.'));
       return;
     }
 
@@ -180,7 +183,7 @@ const ExportButtons = ({
       }, 2000);
     } catch (error) {
       console.error('PDF export failed:', error);
-      alert('PDF 내보내기에 실패했습니다. 다시 시도해주세요.');
+      alert(t('PDF 내보내기에 실패했습니다. 다시 시도해주세요.'));
       setIsExporting(false);
       setExportType('');
     }
@@ -188,7 +191,7 @@ const ExportButtons = ({
 
   const handleExcelExport = async () => {
     if (Object.keys(monthRoster).length === 0) {
-      alert('내보낼 근무표 데이터가 없습니다. 먼저 근무표를 생성해주세요.');
+      alert(t('내보낼 근무표 데이터가 없습니다. 먼저 근무표를 생성해주세요.'));
       return;
     }
 
@@ -205,7 +208,7 @@ const ExportButtons = ({
       }, 1500);
     } catch (error) {
       console.error('Excel export failed:', error);
-      alert('엑셀 파일 내보내기에 실패했습니다. 다시 시도해주세요.');
+      alert(t('엑셀 파일 내보내기에 실패했습니다. 다시 시도해주세요.'));
       setIsExporting(false);
       setExportType('');
     }
@@ -260,15 +263,15 @@ const ExportButtons = ({
         fontWeight: '500'
       }}>
         <Download size={16} />
-        근무표 내보내기:
+        {t('근무표 내보내기:')}
       </div>
-      
+
       <button
         onClick={handlePDFExport}
         disabled={disabled || isExporting}
         className={getButtonClass('pdf')}
         style={pdfButtonStyle}
-        title="근무표를 인쇄용 PDF로 내보내기"
+        title={t('근무표를 인쇄용 PDF로 내보내기')}
       >
         {isExporting && exportType === 'pdf' ? (
           <Loader2 size={16} className="animate-spin" />
@@ -277,13 +280,13 @@ const ExportButtons = ({
         )}
         {isExporting && exportType === 'pdf' ? 'PDF 생성 중...' : 'PDF 내보내기'}
       </button>
-      
+
       <button
         onClick={handleExcelExport}
         disabled={disabled || isExporting}
         className={getButtonClass('excel')}
         style={excelButtonStyle}
-        title="근무표를 엑셀/CSV 파일로 내보내기"
+        title={t('근무표를 엑셀/CSV 파일로 내보내기')}
       >
         {isExporting && exportType === 'excel' ? (
           <Loader2 size={16} className="animate-spin" />

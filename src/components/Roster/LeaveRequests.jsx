@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { Umbrella, Plus, Check, X, Loader2, Clock, History } from 'lucide-react';
 import { useLeaveRequests } from '../../hooks/useLeaveRequests';
 
+import { useTranslation } from 'react-i18next';
+
 const STATUS_LABEL = {
   pending: { text: '승인 대기', bg: '#dbeafe', color: '#1e40af' },
   approved: { text: '승인됨', bg: '#dcfce7', color: '#166534' },
@@ -30,6 +32,7 @@ const daysBetween = (start, end) => {
 };
 
 const LeaveRequests = ({ currentUser, nurses, departmentOptions, selectedDepartment, setSelectedDepartment }) => {
+  const { t } = useTranslation();
   const { requests: allRequests, loading, error, createRequest, cancelRequest, decide } = useLeaveRequests(currentUser);
   const isAdmin = currentUser.role === 'admin';
   // [추가] 부서(병동)별로 빨리 대응할 수 있도록, 선택된 부서 소속 간호사와 신청만 보여준다.
@@ -79,7 +82,7 @@ const LeaveRequests = ({ currentUser, nurses, departmentOptions, selectedDepartm
   };
 
   const handleCancel = async (id) => {
-    if (!window.confirm('이 휴가 신청을 취소하시겠습니까?')) return;
+    if (!window.confirm(t('이 휴가 신청을 취소하시겠습니까?'))) return;
     setBusyId(id);
     await cancelRequest(id);
     setBusyId(null);
@@ -112,15 +115,21 @@ const LeaveRequests = ({ currentUser, nurses, departmentOptions, selectedDepartm
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
             <span style={badgeStyle(r.status)}>{STATUS_LABEL[r.status]?.text}</span>
-            <span style={{ fontSize: '11px', color: '#9ca3af' }}>{daysBetween(r.startDate, r.endDate)}일</span>
+            <span style={{ fontSize: '11px', color: '#9ca3af' }}>{t('{{daysBetween}}일', {
+                daysBetween: daysBetween(r.startDate, r.endDate)
+              })}</span>
           </div>
           <div style={{ fontSize: '13px', color: '#1f2937', fontWeight: '500' }}>
             {r.nurseName || r.requesterName} — {r.startDate} ~ {r.endDate}
           </div>
-          {r.reason && <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>사유: {r.reason}</div>}
+          {r.reason && <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>{t('사유: {{reason}}', {
+              reason: r.reason
+            })}</div>}
           <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px' }}>
-            신청일: {new Date(r.createdAt).toLocaleString()}
-          </div>
+                      {t('신청일: {{value}}', {
+            value: new Date(r.createdAt).toLocaleString()
+          })}
+                    </div>
           {r.reviewNote && (
             <div style={{
               marginTop: '6px', padding: '8px 10px', borderRadius: '6px',
@@ -129,8 +138,10 @@ const LeaveRequests = ({ currentUser, nurses, departmentOptions, selectedDepartm
               fontSize: '13px', fontWeight: '700',
               color: r.status === 'rejected' ? '#991b1b' : '#166534'
             }}>
-              처리 메모: {r.reviewNote}
-            </div>
+                          {t('처리 메모: {{reviewNote}}', {
+              reviewNote: r.reviewNote
+            })}
+                        </div>
           )}
         </div>
 
@@ -138,29 +149,29 @@ const LeaveRequests = ({ currentUser, nurses, departmentOptions, selectedDepartm
           {r.status === 'pending' && isAdmin && (
             rejectNoteFor === r.id ? (
               <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                <input value={rejectNote} onChange={e => setRejectNote(e.target.value)} placeholder="거절 사유(선택)" style={{ ...inputStyle, width: '140px' }} />
-                <button onClick={() => handleReject(r.id)} disabled={busyId === r.id} style={{ padding: '6px 10px', borderRadius: '6px', border: 'none', backgroundColor: '#ef4444', color: 'white', fontSize: '12px', cursor: 'pointer' }}>거절 확정</button>
-                <button onClick={() => { setRejectNoteFor(null); setRejectNote(''); }} style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #d1d5db', backgroundColor: 'white', fontSize: '12px', cursor: 'pointer' }}>취소</button>
+                <input value={rejectNote} onChange={e => setRejectNote(e.target.value)} placeholder={t('거절 사유(선택)')} style={{ ...inputStyle, width: '140px' }} />
+                <button onClick={() => handleReject(r.id)} disabled={busyId === r.id} style={{ padding: '6px 10px', borderRadius: '6px', border: 'none', backgroundColor: '#ef4444', color: 'white', fontSize: '12px', cursor: 'pointer' }}>{t('거절 확정')}</button>
+                <button onClick={() => { setRejectNoteFor(null); setRejectNote(''); }} style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #d1d5db', backgroundColor: 'white', fontSize: '12px', cursor: 'pointer' }}>{t('취소')}</button>
               </div>
             ) : (
               <div style={{ display: 'flex', gap: '6px' }}>
                 <button onClick={() => handleApprove(r.id)} disabled={busyId === r.id} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', borderRadius: '6px', border: 'none', backgroundColor: '#10b981', color: 'white', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
-                  {busyId === r.id ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} 승인
+                  {busyId === r.id ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} {t('승인')}
                 </button>
                 <button onClick={() => setRejectNoteFor(r.id)} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', borderRadius: '6px', border: '1px solid #ef4444', backgroundColor: 'white', color: '#ef4444', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>
-                  <X size={14} /> 거절
+                  <X size={14} /> {t('거절')}
                 </button>
               </div>
             )
           )}
           {r.status === 'pending' && !isAdmin && (
             <span style={{ fontSize: '11px', color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Clock size={12} /> 관리자 승인 대기 중
+              <Clock size={12} /> {t('관리자 승인 대기 중')}
             </span>
           )}
           {canCancel(r) && (
             <button onClick={() => handleCancel(r.id)} disabled={busyId === r.id} style={{ fontSize: '11px', color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
-              신청 취소
+              {t('신청 취소')}
             </button>
           )}
         </div>
@@ -173,7 +184,7 @@ const LeaveRequests = ({ currentUser, nurses, departmentOptions, selectedDepartm
       {departmentOptions && departmentOptions.length > 0 && (
         <div style={{ marginBottom: '14px' }}>
           <label style={{ fontSize: '12px', fontWeight: '600', color: '#6b7280', marginRight: '8px' }}>
-            부서(병동)
+            {t('부서(병동)')}
           </label>
           <select
             value={selectedDepartment}
@@ -192,10 +203,10 @@ const LeaveRequests = ({ currentUser, nurses, departmentOptions, selectedDepartm
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Umbrella size={22} style={{ color: '#3b82f6' }} />
-          <h2 style={{ color: '#1f2937', margin: 0 }}>휴가 신청</h2>
+          <h2 style={{ color: '#1f2937', margin: 0 }}>{t('휴가 신청')}</h2>
         </div>
         <button onClick={() => setFormOpen(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '6px', border: 'none', backgroundColor: '#3b82f6', color: 'white', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>
-          <Plus size={16} /> 새 신청
+          <Plus size={16} /> {t('새 신청')}
         </button>
       </div>
       <p style={{ color: '#6b7280', fontSize: '13px', marginBottom: '20px' }}>
@@ -205,9 +216,9 @@ const LeaveRequests = ({ currentUser, nurses, departmentOptions, selectedDepartm
       {formOpen && (
         <form onSubmit={handleSubmit} style={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '16px', marginBottom: '20px' }}>
           <div style={{ marginBottom: '14px' }}>
-            <label style={labelStyle}>본인 (간호사 선택)</label>
+            <label style={labelStyle}>{t('본인 (간호사 선택)')}</label>
             <select value={nurseId} onChange={e => setNurseId(e.target.value)} style={inputStyle}>
-              <option value="">선택</option>
+              <option value="">{t('선택')}</option>
               {activeNurses.map(n => (
                 <option key={n.id} value={n.id}>{n.name}</option>
               ))}
@@ -215,17 +226,17 @@ const LeaveRequests = ({ currentUser, nurses, departmentOptions, selectedDepartm
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
             <div>
-              <label style={labelStyle}>시작일</label>
+              <label style={labelStyle}>{t('시작일')}</label>
               <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={inputStyle} />
             </div>
             <div>
-              <label style={labelStyle}>종료일</label>
+              <label style={labelStyle}>{t('종료일')}</label>
               <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={inputStyle} />
             </div>
           </div>
           <div style={{ marginBottom: '14px' }}>
-            <label style={labelStyle}>사유 (선택)</label>
-            <textarea value={reason} onChange={e => setReason(e.target.value)} rows={2} placeholder="예: 개인 사정으로 연차 사용합니다." style={{ ...inputStyle, resize: 'vertical' }} />
+            <label style={labelStyle}>{t('사유 (선택)')}</label>
+            <textarea value={reason} onChange={e => setReason(e.target.value)} rows={2} placeholder={t('예: 개인 사정으로 연차 사용합니다.')} style={{ ...inputStyle, resize: 'vertical' }} />
           </div>
           {submitError && (
             <p style={{ color: '#dc2626', fontSize: '13px', backgroundColor: '#fef2f2', padding: '8px 12px', borderRadius: '6px', marginBottom: '12px' }}>{submitError}</p>
@@ -235,7 +246,7 @@ const LeaveRequests = ({ currentUser, nurses, departmentOptions, selectedDepartm
               {submitting ? '등록 중...' : '신청'}
             </button>
             <button type="button" onClick={() => { resetForm(); setFormOpen(false); }} style={{ padding: '9px 16px', borderRadius: '6px', border: '1px solid #d1d5db', backgroundColor: 'white', color: '#374151', fontSize: '13px', cursor: 'pointer' }}>
-              취소
+              {t('취소')}
             </button>
           </div>
         </form>
@@ -243,7 +254,7 @@ const LeaveRequests = ({ currentUser, nurses, departmentOptions, selectedDepartm
 
       {loading ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#6b7280', padding: '30px 0', justifyContent: 'center' }}>
-          <Loader2 size={18} className="animate-spin" /> 불러오는 중...
+          <Loader2 size={18} className="animate-spin" /> {t('불러오는 중...')}
         </div>
       ) : error ? (
         <p style={{ color: '#dc2626', fontSize: '13px' }}>{error}</p>
@@ -251,15 +262,19 @@ const LeaveRequests = ({ currentUser, nurses, departmentOptions, selectedDepartm
         <>
           <div style={{ marginBottom: '24px' }}>
             <h3 style={{ fontSize: '14px', color: '#1f2937', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
-              <Clock size={16} /> 승인 대기 ({pending.length})
-            </h3>
-            {pending.length === 0 ? <p style={{ fontSize: '12px', color: '#9ca3af' }}>승인 대기 중인 신청이 없습니다.</p> : pending.map(renderCard)}
+              <Clock size={16} /> {t('승인 대기 ({{length}})', {
+              length: pending.length
+            })}
+                        </h3>
+            {pending.length === 0 ? <p style={{ fontSize: '12px', color: '#9ca3af' }}>{t('승인 대기 중인 신청이 없습니다.')}</p> : pending.map(renderCard)}
           </div>
           <div>
             <h3 style={{ fontSize: '14px', color: '#1f2937', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
-              <History size={16} /> 처리 완료 ({history.length})
-            </h3>
-            {history.length === 0 ? <p style={{ fontSize: '12px', color: '#9ca3af' }}>아직 처리된 신청이 없습니다.</p> : history.map(renderCard)}
+              <History size={16} /> {t('처리 완료 ({{length}})', {
+              length: history.length
+            })}
+                        </h3>
+            {history.length === 0 ? <p style={{ fontSize: '12px', color: '#9ca3af' }}>{t('아직 처리된 신청이 없습니다.')}</p> : history.map(renderCard)}
           </div>
         </>
       )}

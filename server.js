@@ -59,6 +59,9 @@ const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
 const { Resend } = require('resend');
+// [추가] 다국어(한국어/영어/중국어) 응답 메시지 지원.
+// 프론트엔드가 X-App-Language 헤더로 현재 언어를 알려주면 그 언어로 에러/안내 메시지를 응답한다.
+const { languageMiddleware, t } = require('./i18n-backend');
 
 const app = express();
 // [추가] Render는 프록시(로드밸런서) 뒤에서 앱을 실행하며 X-Forwarded-For 헤더로 실제
@@ -67,6 +70,7 @@ const app = express();
 app.set('trust proxy', 1);
 app.use(cors());
 app.use(express.json());
+app.use(languageMiddleware);
 
 // [추가] 무차별 대입(브루트포스) 공격 방지.
 // 로그인/회원가입/비밀번호 관련 엔드포인트는 IP당 짧은 시간에 너무 많이 시도하면 잠깐 막는다.
@@ -75,7 +79,7 @@ const authLimiter = rateLimit({
   max: 20,                  // 같은 IP에서 15분에 20번까지만 허용
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: '너무 많이 시도하셨습니다. 잠시 후 다시 시도해주세요.' }
+  message: (req) => ({ error: t(req, '너무 많이 시도하셨습니다. 잠시 후 다시 시도해주세요.') })
 });
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -146,7 +150,7 @@ const generateTempPassword = () => {
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const MAIL_FROM = process.env.MAIL_FROM || 'N-Duty <onboarding@resend.dev>';
 
-const sendTempPasswordEmail = async (toEmail, userName, tempPassword) => {
+const sendTempPasswordEmail = async (toEmail, userName, tempPassword, lang) => {
   if (!resend) {
     console.warn('[경고] RESEND_API_KEY가 없어 이메일을 실제로 보내지 못했습니다. (개발 모드)');
     return;
@@ -154,16 +158,16 @@ const sendTempPasswordEmail = async (toEmail, userName, tempPassword) => {
   await resend.emails.send({
     from: MAIL_FROM,
     to: toEmail,
-    subject: '[N-Duty] 임시 비밀번호 안내',
+    subject: t(lang, '[N-Duty] 임시 비밀번호 안내'),
     html: `
       <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; color: #101828;">
-        <h2 style="margin: 0 0 16px;">비밀번호 찾기</h2>
-        <p style="color: #5B6474; line-height: 1.6;">${userName}님, 요청하신 임시 비밀번호를 보내드립니다.</p>
+        <h2 style="margin: 0 0 16px;">${t(lang, '비밀번호 찾기')}</h2>
+        <p style="color: #5B6474; line-height: 1.6;">${t(lang, '{{userName}}님, 요청하신 임시 비밀번호를 보내드립니다.', { userName })}</p>
         <div style="background: #EEF1F5; border-radius: 10px; padding: 18px 20px; margin: 20px 0; text-align: center;">
           <span style="font-size: 20px; font-weight: 700; letter-spacing: 0.05em;">${tempPassword}</span>
         </div>
         <p style="color: #5B6474; font-size: 13px; line-height: 1.6;">
-          로그인 후 반드시 새 비밀번호로 변경해주세요. 본인이 요청하지 않았다면 이 메일을 무시하셔도 됩니다.
+          ${t(lang, '로그인 후 반드시 새 비밀번호로 변경해주세요. 본인이 요청하지 않았다면 이 메일을 무시하셔도 됩니다.')}
         </p>
       </div>
     `
@@ -208,7 +212,7 @@ app.get('/api/auth/hospital-status', async (req, res) => {
   try {
     const code = (req.query.code || '').trim().toLowerCase();
     if (!code) {
-      return res.status(400).json({ error: '병원 코드가 필요합니다.' });
+      return res.status(400).json({ error: t(req, '병원 코드가 필요합니다.') });
     }
 
     const { data: existingMembers, error } = await supabase
@@ -225,7 +229,7 @@ app.get('/api/auth/hospital-status', async (req, res) => {
     res.json({ hasAdmin, hospitalName });
   } catch (err) {
     console.error('hospital-status error:', err);
-    res.status(500).json({ error: '병원 코드 확인 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '병원 코드 확인 중 오류가 발생했습니다.') });
   }
 });
 
@@ -240,13 +244,13 @@ app.post('/api/auth/signup', authLimiter, async (req, res) => {
     const { email, password, name, phone, hospitalName, hospitalCode, wantsAdmin, agreedToTerms } = req.body;
 
     if (!email || !password || !name || !hospitalName || !hospitalCode) {
-      return res.status(400).json({ error: '이메일, 비밀번호, 이름, 병원명, 병원 코드를 모두 입력해주세요.' });
+      return res.status(400).json({ error: t(req, '이메일, 비밀번호, 이름, 병원명, 병원 코드를 모두 입력해주세요.') });
     }
     if (!isPasswordStrongEnough(password)) {
-      return res.status(400).json({ error: PASSWORD_RULE_MESSAGE });
+      return res.status(400).json({ error: t(req, PASSWORD_RULE_MESSAGE) });
     }
     if (agreedToTerms !== true) {
-      return res.status(400).json({ error: '이용약관 및 개인정보처리방침에 동의해야 회원가입할 수 있습니다.' });
+      return res.status(400).json({ error: t(req, '이용약관 및 개인정보처리방침에 동의해야 회원가입할 수 있습니다.') });
     }
 
     const normalizedEmail = email.trim().toLowerCase();
@@ -261,7 +265,7 @@ app.post('/api/auth/signup', authLimiter, async (req, res) => {
 
     if (emailCheckError) throw emailCheckError;
     if (existingByEmail) {
-      return res.status(409).json({ error: '이미 가입된 이메일입니다.' });
+      return res.status(409).json({ error: t(req, '이미 가입된 이메일입니다.') });
     }
 
     // 그 병원(hospitalCode)에 이미 가입된 사람이 있는지 확인.
@@ -302,7 +306,7 @@ app.post('/api/auth/signup', authLimiter, async (req, res) => {
     res.status(201).json({ user: toPublicUser(inserted), token: issueAuthToken(inserted.id) });
   } catch (err) {
     console.error('signup error:', err);
-    res.status(500).json({ error: '회원가입 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '회원가입 중 오류가 발생했습니다.') });
   }
 });
 
@@ -313,7 +317,7 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
-      return res.status(400).json({ error: '이메일과 비밀번호를 입력해주세요.' });
+      return res.status(400).json({ error: t(req, '이메일과 비밀번호를 입력해주세요.') });
     }
 
     const normalizedEmail = email.trim().toLowerCase();
@@ -326,13 +330,13 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
 
     if (error) throw error;
     if (!user || !bcrypt.compareSync(password, user.password)) {
-      return res.status(401).json({ error: '이메일 또는 비밀번호가 올바르지 않습니다.' });
+      return res.status(401).json({ error: t(req, '이메일 또는 비밀번호가 올바르지 않습니다.') });
     }
 
     res.json({ user: toPublicUser(user), token: issueAuthToken(user.id) });
   } catch (err) {
     console.error('login error:', err);
-    res.status(500).json({ error: '로그인 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '로그인 중 오류가 발생했습니다.') });
   }
 });
 
@@ -344,7 +348,7 @@ app.post('/api/auth/forgot-password', authLimiter, async (req, res) => {
   try {
     const { email } = req.body;
     if (!email) {
-      return res.status(400).json({ error: '이메일을 입력해주세요.' });
+      return res.status(400).json({ error: t(req, '이메일을 입력해주세요.') });
     }
     const normalizedEmail = email.trim().toLowerCase();
 
@@ -365,7 +369,7 @@ app.post('/api/auth/forgot-password', authLimiter, async (req, res) => {
       if (updateError) throw updateError;
 
       try {
-        await sendTempPasswordEmail(user.email, user.name, tempPassword);
+        await sendTempPasswordEmail(user.email, user.name, tempPassword, req.lang);
       } catch (mailErr) {
         console.error('forgot-password email send error:', mailErr);
         // 메일 발송이 실패해도 사용자에게는 같은 안내를 준다(계정 존재 여부 유추 방지).
@@ -373,11 +377,11 @@ app.post('/api/auth/forgot-password', authLimiter, async (req, res) => {
       }
     }
 
-    res.json({ message: genericMessage });
+    res.json({ message: t(req, genericMessage) });
   } catch (err) {
     console.error('forgot password error:', err);
     // 에러가 나도 계정 존재 여부가 드러나지 않도록 같은 메시지를 준다.
-    res.json({ message: genericMessage });
+    res.json({ message: t(req, genericMessage) });
   }
 });
 
@@ -389,7 +393,7 @@ app.post('/api/auth/forgot-password', authLimiter, async (req, res) => {
 app.put('/api/auth/users/:targetId/reset-password', authLimiter, async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
 
     const { data: target, error: targetError } = await supabase
       .from('mediflow_users')
@@ -397,12 +401,12 @@ app.put('/api/auth/users/:targetId/reset-password', authLimiter, async (req, res
       .eq('id', req.params.targetId)
       .maybeSingle();
     if (targetError) throw targetError;
-    if (!target) return res.status(404).json({ error: '사용자를 찾을 수 없습니다.' });
+    if (!target) return res.status(404).json({ error: t(req, '사용자를 찾을 수 없습니다.') });
 
     const isDeveloper = requester.email === ADMIN_EMAIL;
     const isSameHospitalAdmin = requester.role === 'admin' && requester.hospital_code === target.hospital_code;
     if (!isDeveloper && !isSameHospitalAdmin) {
-      return res.status(403).json({ error: '같은 병원의 관리자 또는 운영자만 비밀번호를 초기화할 수 있습니다.' });
+      return res.status(403).json({ error: t(req, '같은 병원의 관리자 또는 운영자만 비밀번호를 초기화할 수 있습니다.') });
     }
 
     const tempPassword = generateTempPassword();
@@ -425,7 +429,7 @@ app.put('/api/auth/users/:targetId/reset-password', authLimiter, async (req, res
     res.json({ tempPassword, userName: target.name, userEmail: target.email });
   } catch (err) {
     console.error('password reset error:', err);
-    res.status(500).json({ error: '비밀번호 초기화 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '비밀번호 초기화 중 오류가 발생했습니다.') });
   }
 });
 
@@ -435,11 +439,11 @@ app.put('/api/auth/users/:targetId/reset-password', authLimiter, async (req, res
 app.put('/api/auth/profile', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
 
     const { name, phone } = req.body;
     if (!name || !name.trim()) {
-      return res.status(400).json({ error: '이름을 입력해주세요.' });
+      return res.status(400).json({ error: t(req, '이름을 입력해주세요.') });
     }
 
     const { data: updated, error } = await supabase
@@ -453,7 +457,7 @@ app.put('/api/auth/profile', async (req, res) => {
     res.json({ user: toPublicUser(updated) });
   } catch (err) {
     console.error('profile update error:', err);
-    res.status(500).json({ error: '내 정보 수정 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '내 정보 수정 중 오류가 발생했습니다.') });
   }
 });
 
@@ -464,11 +468,11 @@ app.put('/api/auth/profile', async (req, res) => {
 app.put('/api/auth/change-password', authLimiter, async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
 
     const { newPassword } = req.body;
     if (!isPasswordStrongEnough(newPassword)) {
-      return res.status(400).json({ error: PASSWORD_RULE_MESSAGE });
+      return res.status(400).json({ error: t(req, PASSWORD_RULE_MESSAGE) });
     }
 
     const passwordHash = bcrypt.hashSync(newPassword, 10);
@@ -483,7 +487,7 @@ app.put('/api/auth/change-password', authLimiter, async (req, res) => {
     res.json({ user: toPublicUser(updated) });
   } catch (err) {
     console.error('change password error:', err);
-    res.status(500).json({ error: '비밀번호 변경 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '비밀번호 변경 중 오류가 발생했습니다.') });
   }
 });
 
@@ -494,7 +498,7 @@ app.get('/api/auth/users', async (req, res) => {
   try {
     const userId = getAuthUserId(req);
     if (!userId) {
-      return res.status(401).json({ error: '로그인이 필요합니다.' });
+      return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
     }
 
     const { data: requester, error: requesterError } = await supabase
@@ -505,7 +509,7 @@ app.get('/api/auth/users', async (req, res) => {
 
     if (requesterError) throw requesterError;
     if (!requester) {
-      return res.status(401).json({ error: '로그인이 필요합니다.' });
+      return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
     }
 
     const { data: members, error: membersError } = await supabase
@@ -518,7 +522,7 @@ app.get('/api/auth/users', async (req, res) => {
     res.json(members.map(toPublicUser));
   } catch (err) {
     console.error('users list error:', err);
-    res.status(500).json({ error: '회원 목록 조회 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '회원 목록 조회 중 오류가 발생했습니다.') });
   }
 });
 
@@ -534,7 +538,7 @@ app.put('/api/auth/users/:targetId', async (req, res) => {
     const { role } = req.body;
 
     if (role !== 'admin' && role !== 'member') {
-      return res.status(400).json({ error: '올바르지 않은 역할입니다.' });
+      return res.status(400).json({ error: t(req, '올바르지 않은 역할입니다.') });
     }
 
     const { data: requester, error: requesterError } = await supabase
@@ -545,7 +549,7 @@ app.put('/api/auth/users/:targetId', async (req, res) => {
 
     if (requesterError) throw requesterError;
     if (!requester) {
-      return res.status(401).json({ error: '로그인이 필요합니다.' });
+      return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
     }
 
     let authorized = requester.role === 'admin';
@@ -565,7 +569,7 @@ app.put('/api/auth/users/:targetId', async (req, res) => {
     }
 
     if (!authorized) {
-      return res.status(403).json({ error: '관리자만 역할을 변경할 수 있습니다.' });
+      return res.status(403).json({ error: t(req, '관리자만 역할을 변경할 수 있습니다.') });
     }
 
     const { data: target, error: targetError } = await supabase
@@ -576,7 +580,7 @@ app.put('/api/auth/users/:targetId', async (req, res) => {
 
     if (targetError) throw targetError;
     if (!target || target.hospital_code !== requester.hospital_code) {
-      return res.status(403).json({ error: '같은 병원 소속 회원만 변경할 수 있습니다.' });
+      return res.status(403).json({ error: t(req, '같은 병원 소속 회원만 변경할 수 있습니다.') });
     }
 
     const { data: updated, error: updateError } = await supabase
@@ -599,7 +603,7 @@ app.put('/api/auth/users/:targetId', async (req, res) => {
     res.json({ user: toPublicUser(updated) });
   } catch (err) {
     console.error('role update error:', err);
-    res.status(500).json({ error: '역할 변경 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '역할 변경 중 오류가 발생했습니다.') });
   }
 });
 
@@ -610,8 +614,8 @@ app.put('/api/auth/users/:targetId', async (req, res) => {
 app.get('/api/audit-log', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
-    if (requester.role !== 'admin') return res.status(403).json({ error: '관리자만 조회할 수 있습니다.' });
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
+    if (requester.role !== 'admin') return res.status(403).json({ error: t(req, '관리자만 조회할 수 있습니다.') });
 
     const { data, error } = await supabase
       .from('mediflow_audit_log')
@@ -631,7 +635,7 @@ app.get('/api/audit-log', async (req, res) => {
     })));
   } catch (err) {
     console.error('audit log fetch error:', err);
-    res.status(500).json({ error: '감사 로그 조회 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '감사 로그 조회 중 오류가 발생했습니다.') });
   }
 });
 
@@ -672,7 +676,7 @@ const toPublicNurse = (n) => ({
 app.get('/api/nurses', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
 
     const { data, error } = await supabase
       .from('mediflow_nurses')
@@ -684,7 +688,7 @@ app.get('/api/nurses', async (req, res) => {
     res.json(data.map(toPublicNurse));
   } catch (err) {
     console.error('nurses list error:', err);
-    res.status(500).json({ error: '간호사 목록 조회 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '간호사 목록 조회 중 오류가 발생했습니다.') });
   }
 });
 
@@ -692,11 +696,11 @@ app.get('/api/nurses', async (req, res) => {
 app.post('/api/nurses', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
 
     const { name, qualification, experience, department } = req.body;
     if (!name || !name.trim()) {
-      return res.status(400).json({ error: '간호사 이름을 입력해주세요.' });
+      return res.status(400).json({ error: t(req, '간호사 이름을 입력해주세요.') });
     }
 
     const { data, error } = await supabase
@@ -717,7 +721,7 @@ app.post('/api/nurses', async (req, res) => {
     res.status(201).json(toPublicNurse(data));
   } catch (err) {
     console.error('nurse create error:', err);
-    res.status(500).json({ error: '간호사 추가 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '간호사 추가 중 오류가 발생했습니다.') });
   }
 });
 
@@ -730,11 +734,11 @@ app.post('/api/nurses', async (req, res) => {
 app.put('/api/nurses/bulk', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
 
     const nurses = req.body.nurses;
     if (!Array.isArray(nurses)) {
-      return res.status(400).json({ error: 'nurses 배열이 필요합니다.' });
+      return res.status(400).json({ error: t(req, 'nurses 배열이 필요합니다.') });
     }
 
     const rows = nurses.map(n => ({
@@ -762,7 +766,7 @@ app.put('/api/nurses/bulk', async (req, res) => {
     res.json((data || []).map(toPublicNurse));
   } catch (err) {
     console.error('nurse bulk update error:', err);
-    res.status(500).json({ error: '간호사 일괄 수정 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '간호사 일괄 수정 중 오류가 발생했습니다.') });
   }
 });
 
@@ -770,7 +774,7 @@ app.put('/api/nurses/bulk', async (req, res) => {
 app.put('/api/nurses/:id', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
 
     const updates = {};
     const body = req.body;
@@ -795,11 +799,11 @@ app.put('/api/nurses/:id', async (req, res) => {
       .single();
 
     if (error) throw error;
-    if (!data) return res.status(404).json({ error: '간호사를 찾을 수 없습니다.' });
+    if (!data) return res.status(404).json({ error: t(req, '간호사를 찾을 수 없습니다.') });
     res.json(toPublicNurse(data));
   } catch (err) {
     console.error('nurse update error:', err);
-    res.status(500).json({ error: '간호사 정보 수정 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '간호사 정보 수정 중 오류가 발생했습니다.') });
   }
 });
 
@@ -807,7 +811,7 @@ app.put('/api/nurses/:id', async (req, res) => {
 app.delete('/api/nurses/:id', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
 
     const { error } = await supabase
       .from('mediflow_nurses')
@@ -819,7 +823,7 @@ app.delete('/api/nurses/:id', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('nurse delete error:', err);
-    res.status(500).json({ error: '간호사 삭제 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '간호사 삭제 중 오류가 발생했습니다.') });
   }
 });
 
@@ -829,7 +833,7 @@ app.delete('/api/nurses/:id', async (req, res) => {
 app.get('/api/roster-config', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
     const department = req.query.department || '';
 
     const { data, error } = await supabase
@@ -843,18 +847,18 @@ app.get('/api/roster-config', async (req, res) => {
     res.json({ config: data ? data.config : null });
   } catch (err) {
     console.error('roster-config get error:', err);
-    res.status(500).json({ error: '근무표 설정 조회 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '근무표 설정 조회 중 오류가 발생했습니다.') });
   }
 });
 
 app.put('/api/roster-config', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
     const department = req.query.department || '';
 
     const { config } = req.body;
-    if (!config) return res.status(400).json({ error: 'config가 필요합니다.' });
+    if (!config) return res.status(400).json({ error: t(req, 'config가 필요합니다.') });
 
     const { error } = await supabase
       .from('mediflow_roster_config')
@@ -869,7 +873,7 @@ app.put('/api/roster-config', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('roster-config update error:', err);
-    res.status(500).json({ error: '근무표 설정 저장 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '근무표 설정 저장 중 오류가 발생했습니다.') });
   }
 });
 
@@ -879,7 +883,7 @@ app.put('/api/roster-config', async (req, res) => {
 app.get('/api/roster/:monthKey', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
     const department = req.query.department || '';
 
     const { data, error } = await supabase
@@ -899,7 +903,7 @@ app.get('/api/roster/:monthKey', async (req, res) => {
     });
   } catch (err) {
     console.error('roster get error:', err);
-    res.status(500).json({ error: '근무표 조회 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '근무표 조회 중 오류가 발생했습니다.') });
   }
 });
 
@@ -919,16 +923,16 @@ const checkRosterPublished = async (hospitalCode, department, monthKey) => {
 app.put('/api/roster/:monthKey', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
     const department = req.query.department || '';
 
     const { roster } = req.body;
-    if (!roster) return res.status(400).json({ error: 'roster 데이터가 필요합니다.' });
+    if (!roster) return res.status(400).json({ error: t(req, 'roster 데이터가 필요합니다.') });
 
     // [추가] 발행된 근무표는 통째로 덮어쓰기(재생성 저장)를 막는다.
     // (근무 변경/휴가 승인처럼 부분 수정하는 다른 엔드포인트들은 이 검사를 거치지 않으므로 계속 동작함)
     if (await checkRosterPublished(requester.hospital_code, department, req.params.monthKey)) {
-      return res.status(403).json({ error: '발행된 근무표는 재생성할 수 없습니다. 먼저 발행을 취소해주세요.' });
+      return res.status(403).json({ error: t(req, '발행된 근무표는 재생성할 수 없습니다. 먼저 발행을 취소해주세요.') });
     }
 
     const { error } = await supabase
@@ -945,7 +949,7 @@ app.put('/api/roster/:monthKey', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('roster save error:', err);
-    res.status(500).json({ error: '근무표 저장 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '근무표 저장 중 오류가 발생했습니다.') });
   }
 });
 
@@ -953,8 +957,8 @@ app.put('/api/roster/:monthKey', async (req, res) => {
 app.put('/api/roster/:monthKey/publish', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
-    if (requester.role !== 'admin') return res.status(403).json({ error: '관리자만 발행할 수 있습니다.' });
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
+    if (requester.role !== 'admin') return res.status(403).json({ error: t(req, '관리자만 발행할 수 있습니다.') });
     const department = req.query.department || '';
 
     const { error } = await supabase
@@ -981,7 +985,7 @@ app.put('/api/roster/:monthKey/publish', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('roster publish error:', err);
-    res.status(500).json({ error: '근무표 발행 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '근무표 발행 중 오류가 발생했습니다.') });
   }
 });
 
@@ -989,8 +993,8 @@ app.put('/api/roster/:monthKey/publish', async (req, res) => {
 app.put('/api/roster/:monthKey/unpublish', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
-    if (requester.role !== 'admin') return res.status(403).json({ error: '관리자만 발행을 취소할 수 있습니다.' });
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
+    if (requester.role !== 'admin') return res.status(403).json({ error: t(req, '관리자만 발행을 취소할 수 있습니다.') });
     const department = req.query.department || '';
 
     const { error } = await supabase
@@ -1017,19 +1021,19 @@ app.put('/api/roster/:monthKey/unpublish', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('roster unpublish error:', err);
-    res.status(500).json({ error: '근무표 발행 취소 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '근무표 발행 취소 중 오류가 발생했습니다.') });
   }
 });
 
 app.delete('/api/roster/:monthKey', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
     const department = req.query.department || '';
 
     // [추가] 발행된 근무표는 삭제도 막는다.
     if (await checkRosterPublished(requester.hospital_code, department, req.params.monthKey)) {
-      return res.status(403).json({ error: '발행된 근무표는 삭제할 수 없습니다. 먼저 발행을 취소해주세요.' });
+      return res.status(403).json({ error: t(req, '발행된 근무표는 삭제할 수 없습니다. 먼저 발행을 취소해주세요.') });
     }
 
     const { error } = await supabase
@@ -1052,7 +1056,7 @@ app.delete('/api/roster/:monthKey', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('roster delete error:', err);
-    res.status(500).json({ error: '근무표 삭제 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '근무표 삭제 중 오류가 발생했습니다.') });
   }
 });
 
@@ -1072,7 +1076,7 @@ app.get('/api/admin/platform-stats', async (req, res) => {
       .maybeSingle();
 
     if (!requester || requester.email !== ADMIN_EMAIL) {
-      return res.status(403).json({ error: '접근 권한이 없습니다.' });
+      return res.status(403).json({ error: t(req, '접근 권한이 없습니다.') });
     }
 
     const [{ data: allUsers, error: usersError }, { data: allNurses, error: nursesError }, { data: allRosters, error: rosterError }] = await Promise.all([
@@ -1133,7 +1137,7 @@ app.get('/api/admin/platform-stats', async (req, res) => {
     });
   } catch (err) {
     console.error('platform-stats 조회 오류:', err);
-    res.status(500).json({ error: '통계 조회 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '통계 조회 중 오류가 발생했습니다.') });
   }
 });
 
@@ -1143,14 +1147,14 @@ app.get('/api/admin/platform-stats', async (req, res) => {
 app.post('/api/feedback', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
 
     const { type, title, message, phone } = req.body;
     if (!title || !title.trim() || !message || !message.trim()) {
-      return res.status(400).json({ error: '제목과 내용을 입력해주세요.' });
+      return res.status(400).json({ error: t(req, '제목과 내용을 입력해주세요.') });
     }
     if (!['bug', 'feature', 'other'].includes(type)) {
-      return res.status(400).json({ error: '올바르지 않은 문의 유형입니다.' });
+      return res.status(400).json({ error: t(req, '올바르지 않은 문의 유형입니다.') });
     }
 
     const { data, error } = await supabase
@@ -1174,7 +1178,7 @@ app.post('/api/feedback', async (req, res) => {
     res.status(201).json({ success: true, feedback: data });
   } catch (err) {
     console.error('feedback submit error:', err);
-    res.status(500).json({ error: '문의 접수 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '문의 접수 중 오류가 발생했습니다.') });
   }
 });
 
@@ -1189,7 +1193,7 @@ app.get('/api/feedback', async (req, res) => {
       .maybeSingle();
 
     if (!requester || requester.email !== ADMIN_EMAIL) {
-      return res.status(403).json({ error: '접근 권한이 없습니다.' });
+      return res.status(403).json({ error: t(req, '접근 권한이 없습니다.') });
     }
 
     const { data, error } = await supabase
@@ -1201,7 +1205,7 @@ app.get('/api/feedback', async (req, res) => {
     res.json(data);
   } catch (err) {
     console.error('feedback list error:', err);
-    res.status(500).json({ error: '문의 목록 조회 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '문의 목록 조회 중 오류가 발생했습니다.') });
   }
 });
 
@@ -1216,14 +1220,14 @@ app.put('/api/feedback/:id', async (req, res) => {
       .maybeSingle();
 
     if (!requester || requester.email !== ADMIN_EMAIL) {
-      return res.status(403).json({ error: '접근 권한이 없습니다.' });
+      return res.status(403).json({ error: t(req, '접근 권한이 없습니다.') });
     }
 
     const { status, resolutionNote } = req.body;
     const updates = {};
     if (status !== undefined) {
       if (!['new', 'in_progress', 'resolved'].includes(status)) {
-        return res.status(400).json({ error: '올바르지 않은 상태입니다.' });
+        return res.status(400).json({ error: t(req, '올바르지 않은 상태입니다.') });
       }
       updates.status = status;
       if (status === 'resolved') updates.resolved_at = new Date().toISOString();
@@ -1241,7 +1245,7 @@ app.put('/api/feedback/:id', async (req, res) => {
     res.json({ success: true, feedback: data });
   } catch (err) {
     console.error('feedback update error:', err);
-    res.status(500).json({ error: '문의 상태 변경 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '문의 상태 변경 중 오류가 발생했습니다.') });
   }
 });
 
@@ -1299,21 +1303,21 @@ const replaceNurseInShift = (roster, day, shiftType, outNurseId, inNurseRecord) 
 app.post('/api/swap-requests', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
 
     const { requestType, selectedYear, selectedMonth, fromDay, fromShiftType, fromNurseId, toDay, toShiftType, toNurseId, reason } = req.body;
 
     if (!['swap', 'cover'].includes(requestType)) {
-      return res.status(400).json({ error: '올바르지 않은 요청 유형입니다.' });
+      return res.status(400).json({ error: t(req, '올바르지 않은 요청 유형입니다.') });
     }
     if (selectedYear === undefined || selectedMonth === undefined || !fromDay || !fromShiftType || !fromNurseId) {
-      return res.status(400).json({ error: '필수 정보가 누락되었습니다.' });
+      return res.status(400).json({ error: t(req, '필수 정보가 누락되었습니다.') });
     }
     if (requestType === 'swap' && (!toDay || !toShiftType || !toNurseId)) {
-      return res.status(400).json({ error: '1:1 맞교환은 상대방의 날짜/교대/간호사를 모두 선택해야 합니다.' });
+      return res.status(400).json({ error: t(req, '1:1 맞교환은 상대방의 날짜/교대/간호사를 모두 선택해야 합니다.') });
     }
     if (requestType === 'swap' && toNurseId === fromNurseId) {
-      return res.status(400).json({ error: '같은 간호사끼리는 맞교환할 수 없습니다.' });
+      return res.status(400).json({ error: t(req, '같은 간호사끼리는 맞교환할 수 없습니다.') });
     }
 
     const { data: fromNurse, error: fromNurseError } = await supabase
@@ -1323,7 +1327,7 @@ app.post('/api/swap-requests', async (req, res) => {
       .eq('hospital_code', requester.hospital_code)
       .maybeSingle();
     if (fromNurseError) throw fromNurseError;
-    if (!fromNurse) return res.status(404).json({ error: '요청자 간호사를 찾을 수 없습니다.' });
+    if (!fromNurse) return res.status(404).json({ error: t(req, '요청자 간호사를 찾을 수 없습니다.') });
 
     let toNurse = null;
     if (requestType === 'swap') {
@@ -1334,7 +1338,7 @@ app.post('/api/swap-requests', async (req, res) => {
         .eq('hospital_code', requester.hospital_code)
         .maybeSingle();
       if (error) throw error;
-      if (!data) return res.status(404).json({ error: '상대방 간호사를 찾을 수 없습니다.' });
+      if (!data) return res.status(404).json({ error: t(req, '상대방 간호사를 찾을 수 없습니다.') });
       toNurse = data;
     }
 
@@ -1365,7 +1369,7 @@ app.post('/api/swap-requests', async (req, res) => {
     res.status(201).json(toPublicSwapRequest(inserted));
   } catch (err) {
     console.error('swap request create error:', err);
-    res.status(500).json({ error: '근무 변경 요청 등록 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '근무 변경 요청 등록 중 오류가 발생했습니다.') });
   }
 });
 
@@ -1373,7 +1377,7 @@ app.post('/api/swap-requests', async (req, res) => {
 app.get('/api/swap-requests', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
 
     let query = supabase
       .from('swap_requests')
@@ -1390,7 +1394,7 @@ app.get('/api/swap-requests', async (req, res) => {
     res.json(data.map(toPublicSwapRequest));
   } catch (err) {
     console.error('swap request list error:', err);
-    res.status(500).json({ error: '근무 변경 요청 목록 조회 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '근무 변경 요청 목록 조회 중 오류가 발생했습니다.') });
   }
 });
 
@@ -1398,10 +1402,10 @@ app.get('/api/swap-requests', async (req, res) => {
 app.put('/api/swap-requests/:id/volunteer', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
 
     const { nurseId } = req.body;
-    if (!nurseId) return res.status(400).json({ error: '지원할 간호사를 선택해주세요.' });
+    if (!nurseId) return res.status(400).json({ error: t(req, '지원할 간호사를 선택해주세요.') });
 
     const { data: existing, error: fetchError } = await supabase
       .from('swap_requests')
@@ -1410,10 +1414,10 @@ app.put('/api/swap-requests/:id/volunteer', async (req, res) => {
       .eq('hospital_code', requester.hospital_code)
       .maybeSingle();
     if (fetchError) throw fetchError;
-    if (!existing) return res.status(404).json({ error: '요청을 찾을 수 없습니다.' });
-    if (existing.request_type !== 'cover') return res.status(400).json({ error: '공개 대타 요청에만 지원할 수 있습니다.' });
-    if (existing.status !== 'pending') return res.status(409).json({ error: '이미 다른 사람이 지원했거나 처리된 요청입니다.' });
-    if (nurseId === existing.from_nurse_id) return res.status(400).json({ error: '본인이 요청한 근무에는 지원할 수 없습니다.' });
+    if (!existing) return res.status(404).json({ error: t(req, '요청을 찾을 수 없습니다.') });
+    if (existing.request_type !== 'cover') return res.status(400).json({ error: t(req, '공개 대타 요청에만 지원할 수 있습니다.') });
+    if (existing.status !== 'pending') return res.status(409).json({ error: t(req, '이미 다른 사람이 지원했거나 처리된 요청입니다.') });
+    if (nurseId === existing.from_nurse_id) return res.status(400).json({ error: t(req, '본인이 요청한 근무에는 지원할 수 없습니다.') });
 
     const { data: volunteerNurse, error: nurseError } = await supabase
       .from('mediflow_nurses')
@@ -1422,7 +1426,7 @@ app.put('/api/swap-requests/:id/volunteer', async (req, res) => {
       .eq('hospital_code', requester.hospital_code)
       .maybeSingle();
     if (nurseError) throw nurseError;
-    if (!volunteerNurse) return res.status(404).json({ error: '간호사를 찾을 수 없습니다.' });
+    if (!volunteerNurse) return res.status(404).json({ error: t(req, '간호사를 찾을 수 없습니다.') });
 
     const { data: updated, error: updateError } = await supabase
       .from('swap_requests')
@@ -1440,7 +1444,7 @@ app.put('/api/swap-requests/:id/volunteer', async (req, res) => {
     res.json(toPublicSwapRequest(updated));
   } catch (err) {
     console.error('swap request volunteer error:', err);
-    res.status(500).json({ error: '지원 처리 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '지원 처리 중 오류가 발생했습니다.') });
   }
 });
 
@@ -1448,7 +1452,7 @@ app.put('/api/swap-requests/:id/volunteer', async (req, res) => {
 app.put('/api/swap-requests/:id/cancel', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
 
     const { data: existing, error: fetchError } = await supabase
       .from('swap_requests')
@@ -1457,12 +1461,12 @@ app.put('/api/swap-requests/:id/cancel', async (req, res) => {
       .eq('hospital_code', requester.hospital_code)
       .maybeSingle();
     if (fetchError) throw fetchError;
-    if (!existing) return res.status(404).json({ error: '요청을 찾을 수 없습니다.' });
+    if (!existing) return res.status(404).json({ error: t(req, '요청을 찾을 수 없습니다.') });
     if (existing.created_by_user_id !== requester.id && requester.role !== 'admin') {
-      return res.status(403).json({ error: '본인이 등록한 요청만 취소할 수 있습니다.' });
+      return res.status(403).json({ error: t(req, '본인이 등록한 요청만 취소할 수 있습니다.') });
     }
     if (!['pending', 'ready_for_review'].includes(existing.status)) {
-      return res.status(409).json({ error: '이미 처리된 요청은 취소할 수 없습니다.' });
+      return res.status(409).json({ error: t(req, '이미 처리된 요청은 취소할 수 없습니다.') });
     }
 
     const { data: updated, error: updateError } = await supabase
@@ -1476,7 +1480,7 @@ app.put('/api/swap-requests/:id/cancel', async (req, res) => {
     res.json(toPublicSwapRequest(updated));
   } catch (err) {
     console.error('swap request cancel error:', err);
-    res.status(500).json({ error: '요청 취소 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '요청 취소 중 오류가 발생했습니다.') });
   }
 });
 
@@ -1484,12 +1488,12 @@ app.put('/api/swap-requests/:id/cancel', async (req, res) => {
 app.put('/api/swap-requests/:id/decision', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
-    if (requester.role !== 'admin') return res.status(403).json({ error: '관리자만 승인/거절할 수 있습니다.' });
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
+    if (requester.role !== 'admin') return res.status(403).json({ error: t(req, '관리자만 승인/거절할 수 있습니다.') });
 
     const { decision, note } = req.body;
     if (!['approved', 'rejected'].includes(decision)) {
-      return res.status(400).json({ error: '올바르지 않은 처리 결과입니다.' });
+      return res.status(400).json({ error: t(req, '올바르지 않은 처리 결과입니다.') });
     }
 
     const { data: swapReq, error: fetchError } = await supabase
@@ -1499,9 +1503,9 @@ app.put('/api/swap-requests/:id/decision', async (req, res) => {
       .eq('hospital_code', requester.hospital_code)
       .maybeSingle();
     if (fetchError) throw fetchError;
-    if (!swapReq) return res.status(404).json({ error: '요청을 찾을 수 없습니다.' });
+    if (!swapReq) return res.status(404).json({ error: t(req, '요청을 찾을 수 없습니다.') });
     if (swapReq.status !== 'ready_for_review') {
-      return res.status(409).json({ error: '승인 대기 상태인 요청만 처리할 수 있습니다. (대타 모집이 아직 안 됐거나 이미 처리됨)' });
+      return res.status(409).json({ error: t(req, '승인 대기 상태인 요청만 처리할 수 있습니다. (대타 모집이 아직 안 됐거나 이미 처리됨)') });
     }
 
     if (decision === 'rejected') {
@@ -1544,7 +1548,7 @@ app.put('/api/swap-requests/:id/decision', async (req, res) => {
       .maybeSingle();
     if (rosterFetchError) throw rosterFetchError;
     if (!rosterRow || !rosterRow.roster_data) {
-      return res.status(409).json({ error: '해당 월의 근무표를 찾을 수 없습니다. 근무표가 삭제되었을 수 있습니다.' });
+      return res.status(409).json({ error: t(req, '해당 월의 근무표를 찾을 수 없습니다. 근무표가 삭제되었을 수 있습니다.') });
     }
 
     const roster = rosterRow.roster_data;
@@ -1554,7 +1558,7 @@ app.put('/api/swap-requests/:id/decision', async (req, res) => {
       supabase.from('mediflow_nurses').select('id, name, qualification, experience, historical_days_by_shift').eq('id', swapReq.to_nurse_id).maybeSingle()
     ]);
     if (!fromNurseFull || !toNurseFull) {
-      return res.status(409).json({ error: '간호사 정보를 찾을 수 없습니다. (삭제되었을 수 있음)' });
+      return res.status(409).json({ error: t(req, '간호사 정보를 찾을 수 없습니다. (삭제되었을 수 있음)') });
     }
 
     // from자리에 to간호사를 채워넣는다.
@@ -1651,7 +1655,7 @@ app.put('/api/swap-requests/:id/decision', async (req, res) => {
     res.json(toPublicSwapRequest(updatedReq));
   } catch (err) {
     console.error('swap request decision error:', err);
-    res.status(500).json({ error: '요청 처리 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '요청 처리 중 오류가 발생했습니다.') });
   }
 });
 
@@ -1681,17 +1685,17 @@ const toPublicLeaveRequest = (l) => ({
 app.post('/api/leave-requests', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
 
     const { startDate, endDate, reason, nurseId } = req.body;
     if (!startDate || !endDate) {
-      return res.status(400).json({ error: '시작일과 종료일을 입력해주세요.' });
+      return res.status(400).json({ error: t(req, '시작일과 종료일을 입력해주세요.') });
     }
     if (new Date(endDate) < new Date(startDate)) {
-      return res.status(400).json({ error: '종료일이 시작일보다 빠를 수 없습니다.' });
+      return res.status(400).json({ error: t(req, '종료일이 시작일보다 빠를 수 없습니다.') });
     }
     if (!nurseId) {
-      return res.status(400).json({ error: '본인이 어떤 간호사인지 선택해주세요. (근무표 자동 제외 반영을 위해 필요합니다)' });
+      return res.status(400).json({ error: t(req, '본인이 어떤 간호사인지 선택해주세요. (근무표 자동 제외 반영을 위해 필요합니다)') });
     }
 
     const { data: nurse, error: nurseError } = await supabase
@@ -1701,7 +1705,7 @@ app.post('/api/leave-requests', async (req, res) => {
       .eq('hospital_code', requester.hospital_code)
       .maybeSingle();
     if (nurseError) throw nurseError;
-    if (!nurse) return res.status(404).json({ error: '간호사를 찾을 수 없습니다.' });
+    if (!nurse) return res.status(404).json({ error: t(req, '간호사를 찾을 수 없습니다.') });
 
     const { data: inserted, error } = await supabase
       .from('leave_requests')
@@ -1723,7 +1727,7 @@ app.post('/api/leave-requests', async (req, res) => {
     res.status(201).json(toPublicLeaveRequest(inserted));
   } catch (err) {
     console.error('leave request create error:', err);
-    res.status(500).json({ error: '휴가 신청 등록 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '휴가 신청 등록 중 오류가 발생했습니다.') });
   }
 });
 
@@ -1731,7 +1735,7 @@ app.post('/api/leave-requests', async (req, res) => {
 app.get('/api/leave-requests', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
 
     let query = supabase
       .from('leave_requests')
@@ -1748,7 +1752,7 @@ app.get('/api/leave-requests', async (req, res) => {
     res.json(data.map(toPublicLeaveRequest));
   } catch (err) {
     console.error('leave request list error:', err);
-    res.status(500).json({ error: '휴가 신청 목록 조회 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '휴가 신청 목록 조회 중 오류가 발생했습니다.') });
   }
 });
 
@@ -1756,7 +1760,7 @@ app.get('/api/leave-requests', async (req, res) => {
 app.put('/api/leave-requests/:id/cancel', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
 
     const { data: existing, error: fetchError } = await supabase
       .from('leave_requests')
@@ -1765,12 +1769,12 @@ app.put('/api/leave-requests/:id/cancel', async (req, res) => {
       .eq('hospital_code', requester.hospital_code)
       .maybeSingle();
     if (fetchError) throw fetchError;
-    if (!existing) return res.status(404).json({ error: '신청을 찾을 수 없습니다.' });
+    if (!existing) return res.status(404).json({ error: t(req, '신청을 찾을 수 없습니다.') });
     if (existing.user_id !== requester.id && requester.role !== 'admin') {
-      return res.status(403).json({ error: '본인이 신청한 휴가만 취소할 수 있습니다.' });
+      return res.status(403).json({ error: t(req, '본인이 신청한 휴가만 취소할 수 있습니다.') });
     }
     if (existing.status !== 'pending') {
-      return res.status(409).json({ error: '이미 처리된 신청은 취소할 수 없습니다.' });
+      return res.status(409).json({ error: t(req, '이미 처리된 신청은 취소할 수 없습니다.') });
     }
 
     const { data: updated, error: updateError } = await supabase
@@ -1784,7 +1788,7 @@ app.put('/api/leave-requests/:id/cancel', async (req, res) => {
     res.json(toPublicLeaveRequest(updated));
   } catch (err) {
     console.error('leave request cancel error:', err);
-    res.status(500).json({ error: '휴가 신청 취소 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '휴가 신청 취소 중 오류가 발생했습니다.') });
   }
 });
 
@@ -1792,12 +1796,12 @@ app.put('/api/leave-requests/:id/cancel', async (req, res) => {
 app.put('/api/leave-requests/:id/decision', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
-    if (requester.role !== 'admin') return res.status(403).json({ error: '관리자만 승인/거절할 수 있습니다.' });
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
+    if (requester.role !== 'admin') return res.status(403).json({ error: t(req, '관리자만 승인/거절할 수 있습니다.') });
 
     const { decision, note } = req.body;
     if (!['approved', 'rejected'].includes(decision)) {
-      return res.status(400).json({ error: '올바르지 않은 처리 결과입니다.' });
+      return res.status(400).json({ error: t(req, '올바르지 않은 처리 결과입니다.') });
     }
 
     const { data: existing, error: fetchError } = await supabase
@@ -1807,9 +1811,9 @@ app.put('/api/leave-requests/:id/decision', async (req, res) => {
       .eq('hospital_code', requester.hospital_code)
       .maybeSingle();
     if (fetchError) throw fetchError;
-    if (!existing) return res.status(404).json({ error: '신청을 찾을 수 없습니다.' });
+    if (!existing) return res.status(404).json({ error: t(req, '신청을 찾을 수 없습니다.') });
     if (existing.status !== 'pending') {
-      return res.status(409).json({ error: '이미 처리된 신청입니다.' });
+      return res.status(409).json({ error: t(req, '이미 처리된 신청입니다.') });
     }
 
     const { data: updated, error: updateError } = await supabase
@@ -1836,7 +1840,7 @@ app.put('/api/leave-requests/:id/decision', async (req, res) => {
     res.json(toPublicLeaveRequest(updated));
   } catch (err) {
     console.error('leave request decision error:', err);
-    res.status(500).json({ error: '휴가 신청 처리 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '휴가 신청 처리 중 오류가 발생했습니다.') });
   }
 });
 
@@ -1924,7 +1928,7 @@ const ensureSubscription = async (hospitalCode) => {
 app.get('/api/subscription', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
 
     const subscription = await ensureSubscription(requester.hospital_code);
     const activeNurseCount = await countActiveNurses(requester.hospital_code);
@@ -1936,7 +1940,7 @@ app.get('/api/subscription', async (req, res) => {
     });
   } catch (err) {
     console.error('subscription fetch error:', err);
-    res.status(500).json({ error: '구독 정보 조회 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '구독 정보 조회 중 오류가 발생했습니다.') });
   }
 });
 
@@ -1944,7 +1948,7 @@ app.get('/api/subscription', async (req, res) => {
 app.get('/api/subscription/billing-history', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
 
     const { data, error } = await supabase
       .from('mediflow_billing_history')
@@ -1966,7 +1970,7 @@ app.get('/api/subscription/billing-history', async (req, res) => {
     })));
   } catch (err) {
     console.error('billing history fetch error:', err);
-    res.status(500).json({ error: '결제 내역 조회 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '결제 내역 조회 중 오류가 발생했습니다.') });
   }
 });
 
@@ -1974,13 +1978,13 @@ app.get('/api/subscription/billing-history', async (req, res) => {
 app.post('/api/subscription/register-card', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
-    if (requester.role !== 'admin') return res.status(403).json({ error: '관리자만 결제 카드를 등록할 수 있습니다.' });
-    if (!TOSS_SECRET_KEY) return res.status(500).json({ error: '결제 서비스가 아직 설정되지 않았습니다. 관리자에게 문의해주세요.' });
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
+    if (requester.role !== 'admin') return res.status(403).json({ error: t(req, '관리자만 결제 카드를 등록할 수 있습니다.') });
+    if (!TOSS_SECRET_KEY) return res.status(500).json({ error: t(req, '결제 서비스가 아직 설정되지 않았습니다. 관리자에게 문의해주세요.') });
 
     const { authKey, customerKey } = req.body;
     if (!authKey || !customerKey) {
-      return res.status(400).json({ error: 'authKey, customerKey가 필요합니다.' });
+      return res.status(400).json({ error: t(req, 'authKey, customerKey가 필요합니다.') });
     }
 
     const tossRes = await fetch(`${TOSS_API_BASE}/billing/authorizations/issue`, {
@@ -2028,7 +2032,7 @@ app.post('/api/subscription/register-card', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('register card error:', err);
-    res.status(500).json({ error: '카드 등록 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '카드 등록 중 오류가 발생했습니다.') });
   }
 });
 
@@ -2036,8 +2040,8 @@ app.post('/api/subscription/register-card', async (req, res) => {
 app.put('/api/subscription/cancel', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
-    if (requester.role !== 'admin') return res.status(403).json({ error: '관리자만 구독을 해지할 수 있습니다.' });
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
+    if (requester.role !== 'admin') return res.status(403).json({ error: t(req, '관리자만 구독을 해지할 수 있습니다.') });
 
     const subscription = await ensureSubscription(requester.hospital_code);
     if (subscription.prepaid_until && new Date(subscription.prepaid_until) > new Date()) {
@@ -2063,7 +2067,7 @@ app.put('/api/subscription/cancel', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('subscription cancel error:', err);
-    res.status(500).json({ error: '구독 해지 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '구독 해지 중 오류가 발생했습니다.') });
   }
 });
 
@@ -2082,17 +2086,17 @@ const calcPrepayAmount = (nurseCount, pricePerNurse, years) => {
 app.post('/api/subscription/prepay/confirm', async (req, res) => {
   try {
     const requester = await getRequesterHospital(req);
-    if (!requester) return res.status(401).json({ error: '로그인이 필요합니다.' });
-    if (requester.role !== 'admin') return res.status(403).json({ error: '관리자만 선결제를 진행할 수 있습니다.' });
-    if (!TOSS_SECRET_KEY) return res.status(500).json({ error: '결제 서비스가 아직 설정되지 않았습니다.' });
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
+    if (requester.role !== 'admin') return res.status(403).json({ error: t(req, '관리자만 선결제를 진행할 수 있습니다.') });
+    if (!TOSS_SECRET_KEY) return res.status(500).json({ error: t(req, '결제 서비스가 아직 설정되지 않았습니다.') });
 
     const { years, paymentKey, orderId, amount } = req.body;
     const yearsNum = Number(years);
     if (!PREPAY_DISCOUNTS[yearsNum]) {
-      return res.status(400).json({ error: '올바르지 않은 선결제 기간입니다.' });
+      return res.status(400).json({ error: t(req, '올바르지 않은 선결제 기간입니다.') });
     }
     if (!paymentKey || !orderId || !amount) {
-      return res.status(400).json({ error: 'paymentKey, orderId, amount가 필요합니다.' });
+      return res.status(400).json({ error: t(req, 'paymentKey, orderId, amount가 필요합니다.') });
     }
 
     // 클라이언트가 보낸 금액이 조작되지 않았는지 서버에서 다시 계산해서 확인
@@ -2100,7 +2104,7 @@ app.post('/api/subscription/prepay/confirm', async (req, res) => {
     const nurseCount = await countActiveNurses(requester.hospital_code);
     const expectedAmount = calcPrepayAmount(nurseCount, subscription.price_per_nurse || 3000, yearsNum);
     if (expectedAmount !== Number(amount)) {
-      return res.status(400).json({ error: '결제 금액이 일치하지 않습니다. 다시 시도해주세요.' });
+      return res.status(400).json({ error: t(req, '결제 금액이 일치하지 않습니다. 다시 시도해주세요.') });
     }
 
     // 토스페이먼츠 결제 승인(확정) API 호출
@@ -2167,7 +2171,7 @@ app.post('/api/subscription/prepay/confirm', async (req, res) => {
     res.json({ success: true, prepaidUntil: newPrepaidUntilStr });
   } catch (err) {
     console.error('prepay confirm error:', err);
-    res.status(500).json({ error: '선결제 처리 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '선결제 처리 중 오류가 발생했습니다.') });
   }
 });
 
@@ -2177,9 +2181,9 @@ app.post('/api/subscription/run-billing', async (req, res) => {
   try {
     const secret = req.headers['x-cron-secret'];
     if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
-      return res.status(403).json({ error: '권한이 없습니다.' });
+      return res.status(403).json({ error: t(req, '권한이 없습니다.') });
     }
-    if (!TOSS_SECRET_KEY) return res.status(500).json({ error: '결제 서비스가 설정되지 않았습니다.' });
+    if (!TOSS_SECRET_KEY) return res.status(500).json({ error: t(req, '결제 서비스가 설정되지 않았습니다.') });
 
     const today = new Date().toISOString().slice(0, 10);
     const { data: dueSubs, error } = await supabase
@@ -2257,7 +2261,7 @@ app.post('/api/subscription/run-billing', async (req, res) => {
     res.json({ processed: results.length, results });
   } catch (err) {
     console.error('run-billing error:', err);
-    res.status(500).json({ error: '청구 실행 중 오류가 발생했습니다.' });
+    res.status(500).json({ error: t(req, '청구 실행 중 오류가 발생했습니다.') });
   }
 });
 

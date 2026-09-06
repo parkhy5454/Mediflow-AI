@@ -3,7 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { formatPhoneNumber } from '../../utils/phoneUtils';
 import TermsModal from './TermsModal';
 
+import { useTranslation } from 'react-i18next';
+
 const Login = ({ onLoginSuccess }) => {
+  const { t } = useTranslation();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -173,7 +176,7 @@ const Login = ({ onLoginSuccess }) => {
           Mediflow-AI
         </h1>
         <p style={{ textAlign: 'center', color: '#6b7280', marginBottom: '24px', fontSize: '13px' }}>
-          병원 간호사 근무 관리 시스템
+          {t('병원 간호사 근무 관리 시스템')}
         </p>
 
         {/* 로그인 / 회원가입 전환 탭 */}
@@ -194,7 +197,7 @@ const Login = ({ onLoginSuccess }) => {
               boxShadow: isLogin ? '0 1px 2px rgba(0,0,0,0.06)' : 'none'
             }}
           >
-            로그인
+            {t('로그인')}
           </button>
           <button
             type="button"
@@ -212,7 +215,7 @@ const Login = ({ onLoginSuccess }) => {
               boxShadow: !isLogin ? '0 1px 2px rgba(0,0,0,0.06)' : 'none'
             }}
           >
-            회원가입
+            {t('회원가입')}
           </button>
         </div>
 
@@ -221,19 +224,19 @@ const Login = ({ onLoginSuccess }) => {
             <>
               <div>
                 <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: '500', color: '#374151' }}>
-                  이름
+                  {t('이름')}
                 </label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="홍길동"
+                  placeholder={t('홍길동')}
                   style={inputStyle}
                 />
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: '500', color: '#374151' }}>
-                  전화번호 (선택)
+                  {t('전화번호 (선택)')}
                 </label>
                 <input
                   type="tel"
@@ -243,12 +246,12 @@ const Login = ({ onLoginSuccess }) => {
                   style={inputStyle}
                 />
                 <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px' }}>
-                  근무 변경/대타 요청 시 동료가 연락할 수 있도록 등록해두면 좋습니다.
+                  {t('근무 변경/대타 요청 시 동료가 연락할 수 있도록 등록해두면 좋습니다.')}
                 </p>
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: '500', color: '#374151' }}>
-                  병원 코드
+                  {t('병원 코드')}
                 </label>
                 <input
                   type="text"
@@ -259,16 +262,18 @@ const Login = ({ onLoginSuccess }) => {
                     setExistingHospitalName(null);
                     setHospitalName('');
                   }}
-                  placeholder="같은 병원 동료와 동일하게 입력하세요"
+                  placeholder={t('같은 병원 동료와 동일하게 입력하세요')}
                   style={inputStyle}
                 />
                 <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px', lineHeight: '1.4' }}>
-                  같은 병원 코드로 가입하면 같은 병원 소속으로 데이터가 연동됩니다. 먼저 입력하시면 이미 등록된 병원인지 확인해서 병원명을 자동으로 채워드려요.
+                  {t(
+                    "같은 병원 코드로 가입하면 같은 병원 소속으로 데이터가 연동됩니다. 먼저 입력하시면 이미 등록된 병원인지 확인해서 병원명을 자동으로 채워드려요."
+                  )}
                 </p>
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: '500', color: '#374151' }}>
-                  병원명 {existingHospitalName && <span style={{ color: '#3b82f6', fontWeight: '400' }}>(자동 입력됨)</span>}
+                  {t('병원명')} {existingHospitalName && <span style={{ color: '#3b82f6', fontWeight: '400' }}>{t('(자동 입력됨)')}</span>}
                 </label>
                 <input
                   type="text"
@@ -296,26 +301,28 @@ const Login = ({ onLoginSuccess }) => {
               {hospitalCode.trim() && !checkingHospital && hospitalHasAdmin === false && (
                 <div style={{ backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '12px' }}>
                   <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '500', color: '#374151' }}>
-                    가입 유형
+                    {t('가입 유형')}
                   </label>
                   <div style={{ display: 'flex', gap: '16px' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#374151', cursor: 'pointer' }}>
                       <input type="radio" name="wantsAdmin" checked={!wantsAdmin} onChange={() => setWantsAdmin(false)} />
-                      일반 사용자
+                      {t('일반 사용자')}
                     </label>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#374151', cursor: 'pointer' }}>
                       <input type="radio" name="wantsAdmin" checked={wantsAdmin} onChange={() => setWantsAdmin(true)} />
-                      관리자
+                      {t('관리자')}
                     </label>
                   </div>
                   <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '8px', lineHeight: '1.4' }}>
-                    이 병원 코드로는 아직 아무도 관리자로 가입하지 않았습니다. 이 병원의 실제 담당자라면 "관리자"를 선택하세요. 이후 다른 관리자 지정은 회원 관리에서 관리자만 할 수 있습니다.
+                    {t(
+                      "이 병원 코드로는 아직 아무도 관리자로 가입하지 않았습니다. 이 병원의 실제 담당자라면 \"관리자\"를 선택하세요. 이후 다른 관리자 지정은 회원 관리에서 관리자만 할 수 있습니다."
+                    )}
                   </p>
                 </div>
               )}
               {hospitalCode.trim() && !checkingHospital && hospitalHasAdmin === true && (
                 <p style={{ fontSize: '11px', color: '#9ca3af', backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '10px 12px', lineHeight: '1.4' }}>
-                  이 병원은 이미 관리자가 등록되어 있어 일반 사용자로 가입됩니다. 관리자 권한이 필요하면 가입 후 병원 관리자에게 요청하세요.
+                  {t('이 병원은 이미 관리자가 등록되어 있어 일반 사용자로 가입됩니다. 관리자 권한이 필요하면 가입 후 병원 관리자에게 요청하세요.')}
                 </p>
               )}
 
@@ -332,9 +339,9 @@ const Login = ({ onLoginSuccess }) => {
                     onClick={(e) => { e.preventDefault(); setShowTermsModal(true); }}
                     style={{ background: 'none', border: 'none', padding: 0, color: '#3b82f6', textDecoration: 'underline', cursor: 'pointer', fontSize: '13px' }}
                   >
-                    이용약관 및 개인정보처리방침
+                    {t('이용약관 및 개인정보처리방침')}
                   </button>
-                  에 동의합니다. (필수)
+                  {t('에 동의합니다. (필수)')}
                 </span>
               </label>
             </>
@@ -342,7 +349,7 @@ const Login = ({ onLoginSuccess }) => {
 
           <div>
             <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: '500', color: '#374151' }}>
-              이메일
+              {t('이메일')}
             </label>
             <input
               type="email"
@@ -354,7 +361,7 @@ const Login = ({ onLoginSuccess }) => {
           </div>
           <div>
             <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: '500', color: '#374151' }}>
-              비밀번호
+              {t('비밀번호')}
             </label>
             <input
               type="password"
@@ -369,7 +376,7 @@ const Login = ({ onLoginSuccess }) => {
                 onClick={() => { setShowForgotPassword(v => !v); setForgotMessage(''); }}
                 style={{ background: 'none', border: 'none', padding: 0, marginTop: '6px', color: '#6b7280', fontSize: '12px', textDecoration: 'underline', cursor: 'pointer' }}
               >
-                비밀번호를 잊으셨나요?
+                {t('비밀번호를 잊으셨나요?')}
               </button>
             )}
           </div>
@@ -377,14 +384,14 @@ const Login = ({ onLoginSuccess }) => {
           {isLogin && showForgotPassword && (
             <div style={{ backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '12px' }}>
               <p style={{ fontSize: '12px', color: '#6b7280', margin: '0 0 8px' }}>
-                가입하신 이메일로 임시 비밀번호를 보내드립니다.
+                {t('가입하신 이메일로 임시 비밀번호를 보내드립니다.')}
               </p>
               <div style={{ display: 'flex', gap: '6px' }}>
                 <input
                   type="email"
                   value={forgotEmail}
                   onChange={(e) => setForgotEmail(e.target.value)}
-                  placeholder="가입한 이메일"
+                  placeholder={t('가입한 이메일')}
                   style={{ ...inputStyle, flex: 1 }}
                 />
                 <button
