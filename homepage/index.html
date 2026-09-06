@@ -37,7 +37,10 @@
     background:var(--paper);
     line-height:1.6;
     -webkit-font-smoothing:antialiased;
+    word-break:keep-all;
+    overflow-wrap:break-word;
   }
+  :lang(en) body, body:lang(en){word-break:normal;}
   :lang(zh) body, body:lang(zh){font-family:'Pretendard','Noto Sans SC',sans-serif;}
   :lang(zh) h1, :lang(zh) h2, :lang(zh) h3, :lang(zh) h4,
   :lang(zh) .brand, :lang(zh) .shift-card h3, :lang(zh) .num{
@@ -134,6 +137,7 @@
   .hero h1{
     font-family:var(--serif);font-weight:700;
     font-size:44px;line-height:1.28;letter-spacing:-0.01em;margin:0 0 22px;
+    text-wrap:balance;
   }
   .hero p.lead{font-size:17px;color:#B7BFCC;max-width:480px;margin:0 0 34px;}
   .hero-ctas{display:flex;gap:12px;margin-bottom:56px;flex-wrap:wrap;}
@@ -175,6 +179,7 @@
   h2.section-title{
     font-family:var(--serif);font-weight:700;font-size:32px;
     letter-spacing:-0.01em;margin:0 0 16px;max-width:560px;
+    text-wrap:balance;
   }
   p.section-lead{font-size:16px;color:var(--slate);max-width:520px;margin:0 0 48px;}
 
