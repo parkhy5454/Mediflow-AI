@@ -29,6 +29,7 @@ const Navigation = ({ activeTab, setActiveTab, currentUser }) => {
       padding: '0 20px'
     }}>
       <div
+        className="app-nav-tabs"
         style={{
           display: 'flex',
           gap: '0',
@@ -43,6 +44,7 @@ const Navigation = ({ activeTab, setActiveTab, currentUser }) => {
           return (
             <button
               key={tab.id}
+              className="app-nav-tab-btn"
               onClick={() => setActiveTab(tab.id)}
               style={{
                 display: 'flex',

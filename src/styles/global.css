@@ -168,20 +168,50 @@ table {
   .grid-responsive {
     grid-template-columns: 1fr !important;
   }
-  
+
   .flex-responsive {
     flex-direction: column !important;
     gap: 10px !important;
   }
-  
+
   .export-button {
     font-size: 12px;
     padding: 8px 12px;
   }
-  
+
   .status-indicator {
     font-size: 12px;
     padding: 6px 10px;
+  }
+
+  /* Top header bar: stack the title and the action row instead of letting
+     a fixed-height flex box wrap and overlap the nav tabs below it */
+  .app-header-row {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+
+  .app-header-title h1 {
+    font-size: 17px !important;
+  }
+
+  .app-header-actions {
+    width: 100%;
+    justify-content: flex-start !important;
+  }
+
+  /* Nav tabs: smaller, tighter so more of them fit before scrolling */
+  .app-nav-tab-btn {
+    padding: 10px 10px !important;
+    font-size: 12.5px !important;
+    gap: 5px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Hide the least essential bit of header text on very small phones */
+  .app-header-stats {
+    display: none;
   }
 }
 

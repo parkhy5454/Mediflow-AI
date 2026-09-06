@@ -16,31 +16,33 @@ const Header = ({ activeNurses, currentUser, onLogout, onUserUpdate }) => {
       padding: '0 20px'
     }}>
 
-      <div style={{ 
-        display: 'flex', 
-        alignItems: 'center', 
+      <div className="app-header-row" style={{
+        display: 'flex',
+        alignItems: 'center',
         justifyContent: 'space-between',
-        height: '60px',
+        minHeight: '60px',
         flexWrap: 'wrap',
-        gap: '10px'
+        gap: '10px',
+        padding: '10px 0'
       }}>
-        <div>
-          <h1 style={{ 
-            margin: 0, 
-            fontSize: '24px', 
-            fontWeight: 'bold', 
-            color: '#1f2937' 
+        <div className="app-header-title" style={{ minWidth: 0 }}>
+          <h1 style={{
+            margin: 0,
+            fontSize: '24px',
+            fontWeight: 'bold',
+            color: '#1f2937',
+            overflowWrap: 'anywhere'
           }}>
             {currentUser?.hospitalName ? `${currentUser.hospitalName} ${t('간호사 근무 관리 시스템')}` : t('병원 간호사 근무 관리 시스템')}
           </h1>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <span style={{ fontSize: '14px', color: '#6b7280' }}>
+        <div className="app-header-actions" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+          <span className="app-header-stats" style={{ fontSize: '14px', color: '#6b7280', whiteSpace: 'nowrap' }}>
             {t('근무 중인 간호사: {{count}}명', { count: activeNurses.length })}
           </span>
           {currentUser && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '13px', color: '#374151' }}>
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <span style={{ fontSize: '13px', color: '#374151', whiteSpace: 'nowrap' }}>
                 {currentUser.name}
                 {currentUser.role === 'admin' && (
                   <span style={{
@@ -65,7 +67,8 @@ const Header = ({ activeNurses, currentUser, onLogout, onUserUpdate }) => {
                   borderRadius: '6px',
                   backgroundColor: 'white',
                   color: '#374151',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap'
                 }}
               >
                 {t('내 정보')}
@@ -79,7 +82,8 @@ const Header = ({ activeNurses, currentUser, onLogout, onUserUpdate }) => {
                   borderRadius: '6px',
                   backgroundColor: 'white',
                   color: '#374151',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap'
                 }}
               >
                 {t('로그아웃')}
