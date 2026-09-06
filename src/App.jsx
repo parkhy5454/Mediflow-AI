@@ -164,6 +164,18 @@ const HospitalRosterSystem = () => {
   }, []);
 
   const handleLoginSuccess = (user) => {
+    // [추가] 오프라인 캐시(서비스 워커)는 로그아웃 시 지우지만, 로그아웃 없이 다른 계정으로
+    // 곧장 로그인하는 경우(공용 기기, 토큰 만료 후 다른 사람이 로그인 등)까지 대비해 방어적으로
+    // 한 번 더 확인한다 — 직전에 로그인해 있던 사용자와 id가 다르면 캐시를 비운다.
+    try {
+      const previousRaw = window.localStorage.getItem('mediflow_user');
+      const previousUser = previousRaw ? JSON.parse(previousRaw) : null;
+      if (previousUser && previousUser.id !== user.id) {
+        clearOfflineApiCache();
+      }
+    } catch (err) {
+      // 이전 값 파싱이 실패해도 로그인 자체는 막지 않는다.
+    }
     window.localStorage.setItem('mediflow_user', JSON.stringify(user));
     setCurrentUser(user);
   };
