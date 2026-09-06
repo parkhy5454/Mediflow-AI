@@ -289,7 +289,7 @@ const NurseTable = ({ nurses, updateNurseStatus, updateNurse, deleteNurse, nameO
                           />
                         </td>
                         <td style={{ padding: '12px' }}>{t(nurse.experience)}</td>
-                        <td style={{ padding: '12px' }}>{nurse.department}</td>
+                        <td style={{ padding: '12px' }}>{t(nurse.department)}</td>
                         <td style={{ padding: '12px' }}>
                           <StatusBadge
                             text={nurse.status}

@@ -53,7 +53,7 @@ const NurseFilters = ({ searchTerm, setSearchTerm, filterStatus, setFilterStatus
       >
         <option value="all">{t('전체 부서')}</option>
         {departments.map(dept => (
-          <option key={dept} value={dept}>{dept}</option>
+          <option key={dept} value={dept}>{t(dept)}</option>
         ))}
       </select>
     </div>

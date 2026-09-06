@@ -1,8 +1,10 @@
 // src/components/Roster/MonthSelector.jsx
 import React from 'react';
 import { getMonthName } from '../../utils/dateUtils';
+import { useTranslation } from 'react-i18next';
 
 const MonthSelector = ({ selectedMonth, selectedYear, setSelectedMonth, setSelectedYear }) => {
+  const { i18n } = useTranslation();
   return (
     <div style={{ 
       display: 'flex', 
@@ -22,7 +24,7 @@ const MonthSelector = ({ selectedMonth, selectedYear, setSelectedMonth, setSelec
         }}
       >
         {Array.from({ length: 12 }, (_, i) => (
-          <option key={i} value={i}>{getMonthName(i)}</option>
+          <option key={i} value={i}>{getMonthName(i, i18n.language)}</option>
         ))}
       </select>
       <select

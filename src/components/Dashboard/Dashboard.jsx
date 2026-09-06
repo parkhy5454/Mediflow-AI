@@ -149,7 +149,7 @@ const Dashboard = ({
   selectedDepartment,
   setSelectedDepartment
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   // [추가] 대시보드 통계도 병원 전체가 아니라 현재 선택된 부서(병동) 기준으로 보여준다.
   // (근무표/근무표 설정 탭과 같은 selectedDepartment를 공유한다)
   const deptNurses = nurses.filter(n => (n.department || '') === selectedDepartment);
@@ -176,7 +176,7 @@ const Dashboard = ({
             }}
           >
             {departmentOptions.map(dept => (
-              <option key={dept || '_unset'} value={dept}>{dept || '미지정'}</option>
+              <option key={dept || '_unset'} value={dept}>{dept ? t(dept) : t('미지정')}</option>
             ))}
           </select>
         </div>
@@ -192,7 +192,7 @@ const Dashboard = ({
         <h2 style={{ color: '#1f2937', margin: 0 }}>
           {t('대시보드 - {{selectedYear}}년 {{getMonthName}}', {
             selectedYear: selectedYear,
-            getMonthName: getMonthName(selectedMonth)
+            getMonthName: getMonthName(selectedMonth, i18n.language)
           })}
         </h2>
         

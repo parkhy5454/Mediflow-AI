@@ -61,7 +61,7 @@ const SelectOrCustom = ({ value, onChange, options }) => {
       style={inputStyle}
     >
       {options.map((opt) => (
-        <option key={opt.value} value={opt.value}>{opt.label}</option>
+        <option key={opt.value} value={opt.value}>{t(opt.label)}</option>
       ))}
       <option value="__custom__">{t('✏️ 직접 입력...')}</option>
     </select>

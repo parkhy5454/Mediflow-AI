@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { UserCheck, ShieldCheck, Loader2, KeyRound, Copy, X, History } from 'lucide-react';
 import { formatPhoneNumber } from '../../utils/phoneUtils';
+import { localeFor } from '../../utils/dateUtils';
 
 import { useTranslation } from 'react-i18next';
 
@@ -21,7 +22,7 @@ const AUDIT_ACTION_LABEL = {
 };
 
 const MemberManagement = ({ currentUser, onUserUpdate }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -127,7 +128,7 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
       <p style={{ color: '#6b7280', fontSize: '13px', marginBottom: '20px' }}>
         {t('{{hospitalName}} 소속 회원 목록입니다. {{value}}', {
           hospitalName: currentUser.hospitalName,
-          value: isAdmin ? ' 관리자는 동료의 권한을 관리자/일반 사용자로 지정할 수 있습니다.' : ''
+          value: isAdmin ? ' ' + t('관리자는 동료의 권한을 관리자/일반 사용자로 지정할 수 있습니다.') : ''
         })}
       </p>
 
@@ -356,13 +357,13 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
                       fontSize: '10px', fontWeight: '700', padding: '2px 7px', borderRadius: '10px',
                       backgroundColor: '#eff6ff', color: '#1d4ed8', marginRight: '8px'
                     }}>
-                      {AUDIT_ACTION_LABEL[l.action] || l.action}
+                      {AUDIT_ACTION_LABEL[l.action] ? t(AUDIT_ACTION_LABEL[l.action]) : l.action}
                     </span>
                     {l.targetDescription}
                     <span style={{ color: '#9ca3af' }}> — {l.actorName}</span>
                   </div>
                   <div style={{ fontSize: '11px', color: '#9ca3af', flexShrink: 0 }}>
-                    {new Date(l.createdAt).toLocaleString()}
+                    {new Date(l.createdAt).toLocaleString(localeFor(i18n.language))}
                   </div>
                 </div>
               ))}

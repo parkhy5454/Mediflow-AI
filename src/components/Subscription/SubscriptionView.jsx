@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { CreditCard, CheckCircle2, AlertTriangle, Clock, Loader2, History, Percent } from 'lucide-react';
 import { useSubscription } from '../../hooks/useSubscription';
+import { localeFor } from '../../utils/dateUtils';
 
 import { useTranslation } from 'react-i18next';
 
@@ -19,8 +20,11 @@ const STATUS_INFO = {
   cancelled: { label: '해지됨', bg: '#f3f4f6', color: '#6b7280', icon: AlertTriangle }
 };
 
-const formatWon = (n) => `${(n || 0).toLocaleString()}원`;
-const formatDate = (d) => (d ? new Date(d).toLocaleDateString() : '-');
+const formatWon = (n, lang) => {
+  const amount = (n || 0).toLocaleString(localeFor(lang));
+  return (lang || 'ko').slice(0, 2) === 'ko' ? `${amount}원` : `₩${amount}`;
+};
+const formatDate = (d, lang) => (d ? new Date(d).toLocaleDateString(localeFor(lang)) : '-');
 
 const daysLeft = (dateStr) => {
   if (!dateStr) return null;
@@ -29,7 +33,7 @@ const daysLeft = (dateStr) => {
 };
 
 const SubscriptionView = ({ currentUser }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { subscription, billingHistory, loading, error, registerCard, cancelSubscription } = useSubscription(currentUser);
   const [registering, setRegistering] = useState(false);
   const [registerError, setRegisterError] = useState('');
@@ -140,20 +144,20 @@ const SubscriptionView = ({ currentUser }) => {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
           <StatusIcon size={20} style={{ color: statusInfo.color }} />
-          <span style={{ fontWeight: '700', color: statusInfo.color, fontSize: '15px' }}>{statusInfo.label}</span>
+          <span style={{ fontWeight: '700', color: statusInfo.color, fontSize: '15px' }}>{t(statusInfo.label)}</span>
         </div>
         {subscription?.status === 'trial' && (
           <p style={{ margin: 0, fontSize: '13px', color: statusInfo.color }}>
             {t('{{value}} 체험 종료일: {{formatDate}}', {
-              value: trialDaysLeft > 0 ? `무료 체험이 ${trialDaysLeft}일 남았습니다.` : '무료 체험이 곧 종료됩니다.',
-              formatDate: formatDate(subscription.trialEndsAt)
+              value: trialDaysLeft > 0 ? t('무료 체험이 {{days}}일 남았습니다.', { days: trialDaysLeft }) : t('무료 체험이 곧 종료됩니다.'),
+              formatDate: formatDate(subscription.trialEndsAt, i18n.language)
             })}
           </p>
         )}
         {subscription?.status === 'active' && (
           <p style={{ margin: 0, fontSize: '13px', color: statusInfo.color }}>
                       {t('다음 결제일: {{formatDate}}', {
-            formatDate: formatDate(subscription.nextBillingDate)
+            formatDate: formatDate(subscription.nextBillingDate, i18n.language)
           })}
                     </p>
         )}
@@ -170,7 +174,7 @@ const SubscriptionView = ({ currentUser }) => {
         {subscription?.prepaidUntil && new Date(subscription.prepaidUntil) > new Date() && (
           <p style={{ margin: '6px 0 0', fontSize: '13px', color: statusInfo.color }}>
                       {t('🏷️ 선결제 적용 중 — {{formatDate}}까지 자동결제가 청구되지 않습니다.', {
-            formatDate: formatDate(subscription.prepaidUntil)
+            formatDate: formatDate(subscription.prepaidUntil, i18n.language)
           })}
                     </p>
         )}
@@ -180,14 +184,14 @@ const SubscriptionView = ({ currentUser }) => {
       <div style={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '16px', marginBottom: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#6b7280', marginBottom: '6px' }}>
           <span>{t('요금제')}</span><span>{t('활성 간호사 1명당 월 {{formatWon}}', {
-            formatWon: formatWon(subscription?.pricePerNurse || 3000)
+            formatWon: formatWon(subscription?.pricePerNurse || 3000, i18n.language)
           })}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#6b7280', marginBottom: '6px' }}>
           <span>{t('현재 활성 간호사')}</span><span>{subscription?.activeNurseCount ?? 0}{t('명')}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '15px', fontWeight: '700', color: '#1f2937', marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed #e5e7eb' }}>
-          <span>{t('예상 월 결제 금액')}</span><span>{formatWon(subscription?.estimatedMonthlyAmount)}</span>
+          <span>{t('예상 월 결제 금액')}</span><span>{formatWon(subscription?.estimatedMonthlyAmount, i18n.language)}</span>
         </div>
       </div>
 
@@ -225,12 +229,12 @@ const SubscriptionView = ({ currentUser }) => {
                     })}</span>
                   </div>
                   <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
-                    <span style={{ textDecoration: 'line-through' }}>{formatWon(fullAmount)}</span>
+                    <span style={{ textDecoration: 'line-through' }}>{formatWon(fullAmount, i18n.language)}</span>
                     {' → '}
-                    <strong style={{ color: '#374151' }}>{formatWon(discountedAmount)}</strong>
+                    <strong style={{ color: '#374151' }}>{formatWon(discountedAmount, i18n.language)}</strong>
                     {t('{{value}}(월 환산 {{formatWon}})', {
                       value: ' ',
-                      formatWon: formatWon(monthlyEquivalent)
+                      formatWon: formatWon(monthlyEquivalent, i18n.language)
                     })}
                   </div>
                 </div>
@@ -245,7 +249,7 @@ const SubscriptionView = ({ currentUser }) => {
                       flexShrink: 0
                     }}
                   >
-                    {prepayingYears === years ? '이동 중...' : '결제하기'}
+                    {prepayingYears === years ? t('이동 중...') : t('결제하기')}
                   </button>
                 ) : (
                   <span style={{ fontSize: '11px', color: '#d1d5db' }}>{t('관리자만 결제 가능')}</span>
@@ -282,7 +286,7 @@ const SubscriptionView = ({ currentUser }) => {
               cursor: registering ? 'not-allowed' : 'pointer'
             }}
           >
-            {registering ? '이동 중...' : subscription?.hasBillingKey ? '카드 변경' : '카드 등록'}
+            {registering ? t('이동 중...') : subscription?.hasBillingKey ? t('카드 변경') : t('카드 등록')}
           </button>
         ) : (
           <p style={{ fontSize: '11px', color: '#9ca3af', margin: 0 }}>{t('카드 등록/변경은 관리자만 할 수 있습니다.')}</p>
@@ -300,7 +304,7 @@ const SubscriptionView = ({ currentUser }) => {
               cursor: cancelling ? 'not-allowed' : 'pointer', display: 'block'
             }}
           >
-            {cancelling ? '처리 중...' : '구독 해지하기'}
+            {cancelling ? t('처리 중...') : t('구독 해지하기')}
           </button>
         )}
       </div>
@@ -325,7 +329,7 @@ const SubscriptionView = ({ currentUser }) => {
               >
                 <div>
                   <div style={{ fontSize: '13px', color: '#1f2937', fontWeight: '500' }}>
-                    {formatWon(h.amount)}
+                    {formatWon(h.amount, i18n.language)}
                     <span style={{ color: '#9ca3af', fontWeight: '400' }}> {t('({{nurseCount}}명 기준)', {
                         nurseCount: h.nurseCount
                       })}</span>
@@ -335,7 +339,7 @@ const SubscriptionView = ({ currentUser }) => {
                       </span>
                     )}
                   </div>
-                  <div style={{ fontSize: '11px', color: '#9ca3af' }}>{formatDate(h.billedAt)}</div>
+                  <div style={{ fontSize: '11px', color: '#9ca3af' }}>{formatDate(h.billedAt, i18n.language)}</div>
                   {h.status === 'success' && h.receiptUrl && (
                     <a
                       href={h.receiptUrl}
@@ -352,7 +356,7 @@ const SubscriptionView = ({ currentUser }) => {
                   backgroundColor: h.status === 'success' ? '#dcfce7' : '#fee2e2',
                   color: h.status === 'success' ? '#166534' : '#991b1b'
                 }}>
-                  {h.status === 'success' ? '성공' : '실패'}
+                  {h.status === 'success' ? t('성공') : t('실패')}
                 </span>
               </div>
             ))}

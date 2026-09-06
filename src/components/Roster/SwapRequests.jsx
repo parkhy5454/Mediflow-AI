@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import { Repeat, Users, Plus, Check, X, Loader2, Clock, History } from 'lucide-react';
 import { useSwapRequests } from '../../hooks/useSwapRequests';
-import { getDaysInMonth } from '../../utils/dateUtils';
+import { getDaysInMonth, localeFor } from '../../utils/dateUtils';
 import { shiftFullLabel } from '../../constants/shiftTypes';
 
 import { useTranslation } from 'react-i18next';
@@ -42,7 +42,7 @@ const selectStyle = {
 const labelStyle = { display: 'block', marginBottom: '4px', fontSize: '12px', fontWeight: '600', color: '#374151' };
 
 const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, selectedYear, getCurrentMonthRoster, refetchRoster, departmentOptions, selectedDepartment, setSelectedDepartment }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { requests: allRequests, loading, error, createRequest, volunteer, cancelRequest, decide } = useSwapRequests(currentUser, selectedYear, selectedMonth);
 
   const shiftTypes = rosterConfig?.shifts ? Object.keys(rosterConfig.shifts) : [];
@@ -200,7 +200,7 @@ const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, select
           <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px' }}>
             {t('요청자: {{createdByUserName}} · {{value}}', {
               createdByUserName: r.createdByUserName,
-              value: new Date(r.createdAt).toLocaleString()
+              value: new Date(r.createdAt).toLocaleString(localeFor(i18n.language))
             })}
           </div>
           {r.reviewNote && (

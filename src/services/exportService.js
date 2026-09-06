@@ -115,7 +115,7 @@ export const exportToExcel = async (monthRoster, selectedMonth, selectedYear, ro
 
     const shiftTypes = Object.keys(rosterConfig.shifts);
     const daysInMonth = getDaysInMonth(selectedMonth, selectedYear);
-    const monthName = getMonthName(selectedMonth);
+    const monthName = getMonthName(selectedMonth, i18n.language);
     const workloadSummary = generateWorkloadSummary(monthRoster, selectedMonth, selectedYear, shiftTypes);
 
     // 일별 근무표 테이블의 총 열 수(일/날짜/요일 + 교대별 열 + 비번) = 병합 범위 계산에 사용
@@ -133,7 +133,7 @@ export const exportToExcel = async (monthRoster, selectedMonth, selectedYear, ro
     // ── 제목 ─────────────────────────────────────────
     sheet.mergeCells(r, 1, r, totalCols);
     const titleCell = sheet.getCell(r, 1);
-    titleCell.value = '🏥 병원 간호사 근무표 시스템';
+    titleCell.value = `🏥 ${t('병원 간호사 근무표 시스템')}`;
     titleCell.font = { size: 18, bold: true, color: { argb: EXCEL_COLORS.titleText } };
     titleCell.fill = solidFill(EXCEL_COLORS.titleBg);
     titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -142,19 +142,20 @@ export const exportToExcel = async (monthRoster, selectedMonth, selectedYear, ro
 
     sheet.mergeCells(r, 1, r, totalCols);
     const subtitleCell = sheet.getCell(r, 1);
-    subtitleCell.value = `${selectedYear}년 ${monthName}   |   생성일: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`;
+    subtitleCell.value = t('{{year}}년 {{month}}', { year: selectedYear, month: monthName }) + '   |   ' +
+      t('생성일: {{date}} {{time}}', { date: new Date().toLocaleDateString(currentLocale()), time: new Date().toLocaleTimeString(currentLocale()) });
     subtitleCell.font = { size: 11, italic: true, color: { argb: EXCEL_COLORS.muted } };
     subtitleCell.alignment = { horizontal: 'center' };
     r += 2;
 
     // ── 근무표 설정 ─────────────────────────────────────
     sheet.mergeCells(r, 1, r, totalCols);
-    sheet.getCell(r, 1).value = '📊 근무표 설정';
+    sheet.getCell(r, 1).value = `📊 ${t('근무표 설정')}`;
     sheet.getCell(r, 1).font = { size: 13, bold: true, color: { argb: EXCEL_COLORS.sectionHeaderText } };
     r++;
 
     const configHeaderRow = sheet.getRow(r);
-    ['교대', '필요 인원', '연속 근무(일)', '휴무(일)'].forEach((label, i) => {
+    [t('교대'), t('필요 인원'), t('연속 근무(일)'), t('휴무(일)')].forEach((label, i) => {
       const cell = configHeaderRow.getCell(i + 1);
       cell.value = label;
       cell.font = { bold: true, color: { argb: EXCEL_COLORS.tableHeaderText } };
@@ -169,10 +170,10 @@ export const exportToExcel = async (monthRoster, selectedMonth, selectedYear, ro
       const style = SHIFT_EXCEL_STYLE[s];
       const row = sheet.getRow(r);
       const nameCell = row.getCell(1);
-      nameCell.value = shiftFullLabel(s);
+      nameCell.value = t(shiftFullLabel(s));
       nameCell.font = { bold: true, color: { argb: style?.text || EXCEL_COLORS.sectionHeaderText } };
       nameCell.fill = solidFill(style?.bg || 'FFFFFFFF');
-      [cfg.size, `${cfg.shiftDays}일`, `${cfg.offDutyAfter}일`].forEach((val, i) => {
+      [cfg.size, t('{{n}}일', { n: cfg.shiftDays }), t('{{n}}일', { n: cfg.offDutyAfter })].forEach((val, i) => {
         row.getCell(i + 2).value = val;
         row.getCell(i + 2).alignment = { horizontal: 'center' };
       });
@@ -183,13 +184,13 @@ export const exportToExcel = async (monthRoster, selectedMonth, selectedYear, ro
 
     // ── 일별 근무표 ─────────────────────────────────────
     sheet.mergeCells(r, 1, r, totalCols);
-    sheet.getCell(r, 1).value = '📅 일별 근무표';
+    sheet.getCell(r, 1).value = `📅 ${t('일별 근무표')}`;
     sheet.getCell(r, 1).font = { size: 13, bold: true, color: { argb: EXCEL_COLORS.sectionHeaderText } };
     r++;
 
     const rosterHeaderRowNum = r;
     const rosterHeaderRow = sheet.getRow(r);
-    const rosterHeaders = ['일', '날짜', '요일', ...shiftTypes.map(s => `${shiftFullLabel(s)} (${rosterConfig.shifts[s].size})`), '비번 (OFF)'];
+    const rosterHeaders = [t('export.dayNumberColumn', { defaultValue: '일' }), t('날짜'), t('요일'), ...shiftTypes.map(s => `${t(shiftFullLabel(s))} (${rosterConfig.shifts[s].size})`), t('비번 (OFF)')];
     rosterHeaders.forEach((label, i) => {
       const cell = rosterHeaderRow.getCell(i + 1);
       cell.value = label;
@@ -204,7 +205,7 @@ export const exportToExcel = async (monthRoster, selectedMonth, selectedYear, ro
       const date = new Date(selectedYear, selectedMonth, day);
       const dow = date.getDay();
       const isWeekend = dow === 0 || dow === 6;
-      const dayName = date.toLocaleDateString('ko-KR', { weekday: 'short' });
+      const dayName = date.toLocaleDateString(currentLocale(), { weekday: 'short' });
       const dayData = monthRoster[day];
       const row = sheet.getRow(r);
 
@@ -237,7 +238,7 @@ export const exportToExcel = async (monthRoster, selectedMonth, selectedYear, ro
       const offCell = row.getCell(4 + shiftTypes.length);
       const offNurses = dayData?.offDuty || [];
       offCell.value = offNurses.map(n => {
-        const status = n.daysRemaining > 0 ? `${n.daysRemaining}일 남음` : n.status === 'Available' ? '근무 가능' : '';
+        const status = n.daysRemaining > 0 ? t('{{days}}일 남음', { days: n.daysRemaining }) : n.status === 'Available' ? t('근무 가능') : '';
         return `${n.name}${status ? ` (${status})` : ''}`;
       }).join('\n');
       offCell.fill = solidFill(EXCEL_COLORS.offDutyBg);
@@ -257,12 +258,12 @@ export const exportToExcel = async (monthRoster, selectedMonth, selectedYear, ro
 
     // ── 간호사 업무량 요약 ────────────────────────────────
     sheet.mergeCells(r, 1, r, totalCols);
-    sheet.getCell(r, 1).value = '👥 간호사 업무량 요약';
+    sheet.getCell(r, 1).value = `👥 ${t('간호사 업무량 요약')}`;
     sheet.getCell(r, 1).font = { size: 13, bold: true, color: { argb: EXCEL_COLORS.sectionHeaderText } };
     r++;
 
     const workloadHeaderRow = sheet.getRow(r);
-    const workloadHeaders = ['간호사 이름', '자격', ...shiftTypes.map(s => shiftLabel(s)), '총 근무일', '휴무일'];
+    const workloadHeaders = [t('간호사 이름'), t('자격'), ...shiftTypes.map(s => t(shiftLabel(s))), t('총 근무일'), t('휴무일')];
     workloadHeaders.forEach((label, i) => {
       const cell = workloadHeaderRow.getCell(i + 1);
       cell.value = label;
@@ -290,7 +291,7 @@ export const exportToExcel = async (monthRoster, selectedMonth, selectedYear, ro
 
     // ── 월간 통계 ───────────────────────────────────────
     sheet.mergeCells(r, 1, r, totalCols);
-    sheet.getCell(r, 1).value = '📈 월간 통계';
+    sheet.getCell(r, 1).value = `📈 ${t('월간 통계')}`;
     sheet.getCell(r, 1).font = { size: 13, bold: true, color: { argb: EXCEL_COLORS.sectionHeaderText } };
     r++;
 
@@ -306,11 +307,11 @@ export const exportToExcel = async (monthRoster, selectedMonth, selectedYear, ro
     const averageWorkDays = workloadSummary.length > 0 ? (totalWorkDaysAll / workloadSummary.length).toFixed(1) : 0;
 
     const stats = [
-      ...shiftTypes.map(s => [`총 ${shiftLabel(s)} 근무`, shiftTotals[s]]),
-      ['총 휴무일', totalOffDutyDays],
-      ['근무 중인 간호사', workloadSummary.length],
-      ['간호사당 평균 근무일', averageWorkDays],
-      ['이번 달 일수', daysInMonth]
+      ...shiftTypes.map(s => [t('총 {{shift}} 근무', { shift: t(shiftLabel(s)) }), shiftTotals[s]]),
+      [t('총 휴무일'), totalOffDutyDays],
+      [t('근무 중인 간호사'), workloadSummary.length],
+      [t('간호사당 평균 근무일'), averageWorkDays],
+      [t('이번 달 일수'), daysInMonth]
     ];
     stats.forEach(([label, value], idx) => {
       const row = sheet.getRow(r);
@@ -330,7 +331,7 @@ export const exportToExcel = async (monthRoster, selectedMonth, selectedYear, ro
 
     sheet.mergeCells(r, 1, r, totalCols);
     const footerCell = sheet.getCell(r, 1);
-    footerCell.value = '이 근무표는 병원 간호사 근무 관리 시스템에 의해 자동으로 생성되었습니다.';
+    footerCell.value = t('이 근무표는 병원 간호사 근무 관리 시스템에 의해 자동으로 생성되었습니다.');
     footerCell.font = { italic: true, size: 10, color: { argb: EXCEL_COLORS.muted } };
     footerCell.alignment = { horizontal: 'center' };
 
@@ -370,7 +371,7 @@ export const exportToPDF = (monthRoster, selectedMonth, selectedYear, rosterConf
 
     const shiftTypes = Object.keys(rosterConfig.shifts);
     const daysInMonth = getDaysInMonth(selectedMonth, selectedYear);
-    const monthName = getMonthName(selectedMonth);
+    const monthName = getMonthName(selectedMonth, i18n.language);
     const workloadSummary = generateWorkloadSummary(monthRoster, selectedMonth, selectedYear, shiftTypes);
 
     const printWindow = window.open('', '_blank', 'width=1200,height=800');

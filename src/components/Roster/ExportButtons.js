@@ -278,7 +278,7 @@ const ExportButtons = ({
         ) : (
           <FileText size={16} />
         )}
-        {isExporting && exportType === 'pdf' ? 'PDF 생성 중...' : 'PDF 내보내기'}
+        {isExporting && exportType === 'pdf' ? t('PDF 생성 중...') : t('PDF 내보내기')}
       </button>
 
       <button
@@ -293,7 +293,7 @@ const ExportButtons = ({
         ) : (
           <FileSpreadsheet size={16} />
         )}
-        {isExporting && exportType === 'excel' ? '엑셀 생성 중...' : '엑셀 내보내기'}
+        {isExporting && exportType === 'excel' ? t('엑셀 생성 중...') : t('엑셀 내보내기')}
       </button>
     </div>
   );

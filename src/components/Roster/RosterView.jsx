@@ -245,7 +245,7 @@ const RosterView = ({
   selectedDepartment,
   setSelectedDepartment
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const monthRoster = getCurrentMonthRoster();
   const hasRosterData = Object.keys(monthRoster).length > 0;
   // [수정] alert() 대신 예쁜 모달로 근무표 생성 결과를 보여주기 위한 상태
@@ -268,7 +268,8 @@ const RosterView = ({
       return;
     }
     const confirmed = window.confirm(
-      `${selectedYear}년 ${getMonthName(selectedMonth)} 근무표를 초기화하시겠습니까?\n\n저장된 근무표 데이터가 완전히 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`
+      t('{{year}}년 {{month}} 근무표를 초기화하시겠습니까?', { year: selectedYear, month: getMonthName(selectedMonth, i18n.language) }) +
+      '\n\n' + t('저장된 근무표 데이터가 완전히 삭제됩니다. 이 작업은 되돌릴 수 없습니다.')
     );
     if (confirmed && clearRoster) {
       clearRoster();
@@ -295,7 +296,10 @@ const RosterView = ({
   };
 
   const handlePublish = async () => {
-    if (!window.confirm(`${selectedYear}년 ${getMonthName(selectedMonth)} 근무표를 발행하시겠습니까?\n\n발행하면 재생성/초기화가 잠기고, 병원 전체 회원에게 확정된 근무표로 안내됩니다.`)) return;
+    if (!window.confirm(
+      t('{{year}}년 {{month}} 근무표를 발행하시겠습니까?', { year: selectedYear, month: getMonthName(selectedMonth, i18n.language) }) +
+      '\n\n' + t('발행하면 재생성/초기화가 잠기고, 병원 전체 회원에게 확정된 근무표로 안내됩니다.')
+    )) return;
     setPublishing(true);
     const result = await publishRoster(selectedMonth, selectedYear);
     setPublishing(false);
@@ -327,7 +331,7 @@ const RosterView = ({
       );
       
       if (nursesInTransition.length > 0) {
-        const confirmMessage = t('{{month}} {{year}}년으로 전환합니다.', { month: getMonthName(newMonth), year: newYear }) + '\n\n' +
+        const confirmMessage = t('{{month}} {{year}}년으로 전환합니다.', { month: getMonthName(newMonth, i18n.language), year: newYear }) + '\n\n' +
           t('{{count}}명의 간호사가 이전 달의 근무 주기를 완료하지 못했습니다:', { count: nursesInTransition.length }) + '\n' +
           nursesInTransition.map(n => {
             if (n.lastOffDutyRemaining > 0) {
@@ -383,7 +387,7 @@ const RosterView = ({
         <h2 style={{ color: '#1f2937', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
           {t('근무표 - {{selectedYear}}년 {{getMonthName}}', {
             selectedYear: selectedYear,
-            getMonthName: getMonthName(selectedMonth)
+            getMonthName: getMonthName(selectedMonth, i18n.language)
           })}
           {meta.isPublished && (
             <span style={{
@@ -466,7 +470,7 @@ const RosterView = ({
                   cursor: publishing ? 'not-allowed' : 'pointer', fontSize: '14px', fontWeight: '500'
                 }}
               >
-                <Lock size={16} /> {publishing ? '처리 중...' : '근무표 발행'}
+                <Lock size={16} /> {publishing ? t('처리 중...') : t('근무표 발행')}
               </button>
             )
           )}
@@ -559,9 +563,9 @@ const RosterView = ({
             fontWeight: '500',
             display: 'block'
           }}>
-            {hasRosterData 
-              ? `${selectedYear}년 ${getMonthName(selectedMonth)} 근무표가 생성되었습니다`
-              : `${selectedYear}년 ${getMonthName(selectedMonth)} 근무표가 아직 생성되지 않았습니다`
+            {hasRosterData
+              ? t('{{year}}년 {{month}} 근무표가 생성되었습니다', { year: selectedYear, month: getMonthName(selectedMonth, i18n.language) })
+              : t('{{year}}년 {{month}} 근무표가 아직 생성되지 않았습니다', { year: selectedYear, month: getMonthName(selectedMonth, i18n.language) })
             }
           </span>
           {hasRosterData ? (

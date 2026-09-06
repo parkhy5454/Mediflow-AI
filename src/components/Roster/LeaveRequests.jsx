@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Umbrella, Plus, Check, X, Loader2, Clock, History } from 'lucide-react';
 import { useLeaveRequests } from '../../hooks/useLeaveRequests';
+import { localeFor } from '../../utils/dateUtils';
 
 import { useTranslation } from 'react-i18next';
 
@@ -32,7 +33,7 @@ const daysBetween = (start, end) => {
 };
 
 const LeaveRequests = ({ currentUser, nurses, departmentOptions, selectedDepartment, setSelectedDepartment }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { requests: allRequests, loading, error, createRequest, cancelRequest, decide } = useLeaveRequests(currentUser);
   const isAdmin = currentUser.role === 'admin';
   // [추가] 부서(병동)별로 빨리 대응할 수 있도록, 선택된 부서 소속 간호사와 신청만 보여준다.
@@ -114,7 +115,7 @@ const LeaveRequests = ({ currentUser, nurses, departmentOptions, selectedDepartm
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-            <span style={badgeStyle(r.status)}>{STATUS_LABEL[r.status]?.text}</span>
+            <span style={badgeStyle(r.status)}>{STATUS_LABEL[r.status] ? t(STATUS_LABEL[r.status].text) : ''}</span>
             <span style={{ fontSize: '11px', color: '#9ca3af' }}>{t('{{daysBetween}}일', {
                 daysBetween: daysBetween(r.startDate, r.endDate)
               })}</span>
@@ -127,7 +128,7 @@ const LeaveRequests = ({ currentUser, nurses, departmentOptions, selectedDepartm
             })}</div>}
           <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px' }}>
                       {t('신청일: {{value}}', {
-            value: new Date(r.createdAt).toLocaleString()
+            value: new Date(r.createdAt).toLocaleString(localeFor(i18n.language))
           })}
                     </div>
           {r.reviewNote && (
@@ -195,7 +196,7 @@ const LeaveRequests = ({ currentUser, nurses, departmentOptions, selectedDepartm
             }}
           >
             {departmentOptions.map(dept => (
-              <option key={dept || '_unset'} value={dept}>{dept || '미지정'}</option>
+              <option key={dept || '_unset'} value={dept}>{dept ? t(dept) : t('미지정')}</option>
             ))}
           </select>
         </div>
@@ -210,7 +211,7 @@ const LeaveRequests = ({ currentUser, nurses, departmentOptions, selectedDepartm
         </button>
       </div>
       <p style={{ color: '#6b7280', fontSize: '13px', marginBottom: '20px' }}>
-        {isAdmin ? '관리자는 신청 목록을 승인/거절할 수 있습니다. 승인해도 근무표가 자동으로 바뀌지는 않으니, 근무표 생성 시 참고하거나 필요하면 근무 변경 요청을 별도로 만들어주세요.' : '휴가 신청 후 관리자 승인을 기다려주세요.'}
+        {isAdmin ? t('관리자는 신청 목록을 승인/거절할 수 있습니다. 승인해도 근무표가 자동으로 바뀌지는 않으니, 근무표 생성 시 참고하거나 필요하면 근무 변경 요청을 별도로 만들어주세요.') : t('휴가 신청 후 관리자 승인을 기다려주세요.')}
       </p>
 
       {formOpen && (
@@ -243,7 +244,7 @@ const LeaveRequests = ({ currentUser, nurses, departmentOptions, selectedDepartm
           )}
           <div style={{ display: 'flex', gap: '8px' }}>
             <button type="submit" disabled={submitting} style={{ padding: '9px 16px', borderRadius: '6px', border: 'none', backgroundColor: '#3b82f6', color: 'white', fontSize: '13px', fontWeight: '600', cursor: submitting ? 'not-allowed' : 'pointer' }}>
-              {submitting ? '등록 중...' : '신청'}
+              {submitting ? t('등록 중...') : t('신청')}
             </button>
             <button type="button" onClick={() => { resetForm(); setFormOpen(false); }} style={{ padding: '9px 16px', borderRadius: '6px', border: '1px solid #d1d5db', backgroundColor: 'white', color: '#374151', fontSize: '13px', cursor: 'pointer' }}>
               {t('취소')}
