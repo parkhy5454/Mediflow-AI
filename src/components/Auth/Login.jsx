@@ -21,6 +21,11 @@ const Login = ({ onLoginSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
+  // [추가] 비밀번호 찾기
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotSending, setForgotSending] = useState(false);
+  const [forgotMessage, setForgotMessage] = useState('');
 
   const resetSignupFields = () => {
     setName('');
@@ -65,6 +70,26 @@ const Login = ({ onLoginSuccess }) => {
     }, 500);
     return () => clearTimeout(timer);
   }, [hospitalCode, isLogin]);
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setForgotMessage('');
+    if (!forgotEmail.trim()) return;
+    setForgotSending(true);
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail.trim() })
+      });
+      const data = await res.json();
+      setForgotMessage(data.message || '요청을 처리했습니다.');
+    } catch (err) {
+      setForgotMessage('요청 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setForgotSending(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -338,7 +363,44 @@ const Login = ({ onLoginSuccess }) => {
               placeholder={isLogin ? '비밀번호' : '영문+숫자 포함 8자 이상'}
               style={inputStyle}
             />
+            {isLogin && (
+              <button
+                type="button"
+                onClick={() => { setShowForgotPassword(v => !v); setForgotMessage(''); }}
+                style={{ background: 'none', border: 'none', padding: 0, marginTop: '6px', color: '#6b7280', fontSize: '12px', textDecoration: 'underline', cursor: 'pointer' }}
+              >
+                비밀번호를 잊으셨나요?
+              </button>
+            )}
           </div>
+
+          {isLogin && showForgotPassword && (
+            <div style={{ backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '12px' }}>
+              <p style={{ fontSize: '12px', color: '#6b7280', margin: '0 0 8px' }}>
+                가입하신 이메일로 임시 비밀번호를 보내드립니다.
+              </p>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <input
+                  type="email"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  placeholder="가입한 이메일"
+                  style={{ ...inputStyle, flex: 1 }}
+                />
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  disabled={forgotSending}
+                  style={{ padding: '0 16px', borderRadius: '6px', border: 'none', backgroundColor: '#374151', color: 'white', fontSize: '13px', fontWeight: '600', cursor: forgotSending ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
+                >
+                  {forgotSending ? '전송 중...' : '전송'}
+                </button>
+              </div>
+              {forgotMessage && (
+                <p style={{ fontSize: '12px', color: '#166534', marginTop: '8px', marginBottom: 0 }}>{forgotMessage}</p>
+              )}
+            </div>
+          )}
 
           {error && (
             <p style={{ color: '#dc2626', fontSize: '13px', backgroundColor: '#fef2f2', padding: '8px 12px', borderRadius: '6px' }}>
