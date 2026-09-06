@@ -30,6 +30,19 @@ const Login = ({ onLoginSuccess }) => {
   const [forgotSending, setForgotSending] = useState(false);
   const [forgotMessage, setForgotMessage] = useState('');
 
+  // [추가] 동료 초대 공유 링크(?hospitalCode=XXXX)로 들어온 경우, 회원가입 화면으로 전환하고
+  // 병원 코드를 미리 채워준다. (공유/초대 기능과 연동)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const invitedCode = params.get('hospitalCode');
+    if (invitedCode) {
+      setIsLogin(false);
+      setHospitalCode(invitedCode);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const resetSignupFields = () => {
     setName('');
     setPhone('');

@@ -116,9 +116,11 @@ import LeaveRequests from './components/Roster/LeaveRequests';
 import SubscriptionView from './components/Subscription/SubscriptionView';
 import AdminDashboard from './components/Admin/AdminDashboard';
 import FeedbackButton from './components/Feedback/FeedbackButton';
+import ShareInviteButton from './components/Common/ShareInviteButton';
 import { useNurses } from './hooks/useNurses';
 import { useRoster } from './hooks/useRoster';
 import { useRosterConfig } from './hooks/useRosterConfig';
+import { initKakao } from './utils/kakaoShare';
 
 import { useTranslation } from 'react-i18next';
 
@@ -127,6 +129,11 @@ const HospitalRosterSystem = () => {
   // [추가] 로그인 상태 관리. 새로고침해도 로그인이 풀리지 않도록 localStorage에 저장해둔다.
   const [currentUser, setCurrentUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
+
+  // [추가] 카카오톡 공유 기능(공유/초대 버튼)을 위한 카카오 SDK 초기화. 키가 없으면 조용히 건너뛴다.
+  useEffect(() => {
+    initKakao();
+  }, []);
 
   useEffect(() => {
     const saved = window.localStorage.getItem('mediflow_user');
@@ -396,6 +403,7 @@ const HospitalRosterSystem = () => {
         )}
       </div>
 
+      <ShareInviteButton currentUser={currentUser} />
       <FeedbackButton currentUser={currentUser} />
     </div>
   );

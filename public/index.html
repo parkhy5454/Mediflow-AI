@@ -1,13 +1,24 @@
 <!--  index.html -->
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/hospital-icon.svg" />
+    <link rel="alternate icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.json" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#3b82f6" />
+    <!-- 홈 화면에 추가했을 때(iOS/Android) 브라우저 주소창 없이 앱처럼 열리도록 하는 설정 -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Mediflow-AI" />
     <title>Hospital Roster System</title>
     <meta name="description" content="Comprehensive hospital nurse roster management system" />
     <script src="https://js.tosspayments.com/v2/standard"></script>
+    <!-- 카카오톡 공유 기능(공유/초대 버튼)용 SDK. src/config/kakao.js에 JavaScript 키를 넣어야 동작합니다. -->
+    <script src="https://developers.kakao.com/sdk/js/kakao.js"></script>
   </head>
   <body>
     <div id="root"></div>
