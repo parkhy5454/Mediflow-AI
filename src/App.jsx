@@ -112,6 +112,7 @@ import { useNurses } from './hooks/useNurses';
 import { useRoster } from './hooks/useRoster';
 import { useRosterConfig } from './hooks/useRosterConfig';
 import { initKakao } from './utils/kakaoShare';
+import { clearOfflineApiCache } from './utils/offlineCache';
 import i18n from './i18n';
 
 import { useTranslation } from 'react-i18next';
@@ -170,6 +171,10 @@ const HospitalRosterSystem = () => {
   const handleLogout = () => {
     window.localStorage.removeItem('mediflow_user');
     setCurrentUser(null);
+    // [추가] 오프라인 지원용으로 캐싱해둔 조회 데이터(근무표/간호사 목록 등)를 로그아웃 시
+    // 함께 지운다 — 같은 기기를 다른 계정이 이어서 쓸 때 이전 사용자 데이터가 잠깐이라도
+    // 보이는 걸 막기 위함.
+    clearOfflineApiCache();
   };
 
   // [추가] 셀프 관리자 승격 등, 로그인 이후 currentUser의 일부 필드(예: role)가 바뀌었을 때
@@ -317,7 +322,8 @@ const HospitalRosterSystem = () => {
     refetchRoster,
     departmentOptions,
     selectedDepartment,
-    setSelectedDepartment
+    setSelectedDepartment,
+    currentUser
   };
 
   // 로그인 여부를 확인하는 동안 잠깐 빈 화면 (깜빡임 방지)

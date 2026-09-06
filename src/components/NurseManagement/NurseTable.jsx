@@ -61,7 +61,10 @@ const NurseTable = ({ nurses, updateNurseStatus, updateNurse, deleteNurse, nameO
       name: nurse.name,
       qualification: nurse.qualification,
       experience: nurse.experience,
-      department: nurse.department
+      department: nurse.department,
+      // [추가] 선호/기피 근무 유형. 값이 없으면 빈 문자열(= "없음" 선택 상태)로 다룬다.
+      preferredShiftType: nurse.preferredShiftType || '',
+      avoidedShiftType: nurse.avoidedShiftType || ''
     });
   };
 
@@ -75,7 +78,17 @@ const NurseTable = ({ nurses, updateNurseStatus, updateNurse, deleteNurse, nameO
       alert(t('간호사 이름을 입력해주세요'));
       return;
     }
-    const success = await updateNurse(id, editValues);
+    // [추가] 선호 근무와 기피 근무를 같은 교대로 동시에 설정하면 앞뒤가 안 맞으므로 막는다.
+    if (editValues.preferredShiftType && editValues.preferredShiftType === editValues.avoidedShiftType) {
+      alert(t('선호 근무와 기피 근무를 같은 교대로 설정할 수 없습니다.'));
+      return;
+    }
+    const payload = {
+      ...editValues,
+      preferredShiftType: editValues.preferredShiftType || null,
+      avoidedShiftType: editValues.avoidedShiftType || null
+    };
+    const success = await updateNurse(id, payload);
     if (success !== false) {
       setEditingId(null);
       setEditValues(null);
@@ -238,13 +251,14 @@ const NurseTable = ({ nurses, updateNurseStatus, updateNurse, deleteNurse, nameO
               <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>{t('부서')}</th>
               <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>{t('상태')}</th>
               <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>{t('마지막 근무')}</th>
+              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>{t('선호/기피 근무')}</th>
               <th style={{ padding: '12px', textAlign: 'center', borderBottom: '1px solid #e5e7eb' }}>{t('작업')}</th>
             </tr>
           </thead>
           <tbody>
             {groups.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ padding: '30px', textAlign: 'center', color: '#9ca3af' }}>
+                <td colSpan={8} style={{ padding: '30px', textAlign: 'center', color: '#9ca3af' }}>
                   {t('표시할 간호사가 없습니다.')}
                 </td>
               </tr>
@@ -253,7 +267,7 @@ const NurseTable = ({ nurses, updateNurseStatus, updateNurse, deleteNurse, nameO
                 <React.Fragment key={department}>
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={8}
                       style={{
                         padding: '10px 12px',
                         backgroundColor: '#eef2ff',
@@ -318,6 +332,32 @@ const NurseTable = ({ nurses, updateNurseStatus, updateNurse, deleteNurse, nameO
                           <td style={{ padding: '10px' }}>
                             {SHIFT_TYPES.includes(nurse.lastShiftType) ? t(shiftLabel(nurse.lastShiftType)) : t('없음')}
                           </td>
+                          <td style={{ padding: '10px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <select
+                                value={editValues.preferredShiftType}
+                                onChange={(e) => setEditValues({ ...editValues, preferredShiftType: e.target.value })}
+                                style={{ ...inputStyle, fontSize: '12px' }}
+                                title={t('선호 근무')}
+                              >
+                                <option value="">{t('선호 근무 없음')}</option>
+                                {SHIFT_TYPES.map(s => (
+                                  <option key={s} value={s}>{t('선호: {{shift}}', { shift: t(shiftLabel(s)) })}</option>
+                                ))}
+                              </select>
+                              <select
+                                value={editValues.avoidedShiftType}
+                                onChange={(e) => setEditValues({ ...editValues, avoidedShiftType: e.target.value })}
+                                style={{ ...inputStyle, fontSize: '12px' }}
+                                title={t('기피 근무')}
+                              >
+                                <option value="">{t('기피 근무 없음')}</option>
+                                {SHIFT_TYPES.map(s => (
+                                  <option key={s} value={s}>{t('기피: {{shift}}', { shift: t(shiftLabel(s)) })}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </td>
                           <td style={{ padding: '10px', textAlign: 'center' }}>
                             {renderEditActions(nurse)}
                           </td>
@@ -346,6 +386,20 @@ const NurseTable = ({ nurses, updateNurseStatus, updateNurse, deleteNurse, nameO
                         </td>
                         <td style={{ padding: '12px' }}>
                           {SHIFT_TYPES.includes(nurse.lastShiftType) ? t(shiftLabel(nurse.lastShiftType)) : t('없음')}
+                        </td>
+                        <td style={{ padding: '12px', fontSize: '12px' }}>
+                          {!nurse.preferredShiftType && !nurse.avoidedShiftType ? (
+                            <span style={{ color: '#9ca3af' }}>{t('없음')}</span>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                              {nurse.preferredShiftType && (
+                                <span style={{ color: '#059669' }}>{t('선호: {{shift}}', { shift: t(shiftLabel(nurse.preferredShiftType)) })}</span>
+                              )}
+                              {nurse.avoidedShiftType && (
+                                <span style={{ color: '#dc2626' }}>{t('기피: {{shift}}', { shift: t(shiftLabel(nurse.avoidedShiftType)) })}</span>
+                              )}
+                            </div>
+                          )}
                         </td>
                         <td style={{ padding: '12px', textAlign: 'center' }}>
                           {renderActions(nurse)}

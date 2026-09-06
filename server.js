@@ -175,6 +175,68 @@ const sendTempPasswordEmail = async (toEmail, userName, tempPassword, lang) => {
   });
 };
 
+// ------------------------------------------------------------------
+// [추가] 관리자 계정 2단계 인증(이메일 OTP).
+// - 관리자 계정은 병원 전체 근무표/개인정보에 접근할 수 있어 일반 회원보다 노출 위험이 크므로,
+//   비밀번호 확인 후 이메일로 받은 6자리 코드까지 맞아야 로그인이 완료되도록 한다.
+// - 코드는 DB(mediflow_login_otp)에 bcrypt 해시로만 저장하고, 5분 후 만료, 5회 오답 시 잠긴다.
+// - 일반 회원(간호사)은 대상이 아니며 기존처럼 비밀번호만으로 로그인된다.
+// ------------------------------------------------------------------
+const LOGIN_OTP_TTL_MINUTES = 5;
+const LOGIN_OTP_MAX_ATTEMPTS = 5;
+const LOGIN_OTP_RESEND_COOLDOWN_SECONDS = 30;
+
+const generateOtpCode = () => String(Math.floor(100000 + Math.random() * 900000));
+
+// 이메일 앞부분 일부만 보여주고 나머지는 가려서, 코드 입력 화면에 "어디로 보냈는지" 힌트만 준다.
+const maskEmail = (email) => {
+  const [localPart, domain] = String(email || '').split('@');
+  if (!domain) return email || '';
+  const visible = localPart.slice(0, Math.min(2, localPart.length));
+  return `${visible}${'*'.repeat(Math.max(1, localPart.length - visible.length))}@${domain}`;
+};
+
+const sendLoginOtpEmail = async (toEmail, userName, code, lang) => {
+  if (!resend) {
+    console.warn('[경고] RESEND_API_KEY가 없어 로그인 인증코드 이메일을 실제로 보내지 못했습니다. (개발 모드) 코드:', code);
+    return;
+  }
+  await resend.emails.send({
+    from: MAIL_FROM,
+    to: toEmail,
+    subject: t(lang, '[N-Duty] 관리자 로그인 인증코드'),
+    html: `
+      <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; color: #101828;">
+        <h2 style="margin: 0 0 16px;">${t(lang, '로그인 인증코드')}</h2>
+        <p style="color: #5B6474; line-height: 1.6;">${t(lang, '{{userName}}님, 관리자 계정 로그인을 위한 인증코드입니다.', { userName })}</p>
+        <div style="background: #EEF1F5; border-radius: 10px; padding: 18px 20px; margin: 20px 0; text-align: center;">
+          <span style="font-size: 28px; font-weight: 700; letter-spacing: 0.2em;">${code}</span>
+        </div>
+        <p style="color: #5B6474; font-size: 13px; line-height: 1.6;">
+          ${t(lang, '{{minutes}}분 이내에 입력해주세요. 본인이 로그인을 시도하지 않았다면 이 메일을 무시하고 비밀번호를 변경해주세요.', { minutes: LOGIN_OTP_TTL_MINUTES })}
+        </p>
+      </div>
+    `
+  });
+};
+
+// 이 사용자의 새 로그인 인증코드를 생성/저장하고 이메일로 발송한다. (로그인 시 + 재전송 요청 시 공통 사용)
+const issueLoginOtp = async (user, lang) => {
+  const code = generateOtpCode();
+  const codeHash = bcrypt.hashSync(code, 10);
+  const expiresAt = new Date(Date.now() + LOGIN_OTP_TTL_MINUTES * 60 * 1000).toISOString();
+
+  // 이전에 남아있던 미사용 코드는 정리(계정당 유효 코드 1개만 유지).
+  await supabase.from('mediflow_login_otp').delete().eq('user_id', user.id);
+
+  const { error } = await supabase
+    .from('mediflow_login_otp')
+    .insert({ user_id: user.id, code_hash: codeHash, expires_at: expiresAt, attempts: 0 });
+  if (error) throw error;
+
+  await sendLoginOtpEmail(user.email, user.name, code, lang);
+};
+
 // [추가] 비밀번호 규칙: 8자 이상 + 영문/숫자 최소 1개씩 포함.
 // (임시 비밀번호는 generateTempPassword로 자동 생성되므로 이 규칙과 별개로 항상 통과함)
 const isPasswordStrongEnough = (password) => {
@@ -552,10 +614,108 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
       return res.status(401).json({ error: t(req, '이메일 또는 비밀번호가 올바르지 않습니다.') });
     }
 
+    // [추가] 관리자 계정은 비밀번호 확인 후 바로 로그인시키지 않고, 이메일 인증코드를 한 번 더 요구한다.
+    if (user.role === 'admin') {
+      try {
+        await issueLoginOtp(user, req.lang);
+      } catch (otpErr) {
+        console.error('login otp issue error:', otpErr);
+        return res.status(500).json({ error: t(req, '인증코드 발송 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.') });
+      }
+      return res.json({ requiresOtp: true, userId: user.id, maskedEmail: maskEmail(user.email) });
+    }
+
     res.json({ user: toPublicUser(user), token: issueAuthToken(user.id) });
   } catch (err) {
     console.error('login error:', err);
     res.status(500).json({ error: t(req, '로그인 중 오류가 발생했습니다.') });
+  }
+});
+
+// 관리자 로그인 2단계 — 이메일로 받은 인증코드를 확인하고, 맞으면 그때 토큰을 발급한다.
+app.post('/api/auth/verify-login-otp', authLimiter, async (req, res) => {
+  try {
+    const { userId, code } = req.body;
+    if (!userId || !code) {
+      return res.status(400).json({ error: t(req, '인증코드를 입력해주세요.') });
+    }
+
+    const { data: user, error: userError } = await supabase
+      .from('mediflow_users')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+    if (userError) throw userError;
+    if (!user || user.role !== 'admin') {
+      return res.status(400).json({ error: t(req, '올바르지 않은 요청입니다.') });
+    }
+
+    const { data: otpRow, error: otpError } = await supabase
+      .from('mediflow_login_otp')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (otpError) throw otpError;
+
+    if (!otpRow || new Date(otpRow.expires_at) < new Date()) {
+      return res.status(400).json({ error: t(req, '인증코드가 만료되었습니다. 다시 로그인해주세요.') });
+    }
+    if (otpRow.attempts >= LOGIN_OTP_MAX_ATTEMPTS) {
+      return res.status(429).json({ error: t(req, '시도 횟수를 초과했습니다. 다시 로그인해주세요.') });
+    }
+
+    if (!bcrypt.compareSync(String(code).trim(), otpRow.code_hash)) {
+      await supabase.from('mediflow_login_otp').update({ attempts: otpRow.attempts + 1 }).eq('id', otpRow.id);
+      return res.status(401).json({ error: t(req, '인증코드가 올바르지 않습니다.') });
+    }
+
+    // 성공하면 재사용/재시도 방지를 위해 코드를 즉시 삭제.
+    await supabase.from('mediflow_login_otp').delete().eq('user_id', userId);
+
+    res.json({ user: toPublicUser(user), token: issueAuthToken(user.id) });
+  } catch (err) {
+    console.error('verify login otp error:', err);
+    res.status(500).json({ error: t(req, '인증코드 확인 중 오류가 발생했습니다.') });
+  }
+});
+
+// 관리자 로그인 인증코드 재전송 (메일이 안 왔거나 만료됐을 때). 스팸 방지를 위해 쿨다운을 둔다.
+app.post('/api/auth/resend-login-otp', authLimiter, async (req, res) => {
+  try {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ error: t(req, '올바르지 않은 요청입니다.') });
+
+    const { data: user, error: userError } = await supabase
+      .from('mediflow_users')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+    if (userError) throw userError;
+    if (!user || user.role !== 'admin') {
+      return res.status(400).json({ error: t(req, '올바르지 않은 요청입니다.') });
+    }
+
+    const { data: lastOtp } = await supabase
+      .from('mediflow_login_otp')
+      .select('created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (lastOtp) {
+      const elapsedSeconds = (Date.now() - new Date(lastOtp.created_at).getTime()) / 1000;
+      if (elapsedSeconds < LOGIN_OTP_RESEND_COOLDOWN_SECONDS) {
+        return res.status(429).json({ error: t(req, '잠시 후 다시 시도해주세요.') });
+      }
+    }
+
+    await issueLoginOtp(user, req.lang);
+    res.json({ success: true, maskedEmail: maskEmail(user.email) });
+  } catch (err) {
+    console.error('resend login otp error:', err);
+    res.status(500).json({ error: t(req, '인증코드 재전송 중 오류가 발생했습니다.') });
   }
 });
 
@@ -886,7 +1046,11 @@ const toPublicNurse = (n) => ({
   lastShiftCycleDay: n.last_shift_cycle_day,
   lastOffDutyRemaining: n.last_off_duty_remaining,
   lastShiftPreference: n.last_shift_preference,
-  historicalDaysByShift: n.historical_days_by_shift || {}
+  historicalDaysByShift: n.historical_days_by_shift || {},
+  // [추가] 간호사 개인이 원하는/피하고 싶은 근무 유형. 근무표 자동 생성 시 우선순위에 참고용으로만
+  // 반영되며(공정성 배분을 뒤엎지는 않음), 관리자가 간호사 관리 화면에서 대신 입력해준다.
+  preferredShiftType: n.preferred_shift_type || null,
+  avoidedShiftType: n.avoided_shift_type || null
 });
 
 // ------------------------------------------------------------------
@@ -973,6 +1137,8 @@ app.put('/api/nurses/bulk', async (req, res) => {
       last_off_duty_remaining: n.lastOffDutyRemaining ?? 0,
       last_shift_preference: n.lastShiftPreference ?? null,
       historical_days_by_shift: n.historicalDaysByShift || {},
+      preferred_shift_type: n.preferredShiftType ?? null,
+      avoided_shift_type: n.avoidedShiftType ?? null,
       updated_at: new Date().toISOString()
     }));
 
@@ -1007,6 +1173,8 @@ app.put('/api/nurses/:id', async (req, res) => {
     if (body.lastOffDutyRemaining !== undefined) updates.last_off_duty_remaining = body.lastOffDutyRemaining;
     if (body.lastShiftPreference !== undefined) updates.last_shift_preference = body.lastShiftPreference;
     if (body.historicalDaysByShift !== undefined) updates.historical_days_by_shift = body.historicalDaysByShift;
+    if (body.preferredShiftType !== undefined) updates.preferred_shift_type = body.preferredShiftType;
+    if (body.avoidedShiftType !== undefined) updates.avoided_shift_type = body.avoidedShiftType;
     updates.updated_at = new Date().toISOString();
 
     const { data, error } = await supabase

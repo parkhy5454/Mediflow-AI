@@ -37,6 +37,7 @@
     "server": "node server.js",
     "render-start": "node server.js",
     "test": "react-scripts test",
+    "test:ci": "CI=true react-scripts test --watchAll=false",
     "eject": "react-scripts eject"
   },
   "proxy": "http://localhost:5000",

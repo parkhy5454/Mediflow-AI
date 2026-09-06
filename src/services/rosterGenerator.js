@@ -2073,6 +2073,11 @@ export const generateRoster = (activeNurses, daysInMonth, rosterConfig) => {
       lastShiftType: nurse.lastShiftType || null,
       lastShiftPreference: nurse.lastShiftPreference || null,
 
+      // [추가] 간호사 개인이 설정한 선호/기피 근무 유형. 공정성 배분(deficit)이 여전히 가장 큰
+      // 비중을 차지하고, 이건 그 안에서 우선순위를 살짝 조정하는 참고 요소로만 쓰인다.
+      preferredShiftType: nurse.preferredShiftType || null,
+      avoidedShiftType: nurse.avoidedShiftType || null,
+
       totalDaysByShift: Object.fromEntries(shiftTypes.map(s => [s, 0])),
       totalWorkDays: 0,
       totalOffDutyDays: 0,
@@ -2133,6 +2138,15 @@ export const generateRoster = (activeNurses, daysInMonth, rosterConfig) => {
           priority -= 15; // 바로 직전과 같은 교대는 비선호 (교대 다양성 유도)
         } else if (nurse.lastShiftPreference) {
           priority += 5;
+        }
+
+        // [추가] 간호사 개인의 선호/기피 근무 반영. 공정성(deficit, ±10 단위)을 뒤엎지 않도록
+        // 중간 정도의 가중치만 준다 — 목표 근무일 대비 많이 부족한 사람은 여전히 우선 배정된다.
+        if (nurse.preferredShiftType === s) {
+          priority += 12;
+        }
+        if (nurse.avoidedShiftType === s) {
+          priority -= 12;
         }
 
         nurse.priorityByShift[s] = priority;

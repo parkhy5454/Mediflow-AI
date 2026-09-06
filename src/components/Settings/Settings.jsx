@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { Save, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { SHIFT_TYPES, shiftFullLabel, shiftTime } from '../../constants/shiftTypes';
+import { getShiftGuidelineRule } from '../../constants/shiftGuideline';
 
 import { useTranslation } from 'react-i18next';
 
@@ -18,17 +19,11 @@ const numberInputStyle = {
   boxSizing: 'border-box'
 };
 
-// [추가] 교대별 연속 근무일수 / 근무 후 휴무일수에 대한 "참고용" 권장 가이드라인.
-// 법적으로 강제되는 기준이 아니라, 간호 인력 운영에서 흔히 권장되는 값을 참고삼아 안내하는
-// 용도이며, 실제 기준은 병원 내규나 관련 법령·단체협약에 따라 다를 수 있다. 저장을 막지 않고
-// 경고만 표시한다.
-const SHIFT_GUIDELINE = {
-  N: { maxShiftDays: 3, minOffDutyAfter: 2 }, // 나이트: 연속 3일 이내, 이후 최소 2일 휴무 권장
-  DEFAULT: { maxShiftDays: 5, minOffDutyAfter: 1 }
-};
-
+// [추가] 교대별 연속 근무일수 / 근무 후 휴무일수에 대한 "참고용" 권장 가이드라인 검사.
+// 가이드라인 자체(SHIFT_GUIDELINE)는 constants/shiftGuideline.js로 옮겨서 대시보드 위험 신호
+// 기능(rosterRiskAnalysis.js)과 같이 쓴다. 법적 강제 기준이 아니므로 저장을 막지 않고 경고만 표시한다.
 const getShiftGuidelineWarnings = (shiftCode, cfg, t) => {
-  const rule = SHIFT_GUIDELINE[shiftCode] || SHIFT_GUIDELINE.DEFAULT;
+  const rule = getShiftGuidelineRule(shiftCode);
   const warnings = [];
   if (cfg.shiftDays > rule.maxShiftDays) {
     warnings.push(t('연속 근무 {{days}}일은 일반적으로 권장되는 상한({{max}}일)을 초과합니다.', {

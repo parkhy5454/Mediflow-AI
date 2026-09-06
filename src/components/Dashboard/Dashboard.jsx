@@ -129,24 +129,26 @@ import React from 'react';
 import StatsCards from './StatsCards';
 import AssignmentChart from './AssignmentChart';
 import BalanceAnalysis from './BalanceAnalysis';
+import RiskAlerts from './RiskAlerts';
 import CalendarView from './CalendarView';
 import ExportButtons from '../Roster/ExportButtons';
 import { getMonthName } from '../../utils/dateUtils';
 
 import { useTranslation } from 'react-i18next';
 
-const Dashboard = ({ 
-  nurses, 
-  activeNurses, 
-  selectedMonth, 
-  selectedYear, 
-  getRosterStats, 
+const Dashboard = ({
+  nurses,
+  activeNurses,
+  selectedMonth,
+  selectedYear,
+  getRosterStats,
   generateNurseAssignmentChart,
   rosterConfig,
   getCurrentMonthRoster,
   departmentOptions,
   selectedDepartment,
-  setSelectedDepartment
+  setSelectedDepartment,
+  currentUser
 }) => {
   const { t, i18n } = useTranslation();
   // [추가] 대시보드 통계도 병원 전체가 아니라 현재 선택된 부서(병동) 기준으로 보여준다.
@@ -215,11 +217,20 @@ const Dashboard = ({
         )}
       </div>
 
-      <StatsCards 
+      <StatsCards
         nurses={deptNurses}
         activeNurses={deptActiveNurses}
         stats={stats}
       />
+
+      {/* [추가] 관리자 전용 위험 신호 (초과근무 몰림 / 인원 부족 위험) */}
+      {currentUser?.role === 'admin' && (
+        <RiskAlerts
+          monthRoster={monthRoster}
+          rosterConfig={rosterConfig}
+          activeNurseCount={deptActiveNurses.length}
+        />
+      )}
 
       {/* Balance Analysis - NEW */}
       <BalanceAnalysis 

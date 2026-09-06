@@ -68,3 +68,15 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </Sentry.ErrorBoundary>
   </React.StrictMode>,
 )
+
+// [추가] 오프라인 지원용 서비스 워커 등록. 푸시 알림을 켜지 않은 사용자에게도 정적 자원/조회
+// API 응답 캐싱 혜택을 주기 위해, 로그인 여부와 무관하게 앱 시작 시 한 번 등록해둔다.
+// (같은 파일(public/sw.js)을 푸시 알림 켜기(src/utils/pushNotifications.js)에서도 등록하는데,
+// register()는 같은 스크립트 URL/스코프면 이미 등록된 워커를 그대로 반환하므로 중복 문제는 없다)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((err) => {
+      console.error('서비스 워커 등록 실패:', err);
+    });
+  });
+}

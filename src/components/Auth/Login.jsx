@@ -32,6 +32,20 @@ const Login = ({ onLoginSuccess }) => {
   // [추가] 초대 리워드용 추천인 병원 코드. 앱 소개 공유 링크(?ref=XXXX)로 들어왔을 때만 채워지며,
   // 완전히 새로운 병원으로 가입할 때만 서버에 함께 전달되어 추천인에게 보상을 지급하는 데 쓰인다.
   const [referredByHospitalCode, setReferredByHospitalCode] = useState('');
+  // [추가] 관리자 계정 2단계 인증(이메일 OTP). 비밀번호까지 맞으면 서버가 requiresOtp:true를 주고,
+  // 그때부터는 로그인 폼 대신 이 화면(인증코드 입력)을 보여준다.
+  const [otpPending, setOtpPending] = useState(null); // { userId, maskedEmail } | null
+  const [otpCode, setOtpCode] = useState('');
+  const [otpError, setOtpError] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpResendCooldown, setOtpResendCooldown] = useState(0);
+  const [otpResendMessage, setOtpResendMessage] = useState('');
+
+  useEffect(() => {
+    if (otpResendCooldown <= 0) return;
+    const timer = setTimeout(() => setOtpResendCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [otpResendCooldown]);
 
   // [추가] 동료 초대 공유 링크(?hospitalCode=XXXX)로 들어온 경우, 회원가입 화면으로 전환하고
   // 병원 코드를 미리 채워준다. (공유/초대 기능과 연동)
@@ -167,6 +181,15 @@ const Login = ({ onLoginSuccess }) => {
         return;
       }
 
+      // [추가] 관리자 계정은 비밀번호만으로는 로그인이 끝나지 않고, 이메일 인증코드 입력 화면으로 넘어간다.
+      if (data.requiresOtp) {
+        setOtpPending({ userId: data.userId, maskedEmail: data.maskedEmail });
+        setOtpCode('');
+        setOtpError('');
+        setOtpResendCooldown(30);
+        return;
+      }
+
       // [수정] 서버가 발급한 서명된 토큰(token)을 user 정보와 함께 저장한다.
       // 이후 모든 API 요청은 이 토큰으로 인증하며, uuid만으로는 더 이상 인증되지 않는다.
       onLoginSuccess({ ...data.user, token: data.token });
@@ -177,6 +200,145 @@ const Login = ({ onLoginSuccess }) => {
       setLoading(false);
     }
   };
+
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    setOtpError('');
+    if (!otpCode.trim()) {
+      setOtpError(t('인증코드를 입력해주세요.'));
+      return;
+    }
+    setOtpLoading(true);
+    try {
+      const res = await fetch('/api/auth/verify-login-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: otpPending.userId, code: otpCode.trim() })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setOtpError(data.error || t('요청 처리 중 오류가 발생했습니다.'));
+        return;
+      }
+      onLoginSuccess({ ...data.user, token: data.token });
+    } catch (err) {
+      console.error(err);
+      setOtpError(t('서버와 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'));
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (otpResendCooldown > 0 || !otpPending) return;
+    setOtpResendMessage('');
+    setOtpError('');
+    try {
+      const res = await fetch('/api/auth/resend-login-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: otpPending.userId })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setOtpError(data.error || t('요청 처리 중 오류가 발생했습니다.'));
+        return;
+      }
+      setOtpResendCooldown(30);
+      setOtpResendMessage(t('인증코드를 다시 보냈습니다.'));
+    } catch (err) {
+      setOtpError(t('서버와 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'));
+    }
+  };
+
+  // [추가] 관리자 계정 2단계 인증: 인증코드 입력 화면. 로그인/회원가입 폼 대신 이걸 보여준다.
+  if (otpPending) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#f9fafb',
+        padding: '20px'
+      }}>
+        <div style={{
+          width: '100%',
+          maxWidth: '400px',
+          backgroundColor: 'white',
+          borderRadius: '12px',
+          border: '1px solid #e5e7eb',
+          padding: '32px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+        }}>
+          <h1 style={{ textAlign: 'center', color: '#1f2937', marginBottom: '4px', fontSize: '22px' }}>
+            {t('로그인 인증코드')}
+          </h1>
+          <p style={{ textAlign: 'center', color: '#6b7280', marginBottom: '24px', fontSize: '13px', lineHeight: '1.5' }}>
+            {t('{{email}}(으)로 보낸 6자리 인증코드를 입력해주세요.', { email: otpPending.maskedEmail })}
+          </p>
+
+          <form onSubmit={handleVerifyOtp} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <input
+              type="text"
+              inputMode="numeric"
+              autoFocus
+              maxLength={6}
+              value={otpCode}
+              onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, ''))}
+              placeholder="000000"
+              style={{ ...inputStyle, textAlign: 'center', fontSize: '22px', letterSpacing: '0.3em', fontWeight: '700' }}
+            />
+
+            {otpError && (
+              <p style={{ color: '#dc2626', fontSize: '13px', backgroundColor: '#fef2f2', padding: '8px 12px', borderRadius: '6px' }}>
+                {otpError}
+              </p>
+            )}
+            {otpResendMessage && !otpError && (
+              <p style={{ color: '#166534', fontSize: '12px', margin: 0 }}>{otpResendMessage}</p>
+            )}
+
+            <button
+              type="submit"
+              disabled={otpLoading}
+              style={{
+                padding: '12px',
+                border: 'none',
+                borderRadius: '8px',
+                backgroundColor: '#3b82f6',
+                color: 'white',
+                fontWeight: '600',
+                fontSize: '14px',
+                cursor: otpLoading ? 'not-allowed' : 'pointer',
+                opacity: otpLoading ? 0.7 : 1
+              }}
+            >
+              {otpLoading ? t('확인 중...') : t('확인')}
+            </button>
+          </form>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
+            <button
+              type="button"
+              onClick={() => { setOtpPending(null); setPassword(''); setOtpResendMessage(''); }}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#6b7280', fontSize: '12px', textDecoration: 'underline', cursor: 'pointer' }}
+            >
+              {t('뒤로가기')}
+            </button>
+            <button
+              type="button"
+              onClick={handleResendOtp}
+              disabled={otpResendCooldown > 0}
+              style={{ background: 'none', border: 'none', padding: 0, color: otpResendCooldown > 0 ? '#9ca3af' : '#3b82f6', fontSize: '12px', textDecoration: 'underline', cursor: otpResendCooldown > 0 ? 'not-allowed' : 'pointer' }}
+            >
+              {otpResendCooldown > 0 ? t('재전송 ({{seconds}}초)', { seconds: otpResendCooldown }) : t('인증코드 재전송')}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{
