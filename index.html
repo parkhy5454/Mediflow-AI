@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>N-Duty — 간호사 근무표, 자동으로 균형 있게</title>
+<meta name="description" content="4교대 병원 근무표를 자동으로 균형 있게 배정하고, 대타·휴가까지 한 곳에서 관리하세요." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Serif+SC:wght@500;700&family=Noto+Sans+SC:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+<!-- Kakao JS SDK — used by the "카카오톡" share option. Requires a JavaScript key from
+     https://developers.kakao.com/console/app (앱 설정 > 플랫폼 > Web 에 nduty.kr, www.nduty.kr 등록 필요). -->
+<script src="https://t1.kakaocdn.net/kakao_js_sdk/2.8.3/kakao.min.js"></script>
+<style>
+  :root{
+    --ink:#101828;
+    --ink-soft:#2A3444;
+    --paper:#EEF1F5;
+    --paper-deep:#E3E7EE;
+    --white:#FFFFFF;
+    --amber:#E3A23A;
+    --amber-deep:#B97C1E;
+    --slate:#5B6474;
+    --slate-light:#8A93A3;
+    --line:#D7DCE3;
+    --line-dark:#293349;
+    --serif:'Noto Serif KR', serif;
+    --sans:'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    font-family:var(--sans);
+    color:var(--ink);
+    background:var(--paper);
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  :lang(zh) body, body:lang(zh){font-family:'Pretendard','Noto Sans SC',sans-serif;}
+  :lang(zh) h1, :lang(zh) h2, :lang(zh) h3, :lang(zh) h4,
+  :lang(zh) .brand, :lang(zh) .shift-card h3, :lang(zh) .num{
+    font-family:'Noto Serif SC','Noto Serif KR',serif;
+  }
+  .wrap{max-width:1120px;margin:0 auto;padding:0 24px;}
+  a{color:inherit;}
+
+  /* ---------- Nav ---------- */
+  .nav{
+    position:sticky;top:0;z-index:40;
+    background:rgba(238,241,245,0.88);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+  }
+  .nav .wrap{
+    display:flex;align-items:center;justify-content:space-between;
+    height:68px;
+  }
+  .brand{
+    font-family:var(--serif);font-weight:700;font-size:19px;letter-spacing:-0.01em;
+    display:flex;align-items:center;gap:8px;text-decoration:none;
+    white-space:nowrap;flex-shrink:0;
+  }
+  .brand .dot{width:8px;height:8px;border-radius:50%;background:var(--amber);display:inline-block;flex-shrink:0;}
+  .nav-links{
+    display:flex;align-items:center;gap:28px;
+    overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;
+  }
+  .nav-links::-webkit-scrollbar{display:none;}
+  .nav-links a{font-size:14px;color:var(--slate);text-decoration:none;white-space:nowrap;}
+  .nav-links a:hover{color:var(--ink);}
+  .nav-links > *{flex-shrink:0;}
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;
+    padding:11px 22px;border-radius:8px;font-size:14px;font-weight:600;
+    text-decoration:none;border:1px solid transparent;cursor:pointer;
+    white-space:nowrap;
+    transition:transform .15s ease, background .15s ease;
+  }
+  .btn:active{transform:scale(0.97);}
+  .btn-primary{background:var(--ink);color:var(--white);}
+  .btn-primary:hover{background:var(--ink-soft);}
+  .btn-ghost{background:transparent;color:var(--ink);border-color:var(--line-dark);}
+  .btn-amber{background:var(--amber);color:#3A2606;}
+  .btn-amber:hover{background:var(--amber-deep);color:var(--white);}
+  .nav-login{padding:9px 18px;}
+
+  /* language switcher */
+  .lang-switch{display:flex;align-items:center;gap:2px;background:var(--paper-deep);border-radius:7px;padding:3px;flex-shrink:0;}
+  .lang-btn{
+    border:none;background:transparent;padding:6px 10px;border-radius:5px;
+    font-size:12.5px;font-weight:600;color:var(--slate);cursor:pointer;font-family:var(--sans);
+    white-space:nowrap;
+  }
+  .lang-btn.active{background:var(--white);color:var(--ink);box-shadow:0 1px 2px rgba(16,24,40,0.08);}
+
+  /* share modal */
+  .share-overlay{
+    position:fixed;inset:0;background:rgba(16,24,40,0.5);display:none;
+    align-items:center;justify-content:center;z-index:100;padding:20px;
+  }
+  .share-overlay.open{display:flex;}
+  .share-modal{
+    background:var(--white);border-radius:16px;padding:28px;width:100%;max-width:340px;
+  }
+  .share-modal h4{font-size:16px;margin:0 0 18px;font-weight:700;}
+  .share-options{display:flex;flex-direction:column;gap:8px;}
+  .share-option{
+    display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;
+    border:1px solid var(--line);background:var(--white);cursor:pointer;font-size:14px;
+    font-weight:600;color:var(--ink);text-decoration:none;font-family:var(--sans);width:100%;
+    text-align:left;
+  }
+  .share-option:hover{background:var(--paper);}
+  .share-option .sicon{width:22px;height:22px;flex-shrink:0;}
+  .share-close{
+    margin-top:14px;width:100%;padding:11px;border-radius:8px;border:none;
+    background:var(--paper-deep);color:var(--ink);font-size:14px;font-weight:600;cursor:pointer;font-family:var(--sans);
+  }
+  .toast{
+    position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(10px);
+    background:var(--ink);color:var(--white);padding:12px 20px;border-radius:8px;font-size:13.5px;
+    opacity:0;pointer-events:none;transition:opacity .2s ease, transform .2s ease;z-index:110;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  /* ---------- Hero ---------- */
+  .hero{background:var(--ink);color:var(--white);padding:96px 0 0;overflow:hidden;}
+  .hero .wrap{display:grid;grid-template-columns:1.1fr 0.9fr;gap:56px;align-items:center;}
+  .eyebrow{
+    font-size:13px;color:var(--amber);font-weight:600;margin:0 0 18px;
+  }
+  .hero h1{
+    font-family:var(--serif);font-weight:700;
+    font-size:44px;line-height:1.28;letter-spacing:-0.01em;margin:0 0 22px;
+  }
+  .hero p.lead{font-size:17px;color:#B7BFCC;max-width:480px;margin:0 0 34px;}
+  .hero-ctas{display:flex;gap:12px;margin-bottom:56px;flex-wrap:wrap;}
+  .hero-note{font-size:13px;color:#7C8598;}
+
+  /* shift strip — literal 24h day/evening/night/middle cycle */
+  .shift-card{
+    background:#171F30;border:1px solid #2B3650;border-radius:16px;
+    padding:28px;
+  }
+  .shift-card h3{font-size:13px;color:#93A0B8;font-weight:600;margin:0 0 18px;}
+  .shift-strip{display:flex;border-radius:10px;overflow:hidden;height:56px;margin-bottom:14px;}
+  .shift-seg{display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#1A1200;text-align:center;padding:0 4px;}
+  .seg-d{background:#F4C868;flex:8;}
+  .seg-e{background:#E28A4F;flex:6;color:#2B1400;}
+  .seg-n{background:#4C5C8C;flex:8;color:#EAEEFA;}
+  .seg-m{background:#7EC4A8;flex:2;color:#0C2D20;}
+  .shift-legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:#93A0B8;}
+  .shift-legend span{display:flex;align-items:center;gap:6px;}
+  .swatch{width:9px;height:9px;border-radius:2px;display:inline-block;}
+  .roster-preview{
+    margin-top:20px;border-top:1px solid #2B3650;padding-top:18px;
+    display:grid;grid-template-columns:repeat(7,1fr);gap:6px;
+  }
+  .rp-cell{
+    aspect-ratio:1;border-radius:6px;background:#232D45;
+    display:flex;align-items:center;justify-content:center;
+    font-size:10px;font-weight:700;
+  }
+  .rp-cell.d{background:#3A331B;color:#F4C868;}
+  .rp-cell.e{background:#3A2416;color:#E28A4F;}
+  .rp-cell.n{background:#212A42;color:#8B9BD1;}
+  .rp-cell.off{background:transparent;color:#4B5468;}
+
+  /* ---------- Section shells ---------- */
+  section{padding:96px 0;}
+  .section-white{background:var(--white);}
+  .kicker{font-size:13px;font-weight:600;color:var(--amber-deep);margin:0 0 12px;}
+  h2.section-title{
+    font-family:var(--serif);font-weight:700;font-size:32px;
+    letter-spacing:-0.01em;margin:0 0 16px;max-width:560px;
+  }
+  p.section-lead{font-size:16px;color:var(--slate);max-width:520px;margin:0 0 48px;}
+
+  /* ---------- Problems ---------- */
+  .problems{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:16px;overflow:hidden;}
+  .problem{background:var(--white);padding:32px 28px;}
+  .problem .qty{font-family:var(--serif);font-size:15px;color:var(--amber-deep);font-weight:700;margin:0 0 14px;}
+  .problem p{font-size:15px;color:var(--ink-soft);margin:0;}
+
+  /* ---------- Features ---------- */
+  .features{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
+  .feature{
+    background:var(--white);border:1px solid var(--line);border-radius:14px;
+    padding:28px;
+  }
+  .feature .icon{
+    width:38px;height:38px;border-radius:9px;background:var(--paper-deep);
+    display:flex;align-items:center;justify-content:center;margin-bottom:18px;
+    font-family:var(--serif);font-weight:700;font-size:14px;color:var(--ink);
+  }
+  .feature h3{font-size:16px;margin:0 0 8px;font-weight:700;}
+  .feature p{font-size:14px;color:var(--slate);margin:0;}
+
+  /* ---------- How it works ---------- */
+  .flow{display:grid;grid-template-columns:repeat(4,1fr);gap:0;position:relative;}
+  .flow::before{
+    content:'';position:absolute;top:19px;left:60px;right:60px;height:1px;background:var(--line-dark);opacity:0.25;
+  }
+  .flow-step{padding:0 16px 0 0;position:relative;}
+  .flow-num{
+    width:38px;height:38px;border-radius:50%;background:var(--ink);color:var(--amber);
+    display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-weight:700;font-size:14px;
+    margin-bottom:20px;position:relative;z-index:1;
+  }
+  .flow-step h4{font-size:15px;margin:0 0 8px;font-weight:700;}
+  .flow-step p{font-size:13.5px;color:var(--slate);margin:0;}
+
+  /* ---------- Pricing ---------- */
+  .price-hero{
+    background:var(--ink);color:var(--white);border-radius:20px;padding:44px 48px;
+    display:flex;justify-content:space-between;align-items:center;gap:32px;margin-bottom:28px;flex-wrap:wrap;
+  }
+  .price-hero .num{font-family:var(--serif);font-size:44px;font-weight:700;}
+  .price-hero .num small{font-family:var(--sans);font-size:15px;font-weight:500;color:#93A0B8;}
+  .price-hero p{color:#B7BFCC;font-size:14px;max-width:340px;margin:8px 0 0;}
+  .discount-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;}
+  .discount-card{
+    background:var(--white);border:1px solid var(--line);border-radius:12px;
+    padding:20px 16px;text-align:center;
+  }
+  .discount-card .yr{font-size:13px;color:var(--slate);margin:0 0 6px;}
+  .discount-card .pct{font-family:var(--serif);font-size:26px;font-weight:700;color:var(--amber-deep);margin:0;}
+  .discount-card .save{font-size:11.5px;color:var(--slate-light);margin:6px 0 0;}
+
+  /* ---------- CTA ---------- */
+  .cta{background:var(--white);text-align:center;padding:100px 0;}
+  .cta h2{font-family:var(--serif);font-size:34px;font-weight:700;margin:0 0 16px;letter-spacing:-0.01em;}
+  .cta p{color:var(--slate);font-size:16px;margin:0 0 32px;}
+
+  /* ---------- Footer ---------- */
+  footer{background:var(--ink);color:#8A93A3;padding:56px 0 40px;font-size:13px;}
+  footer .wrap{display:flex;justify-content:space-between;gap:40px;flex-wrap:wrap;}
+  footer .fbrand{font-family:var(--serif);color:var(--white);font-size:16px;font-weight:700;margin:0 0 12px;}
+  footer .fcol h5{color:#B7BFCC;font-size:12px;margin:0 0 10px;font-weight:600;}
+  footer .fcol p, footer .fcol a{display:block;color:#7C8598;text-decoration:none;margin:0 0 6px;line-height:1.7;}
+  footer .legal{border-top:1px solid #232D45;margin-top:36px;padding-top:20px;font-size:12px;color:#5C6478;}
+
+  @media (max-width:860px){
+    .hero .wrap{grid-template-columns:1fr;}
+    .hero h1{font-size:32px;}
+    .problems, .features{grid-template-columns:1fr;}
+    .flow{grid-template-columns:1fr 1fr;row-gap:32px;}
+    .flow::before{display:none;}
+    .discount-grid{grid-template-columns:repeat(2,1fr);}
+    .price-hero{flex-direction:column;align-items:flex-start;}
+    .nav .wrap{padding:0 16px;}
+    .brand{font-size:17px;}
+    .nav-links{gap:8px;}
+    .nav-links .link-text{display:none;}
+    .nav-links .share-btn span{display:none;}
+    .nav-links .share-btn{padding:9px;}
+    .nav-login{padding:8px 12px;font-size:13px;}
+    .lang-switch{padding:2px;}
+    .lang-btn{padding:5px 7px;font-size:11px;}
+    footer .wrap{flex-direction:column;gap:28px;}
+  }
+
+  @media (max-width:360px){
+    .nav .wrap{padding:0 12px;}
+    .brand{font-size:15px;gap:6px;}
+    .nav-links{gap:5px;}
+    .nav-login{padding:7px 9px;font-size:12px;}
+    .nav-links .share-btn{padding:7px;}
+    .lang-switch{padding:2px;gap:1px;}
+    .lang-btn{padding:4px 5px;font-size:10px;}
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="wrap">
+    <a href="#" class="brand"><span class="dot"></span>N-Duty</a>
+    <div class="nav-links">
+      <a href="#features" class="link-text" data-i18n="nav_features">기능</a>
+      <a href="#how" class="link-text" data-i18n="nav_how">이용 방법</a>
+      <a href="#pricing" class="link-text" data-i18n="nav_pricing">요금제</a>
+      <a href="https://app.nduty.kr" class="btn btn-ghost nav-login" data-i18n="nav_login">로그인</a>
+      <button class="btn btn-ghost share-btn" style="padding:9px 14px;display:flex;align-items:center;gap:6px;" onclick="mediflowShare()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.6" y1="10.5" x2="15.4" y2="6.5"></line><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"></line></svg>
+        <span data-i18n="share_btn">공유하기</span>
+      </button>
+      <div class="lang-switch">
+        <button class="lang-btn active" data-lang="ko">한국어</button>
+        <button class="lang-btn" data-lang="en">EN</button>
+        <button class="lang-btn" data-lang="zh">中文</button>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <div>
+      <p class="eyebrow" data-i18n="hero_eyebrow">병원 4교대 근무표 자동화</p>
+      <h1 data-i18n-html="hero_title">이번 달 근무표,<br>또 며칠 밤새우실 건가요</h1>
+      <p class="lead" data-i18n="hero_lead">데이·이브닝·나이트·미들 4교대를 공정하게 자동 배정하고, 대타 요청부터 휴가 승인까지 병동 하나로 관리하세요.</p>
+      <div class="hero-ctas">
+        <a href="https://app.nduty.kr" class="btn btn-amber" data-i18n="hero_cta_primary">14일 무료로 시작하기</a>
+        <a href="#how" class="btn btn-ghost" style="border-color:#3A4560;color:#fff;" data-i18n="hero_cta_secondary">어떻게 되는지 보기</a>
+      </div>
+      <p class="hero-note" data-i18n="hero_note">카드 등록 없이 시작 · 활성 간호사 수만큼만 과금</p>
+    </div>
+
+    <div class="shift-card">
+      <h3 data-i18n="shift_card_title">하나의 병동, 하루의 순환</h3>
+      <div class="shift-strip">
+        <div class="shift-seg seg-d" data-i18n="shift_d">데이 07–15</div>
+        <div class="shift-seg seg-e" data-i18n="shift_e">이브닝 15–23</div>
+        <div class="shift-seg seg-n" data-i18n="shift_n">나이트 23–07</div>
+        <div class="shift-seg seg-m" data-i18n="shift_m">미들</div>
+      </div>
+      <div class="shift-legend">
+        <span><i class="swatch" style="background:#F4C868"></i><span data-i18n="legend_d">데이 4명</span></span>
+        <span><i class="swatch" style="background:#E28A4F"></i><span data-i18n="legend_e">이브닝 3명</span></span>
+        <span><i class="swatch" style="background:#4C5C8C"></i><span data-i18n="legend_n">나이트 3명</span></span>
+        <span><i class="swatch" style="background:#7EC4A8"></i><span data-i18n="legend_m">미들 1명</span></span>
+      </div>
+      <div class="roster-preview" aria-hidden="true">
+        <div class="rp-cell d">D</div><div class="rp-cell d">D</div><div class="rp-cell e">E</div>
+        <div class="rp-cell n">N</div><div class="rp-cell off" data-i18n="off_short">휴</div><div class="rp-cell d">D</div>
+        <div class="rp-cell e">E</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="section-white">
+  <div class="wrap">
+    <p class="kicker" data-i18n="problems_kicker">이런 한 달, 익숙하지 않으신가요</p>
+    <h2 class="section-title" data-i18n="problems_title">근무표는 매달 새로 짜야 하는데, 손은 그대로예요</h2>
+    <div class="problems">
+      <div class="problem">
+        <p class="qty" data-i18n="problem1_qty">반나절</p>
+        <p data-i18n="problem1_text">엑셀 켜놓고 이름 옮기다 보면 반나절이 훌쩍 갑니다. 그러다 한 명이라도 휴가를 내면 처음부터 다시 짜야 하고요.</p>
+      </div>
+      <div class="problem">
+        <p class="qty" data-i18n="problem2_qty">불만 접수</p>
+        <p data-i18n="problem2_text">나이트만 자꾸 몰리는 사람, 미들만 피해가는 사람. 공정하게 짰다고 생각해도 결국 형평성 얘기가 나옵니다.</p>
+      </div>
+      <div class="problem">
+        <p class="qty" data-i18n="problem3_qty">전화 돌리기</p>
+        <p data-i18n="problem3_text">대타 구할 사람이 있는지 단체 카톡방에 물어보고, 승인하고, 엑셀 다시 고치고 — 한 건 처리에 한나절.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap">
+    <p class="kicker" data-i18n="features_kicker">기능</p>
+    <h2 class="section-title" data-i18n="features_title">근무표 짜는 시간을, 병동 운영하는 시간으로</h2>
+    <p class="section-lead" data-i18n="features_lead">병원에 필요한 만큼만 있습니다. 복잡한 설정 없이 병동별로 바로 쓸 수 있어요.</p>
+    <div class="features">
+      <div class="feature">
+        <div class="icon" data-i18n="feat1_icon">균형</div>
+        <h3 data-i18n="feat1_title">4교대 자동 배정</h3>
+        <p data-i18n="feat1_text">데이/이브닝/나이트/미들 근무를 누적 통계 기준으로 균형 있게 배정합니다. 한 사람에게 나이트가 몰리지 않도록요.</p>
+      </div>
+      <div class="feature">
+        <div class="icon" data-i18n="feat2_icon">병동</div>
+        <h3 data-i18n="feat2_title">병동별 관리</h3>
+        <p data-i18n="feat2_text">10병동, 11병동처럼 병동마다 근무표와 설정을 따로 관리합니다. 필요 인원, 근무일수도 병동별로 다르게 정할 수 있어요.</p>
+      </div>
+      <div class="feature">
+        <div class="icon" data-i18n="feat3_icon">대타</div>
+        <h3 data-i18n="feat3_title">근무 변경 요청</h3>
+        <p data-i18n="feat3_text">1:1 맞교환이나 공개 대타를 앱에서 요청하고, 관리자가 승인하면 근무표에 바로 반영됩니다.</p>
+      </div>
+      <div class="feature">
+        <div class="icon" data-i18n="feat4_icon">휴가</div>
+        <h3 data-i18n="feat4_title">휴가 신청 연동</h3>
+        <p data-i18n="feat4_text">휴가를 신청하고 승인받으면, 근무표 생성 시 그 기간을 자동으로 빼고 대체 인력을 배정합니다.</p>
+      </div>
+      <div class="feature">
+        <div class="icon" data-i18n="feat5_icon">잠금</div>
+        <h3 data-i18n="feat5_title">발행하면 잠깁니다</h3>
+        <p data-i18n="feat5_text">확정된 근무표는 "발행" 한 번으로 실수로 재생성되거나 삭제되지 않게 잠급니다.</p>
+      </div>
+      <div class="feature">
+        <div class="icon" data-i18n="feat6_icon">출력</div>
+        <h3 data-i18n="feat6_title">PDF·엑셀 내보내기</h3>
+        <p data-i18n="feat6_text">확정된 근무표를 병동 게시판에 붙이거나 개인별로 전달할 수 있게 바로 출력합니다.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="how" class="section-white">
+  <div class="wrap">
+    <p class="kicker" data-i18n="how_kicker">이용 방법</p>
+    <h2 class="section-title" data-i18n="how_title">가입부터 발행까지, 네 단계</h2>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-num">1</div>
+        <h4 data-i18n="step1_title">병원 등록</h4>
+        <p data-i18n="step1_text">병원 코드 하나로 가입하면, 같은 코드로 가입하는 동료는 자동으로 같은 병원 소속이 됩니다.</p>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">2</div>
+        <h4 data-i18n="step2_title">간호사·병동 등록</h4>
+        <p data-i18n="step2_text">간호사 명단과 소속 병동을 입력합니다. 자격, 경력 정도만 있으면 충분해요.</p>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">3</div>
+        <h4 data-i18n="step3_title">근무표 생성</h4>
+        <p data-i18n="step3_text">병동을 고르고 버튼 하나로 한 달 근무표를 자동 생성합니다. 승인된 휴가도 함께 반영돼요.</p>
+      </div>
+      <div class="flow-step">
+        <div class="flow-num">4</div>
+        <h4 data-i18n="step4_title">확인하고 발행</h4>
+        <p data-i18n="step4_text">필요하면 대타를 처리하고, 확정되면 발행해서 잠급니다. 이후엔 요청 승인만 반영됩니다.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="pricing">
+  <div class="wrap">
+    <p class="kicker" data-i18n="pricing_kicker">요금제</p>
+    <h2 class="section-title" data-i18n="pricing_title">쓰는 만큼만 냅니다</h2>
+    <p class="section-lead" data-i18n="pricing_lead">간호사 수가 늘어도 줄어도, 그때그때 실제 인원 기준으로 계산됩니다.</p>
+
+    <div class="price-hero">
+      <div>
+        <div class="num">3,000<span data-i18n="price_currency">원</span> <small data-i18n="price_unit">/ 간호사 · 월</small></div>
+        <p data-i18n="price_desc">활성 간호사 1명당 월 3,000원. 등록만 해두고 안 쓰는 간호사는 과금되지 않습니다.</p>
+      </div>
+      <a href="https://app.nduty.kr" class="btn btn-amber" data-i18n="price_cta">14일 무료 체험 시작</a>
+    </div>
+
+    <p class="kicker" style="margin-bottom:16px;" data-i18n="discount_label">여러 해 미리 결제하면 할인됩니다</p>
+    <div class="discount-grid">
+      <div class="discount-card"><p class="yr" data-i18n="yr_1">1년</p><p class="pct">10%</p><p class="save" data-i18n="save_word">할인</p></div>
+      <div class="discount-card"><p class="yr" data-i18n="yr_2">2년</p><p class="pct">15%</p><p class="save" data-i18n="save_word">할인</p></div>
+      <div class="discount-card"><p class="yr" data-i18n="yr_3">3년</p><p class="pct">20%</p><p class="save" data-i18n="save_word">할인</p></div>
+      <div class="discount-card"><p class="yr" data-i18n="yr_4">4년</p><p class="pct">25%</p><p class="save" data-i18n="save_word">할인</p></div>
+      <div class="discount-card"><p class="yr" data-i18n="yr_5">5년</p><p class="pct">30%</p><p class="save" data-i18n="save_word">할인</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="cta">
+  <div class="wrap">
+    <h2 data-i18n-html="cta_title">이번 달 근무표부터<br>자동으로 짜보세요</h2>
+    <p data-i18n="cta_text">카드 등록 없이 14일 무료로 체험할 수 있습니다.</p>
+    <a href="https://app.nduty.kr" class="btn btn-primary" style="padding:14px 32px;font-size:15px;" data-i18n="cta_button">무료로 시작하기</a>
+    <button class="btn btn-ghost share-btn" style="padding:14px 22px;font-size:15px;margin-left:10px;display:inline-flex;align-items:center;gap:8px;" onclick="mediflowShare()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.6" y1="10.5" x2="15.4" y2="6.5"></line><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"></line></svg>
+      <span data-i18n="share_btn_cta">동료에게 공유하기</span>
+    </button>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div style="max-width:280px;">
+      <p class="fbrand">N-Duty</p>
+      <p style="color:#7C8598;" data-i18n="footer_tagline">병원 4교대 근무표를 자동으로, 공정하게.</p>
+    </div>
+    <div class="fcol">
+      <h5 data-i18n="footer_service">서비스</h5>
+      <a href="#features" data-i18n="nav_features">기능</a>
+      <a href="#pricing" data-i18n="nav_pricing">요금제</a>
+      <a href="https://app.nduty.kr" data-i18n="nav_login">로그인</a>
+    </div>
+    <div class="fcol">
+      <h5 data-i18n="footer_operations">운영</h5>
+      <p>(주)카이저솔루션</p>
+      <p><span data-i18n="footer_ceo_label">대표</span> 박현용</p>
+      <p><span data-i18n="footer_bizno_label">사업자등록번호</span> 217-81-35654</p>
+    </div>
+    <div class="fcol">
+      <h5 data-i18n="footer_contact">문의</h5>
+      <p>경기도 남양주시 순화궁로 272, 519호<br>(동광비즈타워, 별내동)</p>
+      <a href="tel:02-971-0954">02-971-0954</a>
+      <a href="mailto:hypark@kaisersolution.com">hypark@kaisersolution.com</a>
+    </div>
+  </div>
+  <div class="wrap legal">
+    © 2026 (주)카이저솔루션. All rights reserved.
+  </div>
+</footer>
+
+<div class="share-overlay" id="shareOverlay" onclick="if(event.target===this) mediflowCloseShare()">
+  <div class="share-modal">
+    <h4 data-i18n="share_modal_title">공유하기</h4>
+    <div class="share-options">
+      <button class="share-option" onclick="mediflowShareTo('kakao')">
+        <svg class="sicon" viewBox="0 0 24 24"><path fill="#FEE500" d="M12 3C6.48 3 2 6.48 2 10.8c0 2.76 1.85 5.19 4.62 6.58-.2.75-.73 2.73-.84 3.16-.13.53.2.52.42.38.17-.11 2.72-1.85 3.83-2.6.63.09 1.28.14 1.97.14 5.52 0 10-3.48 10-7.8C22 6.48 17.52 3 12 3z"/></svg>
+        <span data-i18n="share_kakao">카카오톡</span>
+      </button>
+      <button class="share-option share-sms" onclick="mediflowShareTo('sms')">
+        <svg class="sicon" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z"></path></svg>
+        <span data-i18n="share_sms">문자 메시지</span>
+      </button>
+      <button class="share-option" onclick="mediflowShareTo('facebook')">
+        <svg class="sicon" viewBox="0 0 24 24" fill="#1877F2"><path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8v-6.93H7.9V12H10V9.8c0-2.07 1.23-3.22 3.11-3.22.9 0 1.84.16 1.84.16v2.02h-1.04c-1.02 0-1.34.64-1.34 1.3V12h2.28l-.36 2.87h-1.92V21.8c4.56-.93 8-4.96 8-9.8z"/></svg>
+        <span>Facebook</span>
+      </button>
+      <button class="share-option" onclick="mediflowShareTo('x')">
+        <svg class="sicon" viewBox="0 0 24 24" fill="#000000"><path d="M18.9 2H22l-7.6 8.7L23.3 22h-7l-5.5-7.2L4.5 22H1.4l8.1-9.3L1 2h7.2l5 6.6L18.9 2zm-1.2 18h1.7L7.4 4h-1.8l12.1 16z"/></svg>
+        <span>X (Twitter)</span>
+      </button>
+      <button class="share-option" onclick="mediflowShareTo('copy')">
+        <svg class="sicon" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="1.8"><rect x="9" y="9" width="12" height="12" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+        <span data-i18n="share_copy_link">링크 복사</span>
+      </button>
+    </div>
+    <button class="share-close" onclick="mediflowCloseShare()" data-i18n="share_close">닫기</button>
+  </div>
+</div>
+
+<div class="toast" id="mediflowToast"></div>
+
+<script>
+// ▼▼▼ Kakao 공유하기 설정 ▼▼▼
+// https://developers.kakao.com/console/app 에서 앱 생성 후 "JavaScript 키"를 아래에 붙여넣으세요.
+// 그리고 [내 애플리케이션] > [앱 설정] > [플랫폼] > Web 플랫폼에 다음 도메인을 등록해야 합니다:
+//   https://nduty.kr
+//   https://www.nduty.kr
+var KAKAO_JS_KEY = "여기에_카카오_JavaScript_키를_입력하세요";
+try {
+  if (window.Kakao && !Kakao.isInitialized() && KAKAO_JS_KEY.indexOf('여기에') !== 0) {
+    Kakao.init(KAKAO_JS_KEY);
+  }
+} catch (e) { /* Kakao SDK not ready yet — kakao share button will show a toast instead */ }
+
+// 문자(SMS) 공유는 모바일에서만 의미가 있으므로 데스크톱에서는 버튼을 숨깁니다.
+(function(){
+  var isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  document.querySelectorAll('.share-sms').forEach(function(btn){
+    if (!isMobile) btn.style.display = 'none';
+  });
+})();
+
+window.mediflowShare = function(){
+  var shareText = {
+    ko: '병원 4교대 근무표, 자동으로 짜보세요 — N-Duty',
+    en: 'Automate your hospital\'s 4-shift roster — N-Duty',
+    zh: '医院四班排班，交给 N-Duty 自动完成'
+  };
+  var lang = document.documentElement.getAttribute('lang') || 'ko';
+  var data = { title: document.title, text: shareText[lang] || shareText.ko, url: window.location.href };
+  if (navigator.share) {
+    navigator.share(data).catch(function(){});
+  } else {
+    document.getElementById('shareOverlay').classList.add('open');
+  }
+};
+window.mediflowCloseShare = function(){
+  document.getElementById('shareOverlay').classList.remove('open');
+};
+window.mediflowShareTo = function(target){
+  var rawUrl = window.location.href;
+  var url = encodeURIComponent(rawUrl);
+  var rawText = '병원 4교대 근무표, 자동으로 짜보세요 — N-Duty';
+  var text = encodeURIComponent(rawText);
+  if (target === 'kakao') {
+    if (window.Kakao && Kakao.isInitialized()) {
+      Kakao.Share.sendDefault({
+        objectType: 'text',
+        text: rawText,
+        link: { mobileWebUrl: rawUrl, webUrl: rawUrl },
+        buttons: [{ title: '홈페이지 보기', link: { mobileWebUrl: rawUrl, webUrl: rawUrl } }]
+      });
+    } else {
+      // 카카오 앱 키가 아직 설정되지 않았을 때의 대체 동작: 링크 복사
+      navigator.clipboard.writeText(rawUrl).then(function(){ mediflowToast(); }).catch(function(){});
+    }
+  } else if (target === 'sms') {
+    var body = encodeURIComponent(rawText + ' ' + rawUrl);
+    // iOS는 'sms:&body=', Android는 'sms:?body=' 형식을 씁니다.
+    var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    window.location.href = isIOS ? ('sms:&body=' + body) : ('sms:?body=' + body);
+  } else if (target === 'facebook') {
+    window.open('https://www.facebook.com/sharer/sharer.php?u=' + url, '_blank', 'noopener,width=600,height=500');
+  } else if (target === 'x') {
+    window.open('https://twitter.com/intent/tweet?text=' + text + '&url=' + url, '_blank', 'noopener,width=600,height=500');
+  } else if (target === 'copy') {
+    navigator.clipboard.writeText(rawUrl).then(function(){
+      mediflowToast();
+    }).catch(function(){});
+  }
+  mediflowCloseShare();
+};
+function mediflowToast(){
+  var messages = { ko:'링크가 복사되었습니다', en:'Link copied', zh:'链接已复制' };
+  var lang = document.documentElement.getAttribute('lang') || 'ko';
+  var el = document.getElementById('mediflowToast');
+  el.textContent = messages[lang] || messages.ko;
+  el.classList.add('show');
+  setTimeout(function(){ el.classList.remove('show'); }, 2200);
+}
+</script>
+
+<script>
+(function(){
+  var translations = {
+    en: {
+      nav_features:"Features", nav_how:"How it works", nav_pricing:"Pricing", nav_login:"Log in",
+      hero_eyebrow:"4-shift hospital rostering, automated",
+      hero_title:"This month's roster —<br>how many more nights up?",
+      hero_lead:"Balance Day, Evening, Night and Middle shifts automatically, and handle swap requests and leave approvals in one place.",
+      hero_cta_primary:"Start free for 14 days",
+      hero_cta_secondary:"See how it works",
+      hero_note:"No card required to start · billed only for active nurses",
+      shift_card_title:"One ward, one daily cycle",
+      shift_d:"Day 07–15", shift_e:"Evening 15–23", shift_n:"Night 23–07", shift_m:"Middle",
+      legend_d:"Day · 4", legend_e:"Evening · 3", legend_n:"Night · 3", legend_m:"Middle · 1",
+      off_short:"Off",
+      problems_kicker:"Does this month sound familiar?",
+      problems_title:"Every month the roster resets, but the work doesn't get any easier",
+      problem1_qty:"Half a day",
+      problem1_text:"Moving names around in a spreadsheet eats half a day — and one leave request means starting over.",
+      problem2_qty:"Complaints",
+      problem2_text:"Some nurses keep landing on nights, others dodge the middle shift. Even a fair schedule ends up feeling unfair.",
+      problem3_qty:"Chasing people",
+      problem3_text:"Asking around the group chat for a cover, approving it, then fixing the spreadsheet — half a day for one swap.",
+      features_kicker:"Features",
+      features_title:"Spend less time building rosters, more time running the ward",
+      features_lead:"Only what a hospital actually needs — ready to use per ward, no complicated setup.",
+      feat1_icon:"Balance", feat1_title:"Automatic 4-shift rostering",
+      feat1_text:"Day, Evening, Night and Middle shifts are balanced against cumulative history, so nights don't keep landing on the same people.",
+      feat2_icon:"Wards", feat2_title:"Managed by ward",
+      feat2_text:"Each ward gets its own roster and settings — required staff and shift lengths can differ ward by ward.",
+      feat3_icon:"Swaps", feat3_title:"Shift swap requests",
+      feat3_text:"Request a 1:1 swap or an open cover shift in the app; once an admin approves it, the roster updates automatically.",
+      feat4_icon:"Leave", feat4_title:"Leave request integration",
+      feat4_text:"Once a leave request is approved, roster generation automatically excludes that period and assigns a replacement.",
+      feat5_icon:"Lock", feat5_title:"Publish to lock it in",
+      feat5_text:"A published roster is locked so it can't be accidentally regenerated or deleted.",
+      feat6_icon:"Export", feat6_title:"PDF and Excel export",
+      feat6_text:"Export the finalized roster instantly to post on the ward board or share with individual staff.",
+      how_kicker:"How it works",
+      how_title:"Four steps, from sign-up to publishing",
+      step1_title:"Register your hospital",
+      step1_text:"Sign up with a hospital code — anyone who joins with the same code is automatically added to the same hospital.",
+      step2_title:"Add nurses and wards",
+      step2_text:"Enter your nurse roster and their wards. Qualification and experience level are enough to get started.",
+      step3_title:"Generate the roster",
+      step3_text:"Pick a ward and generate a month's roster with one click, with approved leave already factored in.",
+      step4_title:"Review and publish",
+      step4_text:"Handle any swaps, then publish once it's final. After that, only approved requests can change it.",
+      pricing_kicker:"Pricing",
+      pricing_title:"Pay only for what you use",
+      pricing_lead:"Billed against your actual active nurse count, up or down, whenever it changes.",
+      price_currency:" KRW", price_unit:"/ nurse · month",
+      price_desc:"3,000 KRW per active nurse, per month. Nurses you've added but aren't using aren't billed.",
+      price_cta:"Start your 14-day free trial",
+      discount_label:"Prepay for multiple years and save",
+      yr_1:"1 year", yr_2:"2 years", yr_3:"3 years", yr_4:"4 years", yr_5:"5 years", save_word:"off",
+      cta_title:"Let this month's roster<br>build itself",
+      cta_text:"Try it free for 14 days — no card required.",
+      cta_button:"Start for free",
+      footer_tagline:"Automated, fair 4-shift hospital rostering.",
+      footer_service:"Product", footer_operations:"Company", footer_contact:"Contact",
+      footer_ceo_label:"CEO", footer_bizno_label:"Business reg. no.",
+      share_btn:"Share", share_btn_cta:"Share with a colleague",
+      share_modal_title:"Share this page", share_copy_link:"Copy link", share_close:"Close",
+      share_kakao:"KakaoTalk", share_sms:"Text message"
+    },
+    zh: {
+      nav_features:"功能", nav_how:"使用流程", nav_pricing:"价格", nav_login:"登录",
+      hero_eyebrow:"医院四班排班自动化",
+      hero_title:"这个月的排班表<br>还要熬几个通宵？",
+      hero_lead:"自动公平分配白班、小夜班、大夜班和中班，换班申请与请假审批也能在一个地方搞定。",
+      hero_cta_primary:"免费试用14天",
+      hero_cta_secondary:"看看怎么用",
+      hero_note:"无需绑卡即可开始 · 仅按在职护士人数计费",
+      shift_card_title:"一个病区，一天的循环",
+      shift_d:"白班 07–15", shift_e:"小夜 15–23", shift_n:"大夜 23–07", shift_m:"中班",
+      legend_d:"白班 4人", legend_e:"小夜 3人", legend_n:"大夜 3人", legend_m:"中班 1人",
+      off_short:"休",
+      problems_kicker:"这样的一个月，是不是很熟悉",
+      problems_title:"排班表每月都要重排，但排班的方式一直没变",
+      problem1_qty:"大半天",
+      problem1_text:"打开表格挪名字，一挪就是大半天。只要有一个人请假，就得从头再排一遍。",
+      problem2_qty:"抱怨不断",
+      problem2_text:"总有人大夜班特别多，也总有人从不排中班。即使自认为排得公平，最后还是会有人觉得不公平。",
+      problem3_qty:"到处打电话",
+      problem3_text:"在群里问谁能来代班，审批，再改表格——处理一次换班就要花上大半天。",
+      features_kicker:"功能",
+      features_title:"把排班的时间，还给病区管理",
+      features_lead:"只提供医院真正需要的功能，按病区即可直接使用，无需复杂设置。",
+      feat1_icon:"均衡", feat1_title:"四班自动排班",
+      feat1_text:"根据累计统计自动均衡分配白班、小夜、大夜、中班，避免大夜班总落在同一个人身上。",
+      feat2_icon:"病区", feat2_title:"按病区管理",
+      feat2_text:"每个病区的排班表和设置都是独立的，所需人数、连续工作天数都可以按病区分别设定。",
+      feat3_icon:"代班", feat3_title:"换班申请",
+      feat3_text:"在应用内发起一对一换班或公开征集代班，管理员审批后自动更新到排班表。",
+      feat4_icon:"请假", feat4_title:"请假联动",
+      feat4_text:"请假一经批准，生成排班表时会自动排除该时段并安排替补人员。",
+      feat5_icon:"锁定", feat5_title:"发布即锁定",
+      feat5_text:"确定后的排班表一键发布即可锁定，避免被误重新生成或删除。",
+      feat6_icon:"导出", feat6_title:"导出PDF和Excel",
+      feat6_text:"确定的排班表可立即导出，方便张贴在病区公告栏或发给个人。",
+      how_kicker:"使用流程",
+      how_title:"从注册到发布，只需四步",
+      step1_title:"注册医院",
+      step1_text:"用一个医院代码注册，之后用同一代码注册的同事会自动归入同一医院。",
+      step2_title:"添加护士与病区",
+      step2_text:"录入护士名单及所属病区，只需资质和经验等基本信息即可。",
+      step3_title:"生成排班表",
+      step3_text:"选择病区，一键自动生成整月排班表，已批准的请假也会自动纳入。",
+      step4_title:"确认并发布",
+      step4_text:"如有需要先处理换班，确定后发布锁定。之后只有审批通过的申请才能改变排班。",
+      pricing_kicker:"价格",
+      pricing_title:"按实际使用量计费",
+      pricing_lead:"无论护士人数增减，都会按当时的实际在职人数计算。",
+      price_currency:" 韩元", price_unit:"/ 护士 · 月",
+      price_desc:"每位在职护士每月3,000韩元。仅登记但未启用的护士不计费。",
+      price_cta:"开始14天免费试用",
+      discount_label:"提前多年预付可享折扣",
+      yr_1:"1年", yr_2:"2年", yr_3:"3年", yr_4:"4年", yr_5:"5年", save_word:"折扣",
+      cta_title:"让这个月的排班表<br>自动完成",
+      cta_text:"无需绑卡，可免费试用14天。",
+      cta_button:"免费开始使用",
+      footer_tagline:"自动、公平的医院四班排班系统。",
+      footer_service:"产品", footer_operations:"公司", footer_contact:"联系方式",
+      footer_ceo_label:"代表", footer_bizno_label:"营业执照号",
+      share_btn:"分享", share_btn_cta:"分享给同事",
+      share_modal_title:"分享此页面", share_copy_link:"复制链接", share_close:"关闭",
+      share_kakao:"KakaoTalk", share_sms:"短信"
+    }
+  };
+
+  function applyLang(lang){
+    document.documentElement.setAttribute('lang', lang);
+    document.querySelectorAll('[data-lang]').forEach(function(btn){
+      btn.classList.toggle('active', btn.getAttribute('data-lang') === lang);
+    });
+    if (lang === 'ko') {
+      document.querySelectorAll('[data-i18n-ko-text]').forEach(function(el){
+        el.textContent = el.getAttribute('data-i18n-ko-text');
+      });
+      document.querySelectorAll('[data-i18n-ko-html]').forEach(function(el){
+        el.innerHTML = el.getAttribute('data-i18n-ko-html');
+      });
+      localStorage.setItem('mediflow_lang', 'ko');
+      return;
+    }
+    var dict = translations[lang];
+    if (!dict) return;
+    document.querySelectorAll('[data-i18n]').forEach(function(el){
+      var key = el.getAttribute('data-i18n');
+      if (!el.hasAttribute('data-i18n-ko-text')) {
+        el.setAttribute('data-i18n-ko-text', el.textContent);
+      }
+      if (dict[key]) el.textContent = dict[key];
+    });
+    document.querySelectorAll('[data-i18n-html]').forEach(function(el){
+      var key = el.getAttribute('data-i18n-html');
+      if (!el.hasAttribute('data-i18n-ko-html')) {
+        el.setAttribute('data-i18n-ko-html', el.innerHTML);
+      }
+      if (dict[key]) el.innerHTML = dict[key];
+    });
+    localStorage.setItem('mediflow_lang', lang);
+  }
+
+  document.querySelectorAll('.lang-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      applyLang(btn.getAttribute('data-lang'));
+    });
+  });
+
+  var saved = localStorage.getItem('mediflow_lang');
+  if (saved && saved !== 'ko') applyLang(saved);
+})();
+</script>
+
+</body>
+</html>
