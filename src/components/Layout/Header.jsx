@@ -1,12 +1,41 @@
 // src/components/Layout/Header.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Bell, BellOff, Loader2 } from 'lucide-react';
 import ProfileEditModal from './ProfileEditModal';
 import LanguageSwitcher from '../Common/LanguageSwitcher';
+import { isPushSupported, isPushSubscribed, subscribeToPush, unsubscribeFromPush } from '../../utils/pushNotifications';
 
 const Header = ({ activeNurses, currentUser, onLogout, onUserUpdate }) => {
   const { t } = useTranslation();
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [pushOn, setPushOn] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
+  const pushSupported = isPushSupported();
+
+  useEffect(() => {
+    if (!currentUser || !pushSupported) return;
+    isPushSubscribed().then(setPushOn);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser]);
+
+  const handleTogglePush = async () => {
+    if (!currentUser?.token || pushLoading) return;
+    setPushLoading(true);
+    try {
+      if (pushOn) {
+        await unsubscribeFromPush(currentUser.token);
+        setPushOn(false);
+      } else {
+        await subscribeToPush(currentUser.token);
+        setPushOn(true);
+      }
+    } catch (err) {
+      alert(err.message || t('알림 설정 중 오류가 발생했습니다.'));
+    } finally {
+      setPushLoading(false);
+    }
+  };
 
   return (
     
@@ -58,6 +87,34 @@ const Header = ({ activeNurses, currentUser, onLogout, onUserUpdate }) => {
                   </span>
                 )}
               </span>
+              {pushSupported && (
+                <button
+                  onClick={handleTogglePush}
+                  disabled={pushLoading}
+                  title={pushOn ? t('알림 끄기') : t('알림 받기')}
+                  style={{
+                    fontSize: '12px',
+                    padding: '6px 10px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    backgroundColor: pushOn ? '#eff6ff' : 'white',
+                    color: pushOn ? '#2563eb' : '#374151',
+                    cursor: pushLoading ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    whiteSpace: 'nowrap',
+                    opacity: pushLoading ? 0.6 : 1
+                  }}
+                >
+                  {pushLoading ? (
+                    <Loader2 size={14} className="spin" />
+                  ) : pushOn ? (
+                    <Bell size={14} />
+                  ) : (
+                    <BellOff size={14} />
+                  )}
+                </button>
+              )}
               <button
                 onClick={() => setShowProfileModal(true)}
                 style={{

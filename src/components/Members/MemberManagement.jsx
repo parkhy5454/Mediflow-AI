@@ -18,7 +18,8 @@ const AUDIT_ACTION_LABEL = {
   leave_rejected: '휴가 거절',
   subscription_card_registered: '결제 카드 등록',
   subscription_prepaid: '구독 선결제',
-  subscription_cancelled: '구독 해지'
+  subscription_cancelled: '구독 해지',
+  referral_reward_granted: '추천 보상 지급'
 };
 
 const MemberManagement = ({ currentUser, onUserUpdate }) => {

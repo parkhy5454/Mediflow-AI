@@ -121,12 +121,13 @@ const NurseManagement = ({
         departments={departments}
       />
 
-      <NurseTable 
+      <NurseTable
         nurses={filteredNurses}
         updateNurseStatus={updateNurseStatus}
         updateNurse={updateNurse}
         deleteNurse={deleteNurse}
         nameOptions={memberNameOptions}
+        currentUser={currentUser}
       />
     </div>
   );

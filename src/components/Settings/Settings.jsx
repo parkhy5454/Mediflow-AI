@@ -18,6 +18,31 @@ const numberInputStyle = {
   boxSizing: 'border-box'
 };
 
+// [추가] 교대별 연속 근무일수 / 근무 후 휴무일수에 대한 "참고용" 권장 가이드라인.
+// 법적으로 강제되는 기준이 아니라, 간호 인력 운영에서 흔히 권장되는 값을 참고삼아 안내하는
+// 용도이며, 실제 기준은 병원 내규나 관련 법령·단체협약에 따라 다를 수 있다. 저장을 막지 않고
+// 경고만 표시한다.
+const SHIFT_GUIDELINE = {
+  N: { maxShiftDays: 3, minOffDutyAfter: 2 }, // 나이트: 연속 3일 이내, 이후 최소 2일 휴무 권장
+  DEFAULT: { maxShiftDays: 5, minOffDutyAfter: 1 }
+};
+
+const getShiftGuidelineWarnings = (shiftCode, cfg, t) => {
+  const rule = SHIFT_GUIDELINE[shiftCode] || SHIFT_GUIDELINE.DEFAULT;
+  const warnings = [];
+  if (cfg.shiftDays > rule.maxShiftDays) {
+    warnings.push(t('연속 근무 {{days}}일은 일반적으로 권장되는 상한({{max}}일)을 초과합니다.', {
+      days: cfg.shiftDays, max: rule.maxShiftDays
+    }));
+  }
+  if (cfg.offDutyAfter < rule.minOffDutyAfter) {
+    warnings.push(t('근무 후 휴무 {{days}}일은 일반적으로 권장되는 최소 휴무({{min}}일)보다 적습니다.', {
+      days: cfg.offDutyAfter, min: rule.minOffDutyAfter
+    }));
+  }
+  return warnings;
+};
+
 const Settings = ({ rosterConfig, updateRosterConfig, departmentOptions, selectedDepartment, setSelectedDepartment }) => {
   const { t } = useTranslation();
   // 서버에서 불러온 원본과 별개로, 화면에서 편집 중인 임시 값을 따로 들고 있는다.
@@ -104,6 +129,7 @@ const Settings = ({ rosterConfig, updateRosterConfig, departmentOptions, selecte
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         {SHIFT_TYPES.map(shiftCode => {
           const cfg = draft.shifts[shiftCode];
+          const guidelineWarnings = getShiftGuidelineWarnings(shiftCode, cfg, t);
           return (
             <div
               key={shiftCode}
@@ -158,6 +184,23 @@ const Settings = ({ rosterConfig, updateRosterConfig, departmentOptions, selecte
                   />
                 </div>
               </div>
+
+              {guidelineWarnings.length > 0 && (
+                <div style={{
+                  marginTop: '14px', padding: '10px 12px', borderRadius: '6px',
+                  backgroundColor: '#fffbeb', border: '1px solid #fde68a'
+                }}>
+                  {guidelineWarnings.map((w, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', fontSize: '12.5px', color: '#92400e', marginBottom: i === guidelineWarnings.length - 1 ? 0 : '4px' }}>
+                      <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: '1px' }} />
+                      <span>{w}</span>
+                    </div>
+                  ))}
+                  <p style={{ margin: '6px 0 0', fontSize: '11px', color: '#b45309' }}>
+                    {t('법적으로 강제되는 기준은 아니며, 병원 내규나 관련 법령·단체협약에 따라 실제 기준은 다를 수 있는 참고용 안내입니다.')}
+                  </p>
+                </div>
+              )}
             </div>
           );
         })}

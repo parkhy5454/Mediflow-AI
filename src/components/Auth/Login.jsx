@@ -29,15 +29,25 @@ const Login = ({ onLoginSuccess }) => {
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSending, setForgotSending] = useState(false);
   const [forgotMessage, setForgotMessage] = useState('');
+  // [추가] 초대 리워드용 추천인 병원 코드. 앱 소개 공유 링크(?ref=XXXX)로 들어왔을 때만 채워지며,
+  // 완전히 새로운 병원으로 가입할 때만 서버에 함께 전달되어 추천인에게 보상을 지급하는 데 쓰인다.
+  const [referredByHospitalCode, setReferredByHospitalCode] = useState('');
 
   // [추가] 동료 초대 공유 링크(?hospitalCode=XXXX)로 들어온 경우, 회원가입 화면으로 전환하고
   // 병원 코드를 미리 채워준다. (공유/초대 기능과 연동)
+  // 앱 소개 공유 링크(?ref=XXXX)로 들어온 경우에는 병원 코드를 채우지 않고, 추천인 코드만
+  // 기억해뒀다가 회원가입 시 서버로 전달한다(초대 리워드).
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const invitedCode = params.get('hospitalCode');
+    const refCode = params.get('ref');
     if (invitedCode) {
       setIsLogin(false);
       setHospitalCode(invitedCode);
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (refCode) {
+      setIsLogin(false);
+      setReferredByHospitalCode(refCode);
       window.history.replaceState({}, '', window.location.pathname);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -141,7 +151,8 @@ const Login = ({ onLoginSuccess }) => {
             hospitalName: hospitalName.trim(),
             hospitalCode: hospitalCode.trim(),
             wantsAdmin: hospitalHasAdmin === false && wantsAdmin === true,
-            agreedToTerms: true
+            agreedToTerms: true,
+            referredByHospitalCode: referredByHospitalCode ? referredByHospitalCode.trim() : undefined
           };
 
       const res = await fetch(endpoint, {

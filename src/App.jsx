@@ -101,28 +101,43 @@
 
 
 // src/App.jsx (Updated with Export Support)
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import Header from './components/Layout/Header';
 import Navigation from './components/Layout/Navigation';
-import Dashboard from './components/Dashboard/Dashboard';
-import NurseManagement from './components/NurseManagement/NurseManagement';
-import RosterView from './components/Roster/RosterView';
-import Settings from './components/Settings/Settings';
 import Login from './components/Auth/Login';
 import ForcedPasswordChange from './components/Auth/ForcedPasswordChange';
-import MemberManagement from './components/Members/MemberManagement';
-import SwapRequests from './components/Roster/SwapRequests';
-import LeaveRequests from './components/Roster/LeaveRequests';
-import SubscriptionView from './components/Subscription/SubscriptionView';
-import AdminDashboard from './components/Admin/AdminDashboard';
 import FeedbackButton from './components/Feedback/FeedbackButton';
 import ShareInviteButton from './components/Common/ShareInviteButton';
 import { useNurses } from './hooks/useNurses';
 import { useRoster } from './hooks/useRoster';
 import { useRosterConfig } from './hooks/useRosterConfig';
 import { initKakao } from './utils/kakaoShare';
+import i18n from './i18n';
 
 import { useTranslation } from 'react-i18next';
+
+// 모듈 스코프(컴포넌트 바깥)에서는 useTranslation 훅을 쓸 수 없으므로 i18n 인스턴스를 직접 사용.
+const tGlobal = (...args) => i18n.t(...args);
+
+// [코드 스플리팅] 로그인 직후 화면(대시보드)을 제외한 각 탭 화면은 실제로 그 탭을 열 때만 필요하므로
+// 번들에 처음부터 다 포함시키지 않고 React.lazy로 필요할 때 별도 청크로 내려받는다.
+// 초기 로딩 속도(특히 모바일 회선)를 개선하기 위한 변경이며, 각 컴포넌트의 동작 자체는 그대로다.
+const Dashboard = lazy(() => import('./components/Dashboard/Dashboard'));
+const NurseManagement = lazy(() => import('./components/NurseManagement/NurseManagement'));
+const RosterView = lazy(() => import('./components/Roster/RosterView'));
+const Settings = lazy(() => import('./components/Settings/Settings'));
+const MemberManagement = lazy(() => import('./components/Members/MemberManagement'));
+const SwapRequests = lazy(() => import('./components/Roster/SwapRequests'));
+const LeaveRequests = lazy(() => import('./components/Roster/LeaveRequests'));
+const SubscriptionView = lazy(() => import('./components/Subscription/SubscriptionView'));
+const AdminDashboard = lazy(() => import('./components/Admin/AdminDashboard'));
+
+// 탭 전환 시 다음 청크가 내려오는 짧은 동안 보여줄 로딩 표시
+const TabLoadingFallback = () => (
+  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '80px 20px', color: '#9ca3af', fontSize: '14px' }}>
+    {tGlobal('불러오는 중...')}
+  </div>
+);
 
 const HospitalRosterSystem = () => {
   const { t } = useTranslation();
@@ -336,9 +351,10 @@ const HospitalRosterSystem = () => {
         currentUser={currentUser}
       />
 
+      <Suspense fallback={<TabLoadingFallback />}>
       <div>
         {activeTab === 'dashboard' && (
-          <Dashboard 
+          <Dashboard
             {...sharedProps}
             getRosterStats={getRosterStats}
             generateNurseAssignmentChart={generateNurseAssignmentChart}
@@ -402,6 +418,7 @@ const HospitalRosterSystem = () => {
           />
         )}
       </div>
+      </Suspense>
 
       <ShareInviteButton currentUser={currentUser} />
       <FeedbackButton currentUser={currentUser} />

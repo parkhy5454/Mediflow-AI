@@ -1,12 +1,12 @@
 // src/components/Auth/TermsModal.jsx
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
-import { TERMS_OF_SERVICE, PRIVACY_POLICY } from '../../legal/termsText';
+import { getTermsOfService, getPrivacyPolicy } from '../../legal/termsText';
 
 import { useTranslation } from 'react-i18next';
 
 const TermsModal = ({ onClose }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [tab, setTab] = useState('terms'); // 'terms' | 'privacy'
 
   return (
@@ -44,7 +44,7 @@ const TermsModal = ({ onClose }) => {
           </button>
         </div>
         <div style={{ padding: '20px', overflowY: 'auto', whiteSpace: 'pre-wrap', fontSize: '12.5px', lineHeight: '1.7', color: '#374151' }}>
-          {tab === 'terms' ? TERMS_OF_SERVICE : PRIVACY_POLICY}
+          {tab === 'terms' ? getTermsOfService(i18n.resolvedLanguage || i18n.language) : getPrivacyPolicy(i18n.resolvedLanguage || i18n.language)}
         </div>
         <div style={{ padding: '14px 20px', borderTop: '1px solid #e5e7eb' }}>
           <button

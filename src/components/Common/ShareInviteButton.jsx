@@ -20,7 +20,10 @@ const ShareInviteButton = ({ currentUser }) => {
   const appIconUrl = `${window.location.origin}/icons/icon-512.png`;
 
   const inviteLink = `${origin}?hospitalCode=${encodeURIComponent(currentUser.hospitalCode || '')}`;
-  const introLink = origin;
+  // [추가] 앱 소개 공유 링크에는 초대 리워드(추천 보상)를 위해 추천인의 병원 코드를 담는다.
+  // 이 링크를 통해 완전히 새로운 병원이 가입하고 유료 고객이 되면, 이 병원의 구독이
+  // 자동으로 30일 연장된다 (같은 병원에 합류하는 가입에는 적용되지 않음).
+  const introLink = `${origin}?ref=${encodeURIComponent(currentUser.hospitalCode || '')}`;
 
   const items = [
     {
@@ -41,7 +44,7 @@ const ShareInviteButton = ({ currentUser }) => {
       icon: Sparkles,
       color: '#8b5cf6',
       title: t('앱 소개 공유하기'),
-      description: t('Mediflow-AI를 다른 병원 동료나 지인에게 소개해보세요.'),
+      description: t('Mediflow-AI를 다른 병원 동료나 지인에게 소개해보세요. 이 링크를 통해 새 병원이 가입해서 유료 고객이 되면, 우리 병원 구독이 30일 무료 연장돼요.'),
       link: introLink,
       shareTitle: t('Mediflow-AI - 병원 간호사 근무표 관리 시스템'),
       shareDescription: t('근무 주기, 휴가, 근무 변경까지 한 번에 관리하는 간호사 근무표 서비스예요.'),

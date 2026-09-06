@@ -1,7 +1,7 @@
 // src/components/NurseManagement/NurseTable.jsx
 // [수정] 간호사 목록을 부서별로 그룹핑 + 행마다 "수정" 버튼으로 입력 실수를 바로잡을 수 있게 함
 import React, { useState } from 'react';
-import { Eye, EyeOff, Archive, Trash2, Pencil, Check, X } from 'lucide-react';
+import { Eye, EyeOff, Archive, Trash2, Pencil, Check, X, CalendarClock, Loader2 } from 'lucide-react';
 import StatusBadge from '../Common/StatusBadge';
 import SelectOrCustom, { inputStyle } from '../Common/SelectOrCustom';
 import { QUALIFICATION_OPTIONS, EXPERIENCE_OPTIONS, DEPARTMENT_OPTIONS } from '../../constants/nurseOptions';
@@ -9,10 +9,39 @@ import { SHIFT_TYPES, shiftLabel } from '../../constants/shiftTypes';
 
 import { useTranslation } from 'react-i18next';
 
-const NurseTable = ({ nurses, updateNurseStatus, updateNurse, deleteNurse, nameOptions = [] }) => {
+const NurseTable = ({ nurses, updateNurseStatus, updateNurse, deleteNurse, nameOptions = [], currentUser }) => {
   const { t } = useTranslation();
   const [editingId, setEditingId] = useState(null);
   const [editValues, setEditValues] = useState(null);
+  // 캘린더 구독 링크 발급 중인 간호사 id (버튼 로딩 상태 표시용)
+  const [calendarLoadingId, setCalendarLoadingId] = useState(null);
+
+  // [추가] 개인 캘린더(iCal) 구독 링크. 서버가 병원코드+간호사id로부터 계산한 추측 불가능한
+  // 토큰이 포함된 주소를 내려주므로, 그 주소를 그대로 클립보드에 복사해서 간호사에게 전달하면
+  // 구글/애플 캘린더의 "URL로 구독" 기능에 붙여넣어 발행된 근무표를 자동으로 받아볼 수 있다.
+  const handleCopyCalendarLink = async (nurse) => {
+    if (!currentUser?.token) return;
+    setCalendarLoadingId(nurse.id);
+    try {
+      const res = await fetch(`/api/nurses/${nurse.id}/calendar-link`, {
+        headers: { 'Authorization': `Bearer ${currentUser.token}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || t('캘린더 구독 링크를 가져오지 못했습니다.'));
+      const fullUrl = `${window.location.origin}${data.path}`;
+      try {
+        await navigator.clipboard.writeText(fullUrl);
+        alert(t('{{name}}님의 캘린더 구독 링크가 복사되었습니다.\n구글/애플 캘린더의 "URL로 구독" 기능에 붙여넣으면, 발행된 근무표가 자동으로 캘린더에 표시됩니다.', { name: nurse.name }));
+      } catch (clipboardErr) {
+        // 클립보드 접근이 막힌 환경(권한 없음 등)에서는 링크를 그냥 보여준다.
+        window.prompt(t('아래 링크를 복사해서 캘린더 앱의 "URL로 구독" 기능에 붙여넣으세요.'), fullUrl);
+      }
+    } catch (err) {
+      alert(err.message || t('오류가 발생했습니다.'));
+    } finally {
+      setCalendarLoadingId(null);
+    }
+  };
 
   // 부서별로 그룹핑 (부서 미지정은 "미지정 부서"로 묶음), 부서명 가나다순 정렬
   const groups = React.useMemo(() => {
@@ -70,6 +99,24 @@ const NurseTable = ({ nurses, updateNurseStatus, updateNurse, deleteNurse, nameO
         title={t('수정')}
       >
         <Pencil size={14} />
+      </button>
+      <button
+        onClick={() => handleCopyCalendarLink(nurse)}
+        disabled={calendarLoadingId === nurse.id}
+        style={{
+          backgroundColor: '#0ea5e9',
+          color: 'white',
+          padding: '6px',
+          border: 'none',
+          borderRadius: '4px',
+          cursor: calendarLoadingId === nurse.id ? 'not-allowed' : 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          opacity: calendarLoadingId === nurse.id ? 0.6 : 1
+        }}
+        title={t('캘린더 구독 링크 복사')}
+      >
+        {calendarLoadingId === nurse.id ? <Loader2 size={14} className="animate-spin" /> : <CalendarClock size={14} />}
       </button>
       {nurse.status === 'active' && (
         <button

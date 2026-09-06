@@ -59,6 +59,7 @@ const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
 const { Resend } = require('resend');
+const webpush = require('web-push');
 // [추가] 다국어(한국어/영어/중국어) 응답 메시지 지원.
 // 프론트엔드가 X-App-Language 헤더로 현재 언어를 알려주면 그 언어로 에러/안내 메시지를 응답한다.
 const { languageMiddleware, t } = require('./i18n-backend');
@@ -202,6 +203,204 @@ const logAudit = async ({ hospitalCode, actorUserId, actorName, action, targetDe
   }
 };
 
+// [추가] 초대 리워드: 앱 소개 공유 링크(?ref=병원코드)를 통해 새로 가입한 병원이 실제로
+// "유료 고객"이 되는 첫 순간(결제 카드 등록 또는 선결제 완료)에, 추천해준 병원의 구독을
+// REFERRAL_REWARD_DAYS일만큼 무료로 연장해준다. 한 피추천 병원당 딱 한 번만 지급되도록
+// mediflow_users.referral_reward_granted_at 컬럼으로 지급 여부를 기록한다.
+// [필요한 DB 마이그레이션] Supabase SQL Editor에서 아래를 먼저 실행해야 동작한다:
+//   ALTER TABLE mediflow_users ADD COLUMN IF NOT EXISTS referred_by_hospital_code TEXT;
+//   ALTER TABLE mediflow_users ADD COLUMN IF NOT EXISTS referral_reward_granted_at TIMESTAMPTZ;
+const REFERRAL_REWARD_DAYS = 30;
+
+const grantReferralRewardIfEligible = async (hospitalCode) => {
+  try {
+    // 이 병원의 가장 먼저 가입한 사람(=병원 등록자) 행에 추천인 정보가 저장되어 있다.
+    const { data: founder, error } = await supabase
+      .from('mediflow_users')
+      .select('id, referred_by_hospital_code, referral_reward_granted_at')
+      .eq('hospital_code', hospitalCode)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (error || !founder) return;
+    if (!founder.referred_by_hospital_code || founder.referral_reward_granted_at) return;
+
+    const referrerCode = founder.referred_by_hospital_code;
+
+    const { data: referrerSub, error: subError } = await supabase
+      .from('mediflow_subscriptions')
+      .select('prepaid_until')
+      .eq('hospital_code', referrerCode)
+      .maybeSingle();
+    if (subError || !referrerSub) return; // 추천인 병원의 구독 정보가 없으면 조용히 건너뜀
+
+    const now = new Date();
+    const currentUntil = referrerSub.prepaid_until ? new Date(referrerSub.prepaid_until) : null;
+    const base = currentUntil && currentUntil > now ? currentUntil : now;
+    const newUntil = new Date(base);
+    newUntil.setDate(newUntil.getDate() + REFERRAL_REWARD_DAYS);
+    const newUntilStr = newUntil.toISOString().slice(0, 10);
+
+    const { error: rewardError } = await supabase
+      .from('mediflow_subscriptions')
+      .update({
+        prepaid_until: newUntilStr,
+        next_billing_date: newUntilStr,
+        status: 'active',
+        updated_at: new Date().toISOString()
+      })
+      .eq('hospital_code', referrerCode);
+    if (rewardError) throw rewardError;
+
+    // 같은 병원이 두 번 보상을 받지 않도록 즉시 지급 완료로 표시.
+    await supabase
+      .from('mediflow_users')
+      .update({ referral_reward_granted_at: new Date().toISOString() })
+      .eq('id', founder.id);
+
+    logAudit({
+      hospitalCode: referrerCode,
+      actorUserId: null,
+      actorName: '시스템 (추천 보상)',
+      action: 'referral_reward_granted',
+      targetDescription: `추천한 병원(${hospitalCode})이 유료 고객이 되어 구독 ${REFERRAL_REWARD_DAYS}일이 자동으로 연장되었습니다.`
+    });
+  } catch (err) {
+    console.error('referral reward error:', err);
+  }
+};
+
+// ------------------------------------------------------------------
+// 🔔 웹 푸시 알림
+// - 브라우저 Push API + 서비스 워커를 이용해, 앱을 안 열고 있어도 알림을 받을 수 있게 한다.
+// - 사용자별로 구독 정보(endpoint + 암호화 키)를 저장해두고, 이벤트가 생기면 해당 사용자 또는
+//   병원 전체 구독자에게 web-push로 알림을 전송한다.
+// - VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY 환경변수가 설정되어 있지 않으면 기능 자체가 조용히
+//   비활성화된다(에러를 던지지 않음) — 로컬 개발이나 키 설정 전 배포에서도 앱이 죽지 않도록.
+// ------------------------------------------------------------------
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
+const VAPID_CONTACT_EMAIL = process.env.VAPID_CONTACT_EMAIL || 'admin@nduty.kr';
+const PUSH_ENABLED = !!(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY);
+
+if (PUSH_ENABLED) {
+  webpush.setVapidDetails(`mailto:${VAPID_CONTACT_EMAIL}`, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+} else {
+  console.warn('[push] VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY가 설정되지 않아 웹 푸시 알림이 비활성화됩니다.');
+}
+
+// 실제 전송 로직(공통). 구독이 만료/무효(410, 404)면 DB에서도 조용히 삭제한다.
+const sendPushToSubscriptions = async (subscriptions, payload) => {
+  if (!PUSH_ENABLED || !subscriptions || subscriptions.length === 0) return;
+  const body = JSON.stringify(payload);
+  await Promise.all(subscriptions.map(async (sub) => {
+    try {
+      await webpush.sendNotification(
+        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+        body
+      );
+    } catch (err) {
+      if (err && (err.statusCode === 410 || err.statusCode === 404)) {
+        await supabase.from('mediflow_push_subscriptions').delete().eq('id', sub.id);
+      } else {
+        console.error('[push] 전송 실패:', err?.statusCode, err?.body || err?.message);
+      }
+    }
+  }));
+};
+
+// 특정 사용자 1명에게 (여러 기기/브라우저에 구독되어 있을 수 있으므로 전부에게) 전송.
+const sendPushToUser = async (userId, payload) => {
+  if (!PUSH_ENABLED || !userId) return;
+  try {
+    const { data, error } = await supabase
+      .from('mediflow_push_subscriptions')
+      .select('id, endpoint, p256dh, auth')
+      .eq('user_id', userId);
+    if (error) throw error;
+    await sendPushToSubscriptions(data, payload);
+  } catch (err) {
+    console.error('[push] sendPushToUser 오류:', err);
+  }
+};
+
+// 병원 전체 구독자에게 전송 (근무표 발행 등 전체 공지용). excludeUserId로 발행 당사자는 제외 가능.
+const sendPushToHospital = async (hospitalCode, payload, excludeUserId) => {
+  if (!PUSH_ENABLED || !hospitalCode) return;
+  try {
+    let query = supabase
+      .from('mediflow_push_subscriptions')
+      .select('id, endpoint, p256dh, auth, user_id')
+      .eq('hospital_code', hospitalCode);
+    const { data, error } = await query;
+    if (error) throw error;
+    const filtered = excludeUserId ? (data || []).filter((s) => s.user_id !== excludeUserId) : data;
+    await sendPushToSubscriptions(filtered, payload);
+  } catch (err) {
+    console.error('[push] sendPushToHospital 오류:', err);
+  }
+};
+
+// 공개 VAPID 공개키 조회 (로그인 여부와 무관하게 프론트엔드에서 구독 전에 미리 가져옴)
+app.get('/api/push/vapid-public-key', (req, res) => {
+  if (!PUSH_ENABLED) return res.status(404).json({ error: t(req, '푸시 알림 기능이 설정되지 않았습니다.') });
+  res.json({ publicKey: VAPID_PUBLIC_KEY });
+});
+
+// 브라우저 푸시 구독 등록(신규 구독 또는 갱신)
+app.post('/api/push/subscribe', async (req, res) => {
+  try {
+    if (!PUSH_ENABLED) return res.status(404).json({ error: t(req, '푸시 알림 기능이 설정되지 않았습니다.') });
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
+
+    const { subscription } = req.body;
+    if (!subscription || !subscription.endpoint || !subscription.keys || !subscription.keys.p256dh || !subscription.keys.auth) {
+      return res.status(400).json({ error: t(req, '올바르지 않은 구독 정보입니다.') });
+    }
+
+    const { error } = await supabase
+      .from('mediflow_push_subscriptions')
+      .upsert({
+        user_id: requester.id,
+        hospital_code: requester.hospital_code,
+        endpoint: subscription.endpoint,
+        p256dh: subscription.keys.p256dh,
+        auth: subscription.keys.auth,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'endpoint' });
+    if (error) throw error;
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('push subscribe error:', err);
+    res.status(500).json({ error: t(req, '푸시 알림 구독 중 오류가 발생했습니다.') });
+  }
+});
+
+// 구독 해지 (알림 끄기)
+app.post('/api/push/unsubscribe', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
+
+    const { endpoint } = req.body;
+    if (!endpoint) return res.status(400).json({ error: t(req, '올바르지 않은 구독 정보입니다.') });
+
+    const { error } = await supabase
+      .from('mediflow_push_subscriptions')
+      .delete()
+      .eq('endpoint', endpoint)
+      .eq('user_id', requester.id);
+    if (error) throw error;
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('push unsubscribe error:', err);
+    res.status(500).json({ error: t(req, '푸시 알림 구독 해지 중 오류가 발생했습니다.') });
+  }
+});
+
 // ------------------------------------------------------------------
 // 병원 코드 상태 조회 (회원가입 화면에서 "관리자로 가입" 선택지 표시 여부 + 병원명 자동입력용)
 // - hasAdmin: 그 병원 코드로 가입된 관리자가 1명이라도 있는지
@@ -241,7 +440,7 @@ app.get('/api/auth/hospital-status', async (req, res) => {
 // ------------------------------------------------------------------
 app.post('/api/auth/signup', authLimiter, async (req, res) => {
   try {
-    const { email, password, name, phone, hospitalName, hospitalCode, wantsAdmin, agreedToTerms } = req.body;
+    const { email, password, name, phone, hospitalName, hospitalCode, wantsAdmin, agreedToTerms, referredByHospitalCode } = req.body;
 
     if (!email || !password || !name || !hospitalName || !hospitalCode) {
       return res.status(400).json({ error: t(req, '이메일, 비밀번호, 이름, 병원명, 병원 코드를 모두 입력해주세요.') });
@@ -286,6 +485,25 @@ app.post('/api/auth/signup', authLimiter, async (req, res) => {
 
     const passwordHash = bcrypt.hashSync(password, 10);
 
+    // [추가] 초대 리워드: 완전히 새로운 병원이 앱 소개 공유 링크(?ref=추천병원코드)를 통해
+    // 가입한 경우에만 추천인 정보를 저장한다. 이미 존재하는 병원에 합류하는 가입(같은 병원
+    // 코드로 두 번째 이후 가입)이나, 존재하지 않는/자기 자신을 가리키는 추천 코드는 무시한다.
+    const isNewHospital = !existingHospitalMembers || existingHospitalMembers.length === 0;
+    let resolvedReferrerCode = null;
+    if (isNewHospital && referredByHospitalCode) {
+      const normalizedRef = String(referredByHospitalCode).trim().toLowerCase();
+      if (normalizedRef && normalizedRef !== normalizedHospitalCode) {
+        const { data: refCheck } = await supabase
+          .from('mediflow_users')
+          .select('id')
+          .eq('hospital_code', normalizedRef)
+          .limit(1);
+        if (refCheck && refCheck.length > 0) {
+          resolvedReferrerCode = normalizedRef;
+        }
+      }
+    }
+
     const { data: inserted, error: insertError } = await supabase
       .from('mediflow_users')
       .insert({
@@ -296,7 +514,8 @@ app.post('/api/auth/signup', authLimiter, async (req, res) => {
         hospital_name: resolvedHospitalName,
         hospital_code: normalizedHospitalCode,
         role,
-        terms_agreed_at: new Date().toISOString()
+        terms_agreed_at: new Date().toISOString(),
+        referred_by_hospital_code: resolvedReferrerCode
       })
       .select()
       .single();
@@ -982,6 +1201,13 @@ app.put('/api/roster/:monthKey/publish', async (req, res) => {
       targetDescription: `${department ? department + ' ' : ''}${req.params.monthKey} 근무표 발행`
     });
 
+    // [추가] 근무표가 발행되면 병원 전체 구독자(발행한 관리자 본인 제외)에게 푸시 알림.
+    sendPushToHospital(requester.hospital_code, {
+      title: t(req, '근무표가 발행되었습니다'),
+      body: `${department ? department + ' ' : ''}${req.params.monthKey} ${t(req, '근무표')}`,
+      url: '/'
+    }, requester.id);
+
     res.json({ success: true });
   } catch (err) {
     console.error('roster publish error:', err);
@@ -1057,6 +1283,173 @@ app.delete('/api/roster/:monthKey', async (req, res) => {
   } catch (err) {
     console.error('roster delete error:', err);
     res.status(500).json({ error: t(req, '근무표 삭제 중 오류가 발생했습니다.') });
+  }
+});
+
+// ------------------------------------------------------------------
+// 개인 캘린더(iCal) 구독 연동
+// 간호사 한 명의 발행된 근무표를 구글/애플 캘린더 등에서 "URL로 구독"할 수 있도록
+// .ics 피드로 제공한다. 캘린더 앱은 로그인 토큰(Authorization 헤더)을 보낼 수 없으므로,
+// 병원 코드+간호사 id로부터 서버 비밀키(CALENDAR_TOKEN_SECRET)를 이용해 결정적으로 계산되는
+// 추측 불가능한 토큰을 URL에 포함시켜 인증 없이도 그 링크를 아는 사람만 접근 가능하게 한다.
+// (구글 캘린더의 "비공개 주소" 방식과 동일한 보안 모델 — 링크 자체가 비밀번호 역할을 함)
+// ------------------------------------------------------------------
+const CALENDAR_TOKEN_SECRET = process.env.CALENDAR_TOKEN_SECRET || JWT_SECRET || 'insecure-fallback-secret';
+
+const calcCalendarToken = (hospitalCode, nurseId) => {
+  return crypto
+    .createHmac('sha256', CALENDAR_TOKEN_SECRET)
+    .update(`${hospitalCode}:${nurseId}`)
+    .digest('hex')
+    .slice(0, 32);
+};
+
+// 교대별 시작/종료 시각. src/constants/shiftTypes.js의 값과 반드시 같게 유지할 것.
+const CALENDAR_SHIFT_TIMES = {
+  D: { startHour: 7, startMin: 0, endHour: 15, endMin: 0, crossesMidnight: false, name: '데이' },
+  E: { startHour: 14, startMin: 0, endHour: 22, endMin: 0, crossesMidnight: false, name: '이브닝' },
+  N: { startHour: 22, startMin: 0, endHour: 7, endMin: 30, crossesMidnight: true, name: '나이트' },
+  M: { startHour: 9, startMin: 0, endHour: 18, endMin: 0, crossesMidnight: false, name: '미들' }
+};
+
+const pad2 = (n) => String(n).padStart(2, '0');
+
+// year, month0(0-11), day, hour, minute → ICS local datetime 문자열 (TZID=Asia/Seoul과 함께 사용)
+const icsLocalDateTime = (year, month0, day, hour, minute) => {
+  // JS Date가 day 오버플로우(예: 32일)를 다음 달로 알아서 보정해주는 것을 이용해
+  // 나이트 근무처럼 자정을 넘기는 종료 시각/월말 근무를 별도 분기 없이 안전하게 계산한다.
+  const d = new Date(year, month0, day, hour, minute);
+  return `${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}T${pad2(d.getHours())}${pad2(d.getMinutes())}00`;
+};
+
+// ICS 텍스트 필드 이스케이프 (RFC 5545)
+const icsEscape = (str) => String(str || '')
+  .replace(/\\/g, '\\\\')
+  .replace(/;/g, '\\;')
+  .replace(/,/g, '\\,')
+  .replace(/\n/g, '\\n');
+
+// 로그인한 사용자가 자기 병원 소속 간호사의 캘린더 구독 링크를 발급받는다.
+app.get('/api/nurses/:id/calendar-link', async (req, res) => {
+  try {
+    const requester = await getRequesterHospital(req);
+    if (!requester) return res.status(401).json({ error: t(req, '로그인이 필요합니다.') });
+
+    const { data: nurse, error } = await supabase
+      .from('mediflow_nurses')
+      .select('id, hospital_code, name')
+      .eq('id', req.params.id)
+      .eq('hospital_code', requester.hospital_code)
+      .maybeSingle();
+    if (error) throw error;
+    if (!nurse) return res.status(404).json({ error: t(req, '간호사를 찾을 수 없습니다.') });
+
+    const token = calcCalendarToken(nurse.hospital_code, nurse.id);
+    res.json({ path: `/api/calendar/${encodeURIComponent(nurse.hospital_code)}/${nurse.id}/${token}.ics` });
+  } catch (err) {
+    console.error('calendar link error:', err);
+    res.status(500).json({ error: t(req, '캘린더 구독 링크 생성 중 오류가 발생했습니다.') });
+  }
+});
+
+// 실제 .ics 피드. 캘린더 앱(구글/애플/아웃룩 등)이 로그인 없이 주기적으로 이 URL을 그냥 GET
+// 요청하므로 인증 미들웨어를 거치지 않는 공개 라우트이며, 대신 위 토큰으로 보호한다.
+// 발행된(is_published) 근무표만 노출하며, 지난달 1개월 + 이번달 + 다음 2개월 범위만 포함한다.
+app.get('/api/calendar/:hospitalCode/:nurseId/:token.ics', async (req, res) => {
+  try {
+    const { hospitalCode, nurseId, token } = req.params;
+    if (token !== calcCalendarToken(hospitalCode, nurseId)) {
+      return res.status(403).send('Invalid calendar token');
+    }
+
+    const { data: nurse, error: nurseError } = await supabase
+      .from('mediflow_nurses')
+      .select('id, name, department, hospital_code')
+      .eq('id', nurseId)
+      .eq('hospital_code', hospitalCode)
+      .maybeSingle();
+    if (nurseError) throw nurseError;
+    if (!nurse) return res.status(404).send('Nurse not found');
+
+    const now = new Date();
+    const monthOffsets = [-1, 0, 1, 2];
+    const monthKeys = monthOffsets.map(offset => {
+      const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+      return `${d.getFullYear()}-${d.getMonth()}`;
+    });
+
+    const { data: rosters, error: rosterError } = await supabase
+      .from('mediflow_roster')
+      .select('month_key, roster_data')
+      .eq('hospital_code', hospitalCode)
+      .eq('department', nurse.department || '')
+      .in('month_key', monthKeys)
+      .eq('is_published', true);
+    if (rosterError) throw rosterError;
+
+    const events = [];
+    (rosters || []).forEach(r => {
+      const [yearStr, month0Str] = r.month_key.split('-');
+      const year = Number(yearStr);
+      const month0 = Number(month0Str);
+      const rosterData = r.roster_data || {};
+
+      Object.keys(rosterData).forEach(dayStr => {
+        const day = Number(dayStr);
+        const dayData = rosterData[dayStr];
+        if (!dayData) return;
+
+        Object.keys(CALENDAR_SHIFT_TIMES).forEach(shiftType => {
+          const assigned = dayData[shiftType];
+          if (!Array.isArray(assigned)) return;
+          if (!assigned.some(n => n.id === nurse.id)) return;
+
+          const timing = CALENDAR_SHIFT_TIMES[shiftType];
+          const dtStart = icsLocalDateTime(year, month0, day, timing.startHour, timing.startMin);
+          const endDay = timing.crossesMidnight ? day + 1 : day;
+          const dtEnd = icsLocalDateTime(year, month0, endDay, timing.endHour, timing.endMin);
+
+          events.push({
+            uid: `mediflow-${nurse.id}-${year}-${month0}-${day}-${shiftType}@nduty.kr`,
+            dtStart,
+            dtEnd,
+            summary: `${timing.name} 근무 (${shiftType})`
+          });
+        });
+      });
+    });
+
+    const dtStamp = `${now.getUTCFullYear()}${pad2(now.getUTCMonth() + 1)}${pad2(now.getUTCDate())}T${pad2(now.getUTCHours())}${pad2(now.getUTCMinutes())}${pad2(now.getUTCSeconds())}Z`;
+
+    const lines = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Mediflow-AI//Roster Calendar//KO',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      `X-WR-CALNAME:${icsEscape(`${nurse.name} ${t(req, '근무표')}`)}`,
+      'REFRESH-INTERVAL;VALUE=DURATION:PT6H',
+      'X-PUBLISHED-TTL:PT6H'
+    ];
+    events.forEach(ev => {
+      lines.push(
+        'BEGIN:VEVENT',
+        `UID:${ev.uid}`,
+        `DTSTAMP:${dtStamp}`,
+        `DTSTART;TZID=Asia/Seoul:${ev.dtStart}`,
+        `DTEND;TZID=Asia/Seoul:${ev.dtEnd}`,
+        `SUMMARY:${icsEscape(ev.summary)}`,
+        'END:VEVENT'
+      );
+    });
+    lines.push('END:VCALENDAR');
+
+    res.set('Content-Type', 'text/calendar; charset=utf-8');
+    res.set('Content-Disposition', `inline; filename="mediflow-${nurse.id}.ics"`);
+    res.send(lines.join('\r\n'));
+  } catch (err) {
+    console.error('calendar feed error:', err);
+    res.status(500).send('Error generating calendar feed');
   }
 });
 
@@ -1525,6 +1918,12 @@ app.put('/api/swap-requests/:id/decision', async (req, res) => {
         targetDescription: `${swapReq.from_day}일 ${swapReq.from_shift_type} (${swapReq.from_nurse_name}) 근무 변경 요청 거절`
       });
 
+      sendPushToUser(swapReq.created_by_user_id, {
+        title: t(req, '근무 변경 요청이 거절되었습니다'),
+        body: t(req, '{{day}}일 {{shift}} ({{name}})', { day: swapReq.from_day, shift: swapReq.from_shift_type, name: swapReq.from_nurse_name }),
+        url: '/'
+      });
+
       return res.json(toPublicSwapRequest(updated));
     }
 
@@ -1650,6 +2049,12 @@ app.put('/api/swap-requests/:id/decision', async (req, res) => {
       targetDescription: swapReq.request_type === 'swap'
         ? `${swapReq.from_day}일 ${swapReq.from_shift_type}(${swapReq.from_nurse_name}) ⇄ ${swapReq.to_day}일 ${swapReq.to_shift_type}(${swapReq.to_nurse_name}) 맞교환 승인`
         : `${swapReq.from_day}일 ${swapReq.from_shift_type} ${swapReq.from_nurse_name} → ${toNurseFull.name} 대타 승인`
+    });
+
+    sendPushToUser(swapReq.created_by_user_id, {
+      title: t(req, '근무 변경 요청이 승인되었습니다'),
+      body: t(req, '{{day}}일 {{shift}} ({{name}})', { day: swapReq.from_day, shift: swapReq.from_shift_type, name: swapReq.from_nurse_name }),
+      url: '/'
     });
 
     res.json(toPublicSwapRequest(updatedReq));
@@ -1835,6 +2240,12 @@ app.put('/api/leave-requests/:id/decision', async (req, res) => {
       actorName: requester.name,
       action: decision === 'approved' ? 'leave_approved' : 'leave_rejected',
       targetDescription: `${existing.requester_name} 휴가(${existing.start_date} ~ ${existing.end_date}) ${decision === 'approved' ? '승인' : '거절'}`
+    });
+
+    sendPushToUser(existing.user_id, {
+      title: decision === 'approved' ? t(req, '휴가 신청이 승인되었습니다') : t(req, '휴가 신청이 거절되었습니다'),
+      body: `${existing.start_date} ~ ${existing.end_date}`,
+      url: '/'
     });
 
     res.json(toPublicLeaveRequest(updated));
@@ -2029,6 +2440,10 @@ app.post('/api/subscription/register-card', async (req, res) => {
       targetDescription: `결제 카드 등록 (${tossData.card?.company || ''} ${tossData.card?.number ? tossData.card.number.slice(-4) : ''})`
     });
 
+    // 카드 등록은 "유료 고객이 됨"을 나타내는 첫 신호이므로, 추천을 통해 가입한 병원이라면
+    // 여기서 추천인에게 보상을 지급한다 (이미 지급됐다면 함수 내부에서 조용히 건너뜀).
+    grantReferralRewardIfEligible(requester.hospital_code);
+
     res.json({ success: true });
   } catch (err) {
     console.error('register card error:', err);
@@ -2167,6 +2582,9 @@ app.post('/api/subscription/prepay/confirm', async (req, res) => {
       action: 'subscription_prepaid',
       targetDescription: `${yearsNum}년 선결제 완료 (${Number(amount).toLocaleString()}원, ~${newPrepaidUntilStr})`
     });
+
+    // 선결제도 카드 등록과 마찬가지로 "유료 고객이 됨"의 신호이므로 동일하게 추천 보상을 확인한다.
+    grantReferralRewardIfEligible(requester.hospital_code);
 
     res.json({ success: true, prepaidUntil: newPrepaidUntilStr });
   } catch (err) {
