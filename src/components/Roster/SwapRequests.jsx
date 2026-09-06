@@ -88,11 +88,11 @@ const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, select
     e.preventDefault();
     setSubmitError('');
     if (!fromDay || !fromShiftType || !fromNurseId) {
-      setSubmitError('본인의 근무(날짜/교대/이름)를 모두 선택해주세요.');
+      setSubmitError(t('본인의 근무(날짜/교대/이름)를 모두 선택해주세요.'));
       return;
     }
     if (requestType === 'swap' && (!toDay || !toShiftType || !toNurseId)) {
-      setSubmitError('맞바꿀 상대방의 근무(날짜/교대/이름)를 모두 선택해주세요.');
+      setSubmitError(t('맞바꿀 상대방의 근무(날짜/교대/이름)를 모두 선택해주세요.'));
       return;
     }
 
@@ -190,8 +190,8 @@ const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, select
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-            <span style={badgeStyle(r.status)}>{STATUS_LABEL[r.status]?.text}</span>
-            <span style={{ fontSize: '11px', color: '#9ca3af' }}>{r.requestType === 'swap' ? '1:1 맞교환' : '공개 대타'}</span>
+            <span style={badgeStyle(r.status)}>{t(STATUS_LABEL[r.status]?.text || STATUS_LABEL.pending.text)}</span>
+            <span style={{ fontSize: '11px', color: '#9ca3af' }}>{r.requestType === 'swap' ? t('1:1 맞교환') : t('공개 대타')}</span>
           </div>
           <div style={{ fontSize: '13px', color: '#1f2937', fontWeight: '500' }}>{describeRequest(r)}</div>
           {r.reason && <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>{t('사유: {{reason}}', {
@@ -234,7 +234,7 @@ const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, select
                   disabled={!volunteerNurseId || busyId === r.id}
                   style={{ padding: '6px 10px', borderRadius: '6px', border: 'none', backgroundColor: '#10b981', color: 'white', fontSize: '12px', cursor: 'pointer' }}
                 >
-                  {busyId === r.id ? <Loader2 size={14} className="animate-spin" /> : '확정'}
+                  {busyId === r.id ? <Loader2 size={14} className="animate-spin" /> : t('확정')}
                 </button>
                 <button onClick={() => { setVolunteerFor(null); setVolunteerNurseId(''); }} style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #d1d5db', backgroundColor: 'white', fontSize: '12px', cursor: 'pointer' }}>
                   {t('취소')}
@@ -321,7 +321,7 @@ const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, select
             }}
           >
             {departmentOptions.map(dept => (
-              <option key={dept || '_unset'} value={dept}>{dept || '미지정'}</option>
+              <option key={dept || '_unset'} value={dept}>{dept ? t(dept) : t('미지정')}</option>
             ))}
           </select>
         </div>
@@ -342,7 +342,7 @@ const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, select
               {t(
           "1:1 맞교환은 상대방까지 지정해서 바로 승인 대기로 올라가고, 공개 대타는 지원자가 나타나면 승인 대기로 전환됩니다. {{value}}",
           {
-            value: isAdmin ? ' 관리자는 승인 대기 요청을 승인/거절할 수 있으며, 승인 즉시 근무표에 반영됩니다.' : ' 최종 반영은 관리자 승인 후에 이루어집니다.'
+            value: isAdmin ? ' ' + t('관리자는 승인 대기 요청을 승인/거절할 수 있으며, 승인 즉시 근무표에 반영됩니다.') : ' ' + t('최종 반영은 관리자 승인 후에 이루어집니다.')
           }
         )}
             </p>
@@ -447,7 +447,7 @@ const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, select
 
           <div style={{ display: 'flex', gap: '8px' }}>
             <button type="submit" disabled={submitting} style={{ padding: '9px 16px', borderRadius: '6px', border: 'none', backgroundColor: '#3b82f6', color: 'white', fontSize: '13px', fontWeight: '600', cursor: submitting ? 'not-allowed' : 'pointer' }}>
-              {submitting ? '등록 중...' : '요청 등록'}
+              {submitting ? t('등록 중...') : t('요청 등록')}
             </button>
             <button type="button" onClick={() => { resetForm(); setFormOpen(false); }} style={{ padding: '9px 16px', borderRadius: '6px', border: '1px solid #d1d5db', backgroundColor: 'white', color: '#374151', fontSize: '13px', cursor: 'pointer' }}>
               {t('취소')}

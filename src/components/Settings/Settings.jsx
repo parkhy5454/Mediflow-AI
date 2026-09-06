@@ -92,7 +92,7 @@ const Settings = ({ rosterConfig, updateRosterConfig, departmentOptions, selecte
             }}
           >
             {departmentOptions.map(dept => (
-              <option key={dept || '_unset'} value={dept}>{dept || '미지정'}</option>
+              <option key={dept || '_unset'} value={dept}>{dept ? t(dept) : t('미지정')}</option>
             ))}
           </select>
           <p style={{ margin: '6px 0 0', fontSize: '11px', color: '#9ca3af' }}>
@@ -207,7 +207,7 @@ const Settings = ({ rosterConfig, updateRosterConfig, departmentOptions, selecte
           }}
         >
           <Save size={16} />
-          {saving ? '저장 중...' : '저장'}
+          {saving ? t('저장 중...') : t('저장')}
         </button>
 
         {hasChanges && !saving && (

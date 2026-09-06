@@ -86,9 +86,9 @@ const Login = ({ onLoginSuccess }) => {
         body: JSON.stringify({ email: forgotEmail.trim() })
       });
       const data = await res.json();
-      setForgotMessage(data.message || '요청을 처리했습니다.');
+      setForgotMessage(data.message || t('요청을 처리했습니다.'));
     } catch (err) {
-      setForgotMessage('요청 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+      setForgotMessage(t('요청 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'));
     } finally {
       setForgotSending(false);
     }
@@ -99,19 +99,19 @@ const Login = ({ onLoginSuccess }) => {
     setError('');
 
     if (!email.trim() || !password) {
-      setError('이메일과 비밀번호를 입력해주세요.');
+      setError(t('이메일과 비밀번호를 입력해주세요.'));
       return;
     }
     if (!isLogin && (!name.trim() || !hospitalName.trim() || !hospitalCode.trim())) {
-      setError('이름, 병원명, 병원 코드를 모두 입력해주세요.');
+      setError(t('이름, 병원명, 병원 코드를 모두 입력해주세요.'));
       return;
     }
     if (!isLogin && !(password.length >= 8 && /[a-zA-Z]/.test(password) && /[0-9]/.test(password))) {
-      setError('비밀번호는 영문과 숫자를 포함해 8자 이상이어야 합니다.');
+      setError(t('비밀번호는 영문과 숫자를 포함해 8자 이상이어야 합니다.'));
       return;
     }
     if (!isLogin && !agreedToTerms) {
-      setError('이용약관 및 개인정보처리방침에 동의해야 회원가입할 수 있습니다.');
+      setError(t('이용약관 및 개인정보처리방침에 동의해야 회원가입할 수 있습니다.'));
       return;
     }
 
@@ -139,7 +139,7 @@ const Login = ({ onLoginSuccess }) => {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || '요청 처리 중 오류가 발생했습니다.');
+        setError(data.error || t('요청 처리 중 오류가 발생했습니다.'));
         return;
       }
 
@@ -148,7 +148,7 @@ const Login = ({ onLoginSuccess }) => {
       onLoginSuccess({ ...data.user, token: data.token });
     } catch (err) {
       console.error(err);
-      setError('서버와 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+      setError(t('서버와 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'));
     } finally {
       setLoading(false);
     }
@@ -279,7 +279,7 @@ const Login = ({ onLoginSuccess }) => {
                   type="text"
                   value={hospitalName}
                   onChange={(e) => setHospitalName(e.target.value)}
-                  placeholder={hospitalCode.trim() ? '병원 코드를 먼저 확인 중...' : '병원 코드를 먼저 입력하세요'}
+                  placeholder={hospitalCode.trim() ? t('병원 코드를 먼저 확인 중...') : t('병원 코드를 먼저 입력하세요')}
                   readOnly={!!existingHospitalName}
                   disabled={!hospitalCode.trim()}
                   style={{
@@ -290,10 +290,10 @@ const Login = ({ onLoginSuccess }) => {
                 />
                 <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px', lineHeight: '1.4' }}>
                   {existingHospitalName
-                    ? '이미 등록된 병원이라 기존 병원명으로 자동 입력되며 수정할 수 없습니다.'
+                    ? t('이미 등록된 병원이라 기존 병원명으로 자동 입력되며 수정할 수 없습니다.')
                     : hospitalCode.trim()
-                      ? '새 병원 코드입니다. 이 병원의 정식 명칭을 입력해주세요. (이후 같은 코드로 가입하는 동료에게 이 이름이 그대로 쓰입니다)'
-                      : '병원 코드를 입력하면 여기에 자동으로 채워지거나, 새 병원이면 직접 입력할 수 있습니다.'}
+                      ? t('새 병원 코드입니다. 이 병원의 정식 명칭을 입력해주세요. (이후 같은 코드로 가입하는 동료에게 이 이름이 그대로 쓰입니다)')
+                      : t('병원 코드를 입력하면 여기에 자동으로 채워지거나, 새 병원이면 직접 입력할 수 있습니다.')}
                 </p>
               </div>
 
@@ -367,7 +367,7 @@ const Login = ({ onLoginSuccess }) => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder={isLogin ? '비밀번호' : '영문+숫자 포함 8자 이상'}
+              placeholder={isLogin ? t('비밀번호') : t('영문+숫자 포함 8자 이상')}
               style={inputStyle}
             />
             {isLogin && (
@@ -400,7 +400,7 @@ const Login = ({ onLoginSuccess }) => {
                   disabled={forgotSending}
                   style={{ padding: '0 16px', borderRadius: '6px', border: 'none', backgroundColor: '#374151', color: 'white', fontSize: '13px', fontWeight: '600', cursor: forgotSending ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
                 >
-                  {forgotSending ? '전송 중...' : '전송'}
+                  {forgotSending ? t('전송 중...') : t('전송')}
                 </button>
               </div>
               {forgotMessage && (
@@ -431,7 +431,7 @@ const Login = ({ onLoginSuccess }) => {
               opacity: loading ? 0.7 : 1
             }}
           >
-            {loading ? '처리 중...' : isLogin ? '로그인' : '회원가입'}
+            {loading ? t('처리 중...') : isLogin ? t('로그인') : t('회원가입')}
           </button>
         </form>
 
@@ -439,7 +439,7 @@ const Login = ({ onLoginSuccess }) => {
           style={{ textAlign: 'center', marginTop: '16px', fontSize: '13px', color: '#6b7280', cursor: 'pointer' }}
           onClick={() => { setIsLogin(!isLogin); setError(''); resetSignupFields(); }}
         >
-          {isLogin ? '계정이 없으신가요? 회원가입' : '이미 계정이 있으신가요? 로그인'}
+          {isLogin ? t('계정이 없으신가요? 회원가입') : t('이미 계정이 있으신가요? 로그인')}
         </p>
       </div>
 

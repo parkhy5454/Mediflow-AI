@@ -188,7 +188,7 @@ const HospitalRosterSystem = () => {
           if (res.ok) {
             alert(t('카드가 정상적으로 등록되었습니다.'));
           } else {
-            alert(data.error || '카드 등록에 실패했습니다.');
+            alert(data.error || t('카드 등록에 실패했습니다.'));
           }
         } catch (err) {
           alert(t('카드 등록 중 오류가 발생했습니다.'));
@@ -215,9 +215,9 @@ const HospitalRosterSystem = () => {
           });
           const data = await res.json();
           if (res.ok) {
-            alert(`${years}년 선결제가 완료되었습니다. (${data.prepaidUntil}까지 적용)`);
+            alert(t('{{years}}년 선결제가 완료되었습니다. ({{prepaidUntil}}까지 적용)', { years, prepaidUntil: data.prepaidUntil }));
           } else {
-            alert(data.error || '선결제 처리에 실패했습니다.');
+            alert(data.error || t('선결제 처리에 실패했습니다.'));
           }
         } catch (err) {
           alert(t('선결제 처리 중 오류가 발생했습니다.'));

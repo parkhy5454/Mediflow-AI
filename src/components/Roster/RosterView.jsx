@@ -371,7 +371,7 @@ const RosterView = ({
             }}
           >
             {departmentOptions.map(dept => (
-              <option key={dept || '_unset'} value={dept}>{dept || '미지정'}</option>
+              <option key={dept || '_unset'} value={dept}>{dept ? t(dept) : t('미지정')}</option>
             ))}
           </select>
         </div>

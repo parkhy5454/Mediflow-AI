@@ -75,7 +75,7 @@ const SubscriptionView = ({ currentUser }) => {
     } catch (err) {
       // 사용자가 결제창을 직접 닫은 경우 등은 에러로 안 보여줘도 됨
       if (err?.code !== 'USER_CANCEL') {
-        setRegisterError(err?.message || '카드 등록 창을 여는 중 오류가 발생했습니다.');
+        setRegisterError(err?.message || t('카드 등록 창을 여는 중 오류가 발생했습니다.'));
       }
       setRegistering(false);
     }
@@ -85,11 +85,11 @@ const SubscriptionView = ({ currentUser }) => {
   const handlePrepay = async (years, amount) => {
     setPrepayError('');
     if (!TOSS_CLIENT_KEY) {
-      setPrepayError('결제 서비스가 아직 설정되지 않았습니다.');
+      setPrepayError(t('결제 서비스가 아직 설정되지 않았습니다.'));
       return;
     }
     if (!window.TossPayments) {
-      setPrepayError('결제 모듈을 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.');
+      setPrepayError(t('결제 모듈을 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.'));
       return;
     }
     setPrepayingYears(years);
@@ -109,7 +109,7 @@ const SubscriptionView = ({ currentUser }) => {
       });
     } catch (err) {
       if (err?.code !== 'USER_CANCEL') {
-        setPrepayError(err?.message || '결제창을 여는 중 오류가 발생했습니다.');
+        setPrepayError(err?.message || t('결제창을 여는 중 오류가 발생했습니다.'));
       }
       setPrepayingYears(null);
     }

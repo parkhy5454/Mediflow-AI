@@ -27,7 +27,7 @@ const ProfileEditModal = ({ currentUser, onClose, onSaved }) => {
     e.preventDefault();
     setError('');
     if (!name.trim()) {
-      setError('이름을 입력해주세요.');
+      setError(t('이름을 입력해주세요.'));
       return;
     }
 
@@ -39,7 +39,7 @@ const ProfileEditModal = ({ currentUser, onClose, onSaved }) => {
         body: JSON.stringify({ name: name.trim(), phone: phone.trim() })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || '저장에 실패했습니다.');
+      if (!res.ok) throw new Error(data.error || t('저장에 실패했습니다.'));
       onSaved(data.user);
       onClose();
     } catch (err) {
@@ -116,7 +116,7 @@ const ProfileEditModal = ({ currentUser, onClose, onSaved }) => {
               cursor: loading ? 'not-allowed' : 'pointer', marginTop: '4px'
             }}
           >
-            {loading ? '저장 중...' : '저장'}
+            {loading ? t('저장 중...') : t('저장')}
           </button>
         </form>
       </div>

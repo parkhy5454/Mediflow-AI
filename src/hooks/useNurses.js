@@ -46,7 +46,7 @@ export const useNurses = (currentUser) => {
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || '간호사 추가에 실패했습니다.');
+        alert(data.error || t('간호사 추가에 실패했습니다.'));
         return false;
       }
       setNurses(prev => [...prev, data]);
@@ -83,7 +83,7 @@ export const useNurses = (currentUser) => {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert(data.error || '간호사 정보 수정에 실패했습니다.');
+        alert(data.error || t('간호사 정보 수정에 실패했습니다.'));
         return false;
       }
       return true;
@@ -121,7 +121,7 @@ export const useNurses = (currentUser) => {
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         console.error('간호사 일괄 저장 실패:', data);
-        alert(`간호사 정보(누적 통계 포함) 서버 저장에 실패했습니다: ${data.error || '알 수 없는 오류'}\n근무표는 만들어졌지만 통계가 정확하지 않을 수 있으니, 개발자에게 문의해주세요.`);
+        alert(t('간호사 정보(누적 통계 포함) 서버 저장에 실패했습니다: {{error}}\n근무표는 만들어졌지만 통계가 정확하지 않을 수 있으니, 개발자에게 문의해주세요.', { error: data.error || t('알 수 없는 오류') }));
         return false;
       }
       return true;

@@ -1,5 +1,6 @@
 // src/hooks/useSubscription.js
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 
 const authHeaders = (currentUser, withBody = false) => {
   const headers = { 'Authorization': `Bearer ${currentUser?.token}` };
@@ -8,6 +9,7 @@ const authHeaders = (currentUser, withBody = false) => {
 };
 
 export const useSubscription = (currentUser) => {
+  const { t } = useTranslation();
   const [subscription, setSubscription] = useState(null);
   const [billingHistory, setBillingHistory] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -24,15 +26,15 @@ export const useSubscription = (currentUser) => {
       ]);
       const subData = await subRes.json();
       const historyData = await historyRes.json();
-      if (!subRes.ok) throw new Error(subData.error || '구독 정보를 가져오지 못했습니다.');
+      if (!subRes.ok) throw new Error(subData.error || t('구독 정보를 가져오지 못했습니다.'));
       setSubscription(subData);
       if (historyRes.ok) setBillingHistory(historyData);
     } catch (err) {
-      setError(err.message || '오류가 발생했습니다.');
+      setError(err.message || t('오류가 발생했습니다.'));
     } finally {
       setLoading(false);
     }
-  }, [currentUser]);
+  }, [currentUser, t]);
 
   useEffect(() => {
     fetchSubscription();
@@ -46,7 +48,7 @@ export const useSubscription = (currentUser) => {
         body: JSON.stringify({ authKey, customerKey })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || '카드 등록에 실패했습니다.');
+      if (!res.ok) throw new Error(data.error || t('카드 등록에 실패했습니다.'));
       await fetchSubscription();
       return { success: true };
     } catch (err) {
@@ -61,7 +63,7 @@ export const useSubscription = (currentUser) => {
         headers: authHeaders(currentUser, true)
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || '구독 해지에 실패했습니다.');
+      if (!res.ok) throw new Error(data.error || t('구독 해지에 실패했습니다.'));
       await fetchSubscription();
       return { success: true };
     } catch (err) {

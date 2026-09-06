@@ -4,6 +4,7 @@
 // [수정 3] updateRosterConfig가 성공/실패 결과를 반환하도록 변경 — Settings.jsx의 "저장" 버튼에서 사용.
 // [수정 4] 근무표 설정도 병원 전체가 아니라 부서(병동)별로 따로 관리하도록 변경.
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { defaultRosterConfig } from '../constants/rosterConfig';
 
 const mergeWithDefaults = (config) => ({
@@ -16,6 +17,7 @@ const mergeWithDefaults = (config) => ({
 });
 
 export const useRosterConfig = (currentUser, department = '') => {
+  const { t } = useTranslation();
   const [rosterConfig, setRosterConfig] = useState(defaultRosterConfig);
 
   useEffect(() => {
@@ -41,7 +43,7 @@ export const useRosterConfig = (currentUser, department = '') => {
   // 호출되며, 성공하면 { success: true }, 실패하면 { success: false, message } 를 반환한다.
   const updateRosterConfig = async (updates) => {
     const next = { ...rosterConfig, ...updates };
-    if (!currentUser) return { success: false, message: '로그인이 필요합니다.' };
+    if (!currentUser) return { success: false, message: t('로그인이 필요합니다.') };
     try {
       const res = await fetch(`/api/roster-config?department=${encodeURIComponent(department || '')}`, {
         method: 'PUT',
@@ -51,13 +53,13 @@ export const useRosterConfig = (currentUser, department = '') => {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         console.error('근무표 설정 저장 실패:', data);
-        return { success: false, message: data.error || '저장에 실패했습니다.' };
+        return { success: false, message: data.error || t('저장에 실패했습니다.') };
       }
       setRosterConfig(next);
       return { success: true };
     } catch (err) {
       console.error('근무표 설정 저장 실패:', err);
-      return { success: false, message: '서버와 통신 중 오류가 발생했습니다.' };
+      return { success: false, message: t('서버와 통신 중 오류가 발생했습니다.') };
     }
   };
 

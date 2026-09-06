@@ -217,7 +217,7 @@ const NurseTable = ({ nurses, updateNurseStatus, updateNurse, deleteNurse, nameO
                         fontSize: '13px'
                       }}
                     >
-                      {department} <span style={{ fontWeight: '400', color: '#6366f1', fontSize: '12px' }}>{t('({{length}}명)', {
+                      {t(department)} <span style={{ fontWeight: '400', color: '#6366f1', fontSize: '12px' }}>{t('({{length}}명)', {
                         length: deptNurses.length
                       })}</span>
                     </td>

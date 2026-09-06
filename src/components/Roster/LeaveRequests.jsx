@@ -60,15 +60,15 @@ const LeaveRequests = ({ currentUser, nurses, departmentOptions, selectedDepartm
     e.preventDefault();
     setSubmitError('');
     if (!nurseId) {
-      setSubmitError('본인이 어떤 간호사인지 선택해주세요.');
+      setSubmitError(t('본인이 어떤 간호사인지 선택해주세요.'));
       return;
     }
     if (!startDate || !endDate) {
-      setSubmitError('시작일과 종료일을 선택해주세요.');
+      setSubmitError(t('시작일과 종료일을 선택해주세요.'));
       return;
     }
     if (endDate < startDate) {
-      setSubmitError('종료일이 시작일보다 빠를 수 없습니다.');
+      setSubmitError(t('종료일이 시작일보다 빠를 수 없습니다.'));
       return;
     }
     setSubmitting(true);

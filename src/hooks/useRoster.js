@@ -67,12 +67,17 @@ export const useRoster = (nurses, selectedMonth, selectedYear, updateNurses, cur
 
   const generateBalancedRoster = (rosterConfig, approvedLeaves = []) => {
     if (rosterMeta[storageKey]?.isPublished) {
-      return { success: false, message: '이 근무표는 이미 발행되어 있어 재생성할 수 없습니다. 먼저 발행을 취소해주세요.' };
+      return { success: false, message: t('이 근무표는 이미 발행되어 있어 재생성할 수 없습니다. 먼저 발행을 취소해주세요.') };
     }
 
     const activeNurses = departmentNurses.filter(nurse => nurse.status === 'active');
     if (activeNurses.length === 0) {
-      return { success: false, message: department ? `${department}에 소속된 활성 간호사가 없습니다.` : '부서가 지정되지 않은 활성 간호사가 없습니다. 간호사 관리에서 부서를 지정해주세요.' };
+      return {
+        success: false,
+        message: department
+          ? t('{{department}}에 소속된 활성 간호사가 없습니다.', { department: t(department) })
+          : t('부서가 지정되지 않은 활성 간호사가 없습니다. 간호사 관리에서 부서를 지정해주세요.')
+      };
     }
     const daysInMonth = getDaysInMonth(selectedMonth, selectedYear);
     
@@ -114,7 +119,7 @@ export const useRoster = (nurses, selectedMonth, selectedYear, updateNurses, cur
       
       return { 
         success: true, 
-        message: result.message + (leaveNotes.length > 0 ? `\n\n🏖 승인된 휴가 반영:\n${leaveNotes.join('\n')}` : ''), 
+        message: result.message + (leaveNotes.length > 0 ? `\n\n${t('🏖 승인된 휴가 반영:')}\n${leaveNotes.join('\n')}` : ''),
         workloadSummary: result.workloadSummary,
         continuityInfo: result.continuityInfo,
         shiftTypes: result.shiftTypes
@@ -214,39 +219,39 @@ export const useRoster = (nurses, selectedMonth, selectedYear, updateNurses, cur
   const publishRoster = async (month = selectedMonth, year = selectedYear) => {
     const key = `${year}-${month}`;
     const sKey = `${key}::${department || '_'}`;
-    if (!currentUser) return { success: false, message: '로그인이 필요합니다.' };
+    if (!currentUser) return { success: false, message: t('로그인이 필요합니다.') };
     try {
       const res = await fetch(`/api/roster/${key}/publish?department=${encodeURIComponent(department || '')}`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${currentUser.token}` }
       });
       const data = await res.json();
-      if (!res.ok) return { success: false, message: data.error || '발행에 실패했습니다.' };
+      if (!res.ok) return { success: false, message: data.error || t('발행에 실패했습니다.') };
       setRosterMeta(prev => ({
         ...prev,
         [sKey]: { isPublished: true, publishedAt: new Date().toISOString(), publishedByName: currentUser.name }
       }));
       return { success: true };
     } catch (err) {
-      return { success: false, message: '발행 중 오류가 발생했습니다.' };
+      return { success: false, message: t('발행 중 오류가 발생했습니다.') };
     }
   };
 
   const unpublishRoster = async (month = selectedMonth, year = selectedYear) => {
     const key = `${year}-${month}`;
     const sKey = `${key}::${department || '_'}`;
-    if (!currentUser) return { success: false, message: '로그인이 필요합니다.' };
+    if (!currentUser) return { success: false, message: t('로그인이 필요합니다.') };
     try {
       const res = await fetch(`/api/roster/${key}/unpublish?department=${encodeURIComponent(department || '')}`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${currentUser.token}` }
       });
       const data = await res.json();
-      if (!res.ok) return { success: false, message: data.error || '발행 취소에 실패했습니다.' };
+      if (!res.ok) return { success: false, message: data.error || t('발행 취소에 실패했습니다.') };
       setRosterMeta(prev => ({ ...prev, [sKey]: { isPublished: false, publishedAt: null, publishedByName: null } }));
       return { success: true };
     } catch (err) {
-      return { success: false, message: '발행 취소 중 오류가 발생했습니다.' };
+      return { success: false, message: t('발행 취소 중 오류가 발생했습니다.') };
     }
   };
 

@@ -42,10 +42,10 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
         headers: { 'Authorization': `Bearer ${currentUser.token}` }
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || '회원 목록을 가져오지 못했습니다.');
+      if (!res.ok) throw new Error(data.error || t('회원 목록을 가져오지 못했습니다.'));
       setMembers(data);
     } catch (err) {
-      setError(err.message || '오류가 발생했습니다.');
+      setError(err.message || t('오류가 발생했습니다.'));
     } finally {
       setLoading(false);
     }
@@ -84,7 +84,7 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
         body: JSON.stringify({ role: newRole })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || '역할 변경에 실패했습니다.');
+      if (!res.ok) throw new Error(data.error || t('역할 변경에 실패했습니다.'));
       setMembers(prev => prev.map(m => (m.id === targetId ? { ...m, role: newRole } : m)));
       // 본인의 역할이 바뀐 경우, 앱 전역 currentUser도 함께 갱신해야
       // 새로고침 없이 바로 관리자 화면들이 보인다.
@@ -93,7 +93,7 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
       }
       fetchAuditLog();
     } catch (err) {
-      setActionError(err.message || '역할 변경 중 오류가 발생했습니다.');
+      setActionError(err.message || t('역할 변경 중 오류가 발생했습니다.'));
     } finally {
       setUpdatingId(null);
     }
@@ -109,11 +109,11 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
         headers: { 'Authorization': `Bearer ${currentUser.token}` }
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || '비밀번호 초기화에 실패했습니다.');
+      if (!res.ok) throw new Error(data.error || t('비밀번호 초기화에 실패했습니다.'));
       setResetResult(data);
       fetchAuditLog();
     } catch (err) {
-      setActionError(err.message || '비밀번호 초기화 중 오류가 발생했습니다.');
+      setActionError(err.message || t('비밀번호 초기화 중 오류가 발생했습니다.'));
     } finally {
       setResettingId(null);
     }
@@ -170,7 +170,7 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
                 opacity: updatingId === currentUser.id ? 0.6 : 1
               }}
             >
-              {updatingId === currentUser.id ? '처리 중...' : '내가 관리자 되기'}
+              {updatingId === currentUser.id ? t('처리 중...') : t('내가 관리자 되기')}
             </button>
           )}
         </div>
@@ -307,7 +307,7 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
                               opacity: resettingId === m.id ? 0.5 : 1
                             }}
                           >
-                            <KeyRound size={12} /> {resettingId === m.id ? '초기화 중...' : '비밀번호 초기화'}
+                            <KeyRound size={12} /> {resettingId === m.id ? t('초기화 중...') : t('비밀번호 초기화')}
                           </button>
                         </>
                       ) : (

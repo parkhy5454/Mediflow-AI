@@ -2002,6 +2002,9 @@
 // src/services/rosterGenerator.js (Enhanced with Monthly Balance & Alternation)
 
 import { shiftLabel } from '../constants/shiftTypes';
+import i18n from '../i18n';
+
+const t = (...args) => i18n.t(...args);
 
 // [수정] 2교대(주간/야간) 전용이던 로직을 4교대(D/E/N/M)에 대해 일반화했다.
 // 교대 종류가 몇 개든(설정에 있는 만큼) 동일한 로직으로 처리된다.
@@ -2012,7 +2015,11 @@ export const generateRoster = (activeNurses, daysInMonth, rosterConfig) => {
   if (activeNurses.length < totalShiftSlots) {
     return {
       success: false,
-      message: `근무표를 생성하려면 최소 ${totalShiftSlots}명의 근무 가능한 간호사가 필요합니다 (${shiftTypes.map(s => `${shiftLabel(s)} ${rosterConfig.shifts[s].size}명`).join(' + ')}). 현재 ${activeNurses.length}명입니다.`
+      message: t('근무표를 생성하려면 최소 {{totalShiftSlots}}명의 근무 가능한 간호사가 필요합니다 ({{shiftBreakdown}}). 현재 {{activeCount}}명입니다.', {
+        totalShiftSlots,
+        shiftBreakdown: shiftTypes.map(s => t('{{shift}} {{count}}명', { shift: t(shiftLabel(s)), count: rosterConfig.shifts[s].size })).join(' + '),
+        activeCount: activeNurses.length
+      })
     };
   }
 
@@ -2250,7 +2257,9 @@ export const generateRoster = (activeNurses, daysInMonth, rosterConfig) => {
       if (shortfall > 0) {
         hasEmptyShifts = true;
         totalEmptyShifts += shortfall;
-        continuityIssues.push(`${day}일차: ${shiftLabel(shiftType)} ${assignedNurses.length}/${cfg.size}명 (${shortfall}명 부족)`);
+        continuityIssues.push(t('{{day}}일차: {{shift}} {{assigned}}/{{total}}명 ({{shortfall}}명 부족)', {
+          day, shift: t(shiftLabel(shiftType)), assigned: assignedNurses.length, total: cfg.size, shortfall
+        }));
       }
 
       assignedNurses.forEach(nurse => {
@@ -2357,25 +2366,31 @@ export const generateRoster = (activeNurses, daysInMonth, rosterConfig) => {
   const perfectCumulativeBalance = workloadSummary.filter(n => n.cumulativeBalance <= 1);
   const avgBalanceScore = workloadSummary.reduce((sum, n) => sum + n.balanceScore, 0) / workloadSummary.length;
 
-  const cycleLabel = (cycle) => shiftTypes.includes(cycle) ? `${shiftLabel(cycle)} 근무` : cycle === 'off-duty' ? '휴무' : '근무 가능';
+  const cycleLabel = (cycle) => shiftTypes.includes(cycle)
+    ? t('{{shift}} 근무', { shift: t(shiftLabel(cycle)) })
+    : cycle === 'off-duty' ? t('휴무') : t('근무 가능');
 
-  const shiftBreakdownLine = (n) => shiftTypes.map(s => `${shiftLabel(s)} ${n.daysByShift[s]}`).join(' / ');
+  const shiftBreakdownLine = (n) => shiftTypes.map(s => `${t(shiftLabel(s))} ${n.daysByShift[s]}`).join(' / ');
 
-  const balanceReport = `📊 균형 분석:
-이번 달: 전체 ${workloadSummary.length}명 중 ${balancedNurses.length}명 균형 달성
-누적: 전체 ${workloadSummary.length}명 중 ${perfectCumulativeBalance.length}명 완벽한 전체 균형
-평균 균형 점수: ${avgBalanceScore.toFixed(1)}
-
-📋 업무량 분포:
-${workloadSummary.map(n =>
-  `${n.name}: ${shiftBreakdownLine(n)} / 비번 (OFF) ${n.offDutyDays} | 균형: ${n.balanceScore <= 1 ? '✅' : '⚖️'}`
-).join('\n')}`;
+  const balanceReport = [
+    t('📊 균형 분석:'),
+    t('이번 달: 전체 {{total}}명 중 {{balanced}}명 균형 달성', { total: workloadSummary.length, balanced: balancedNurses.length }),
+    t('누적: 전체 {{total}}명 중 {{perfect}}명 완벽한 전체 균형', { total: workloadSummary.length, perfect: perfectCumulativeBalance.length }),
+    t('평균 균형 점수: {{score}}', { score: avgBalanceScore.toFixed(1) }),
+    '',
+    t('📋 업무량 분포:'),
+    workloadSummary.map(n =>
+      t('{{name}}: {{breakdown}} / 비번 (OFF) {{offDuty}} | 균형: {{mark}}', {
+        name: n.name, breakdown: shiftBreakdownLine(n), offDuty: n.offDutyDays, mark: n.balanceScore <= 1 ? '✅' : '⚖️'
+      })
+    ).join('\n')
+  ].join('\n');
 
   const summaryMessage = hasEmptyShifts
-    ? `⚠️ 근무표 문제: 채워지지 않은 근무 ${totalEmptyShifts}건!\n\n${continuityIssues.join('\n')}\n\n${balanceReport}`
-    : `✅ 균형 잡힌 근무표가 생성되었습니다!\n\n${balanceReport}${nursesInTransition.length > 0 ?
-        `\n\n🔄 다음 달로 근무 주기가 이어지는 간호사:\n${nursesInTransition.map(n =>
-          `${n.name}: ${cycleLabel(n.currentCycle)}${n.remainingCycleDays > 0 ? ` (${n.remainingCycleDays}일 남음)` : n.remainingOffDutyDays > 0 ? ` (휴무 ${n.remainingOffDutyDays}일 남음)` : ''}`
+    ? `${t('⚠️ 근무표 문제: 채워지지 않은 근무 {{count}}건!', { count: totalEmptyShifts })}\n\n${continuityIssues.join('\n')}\n\n${balanceReport}`
+    : `${t('✅ 균형 잡힌 근무표가 생성되었습니다!')}\n\n${balanceReport}${nursesInTransition.length > 0 ?
+        `\n\n${t('🔄 다음 달로 근무 주기가 이어지는 간호사:')}\n${nursesInTransition.map(n =>
+          `${n.name}: ${cycleLabel(n.currentCycle)}${n.remainingCycleDays > 0 ? ' ' + t('({{days}}일 남음)', { days: n.remainingCycleDays }) : n.remainingOffDutyDays > 0 ? ' ' + t('(휴무 {{days}}일 남음)', { days: n.remainingOffDutyDays }) : ''}`
         ).join('\n')}` : ''
       }`;
 
@@ -2452,7 +2467,9 @@ export const applyApprovedLeaveToRoster = ({
         // 대체자 후보: 그날 이미 쉬고 있는 사람 중, 이 교대 누적이 가장 적은 사람
         const candidates = dayData.offDuty.filter(n => n.id !== leave.nurseId);
         if (candidates.length === 0) {
-          notes.push(`${dateStr} ${shiftLabel(shiftType)}: ${leaveNurse.name} 휴가지만 대체 인력을 찾지 못해 인원이 부족합니다`);
+          notes.push(t('{{date}} {{shift}}: {{name}} 휴가지만 대체 인력을 찾지 못해 인원이 부족합니다', {
+            date: dateStr, shift: t(shiftLabel(shiftType)), name: leaveNurse.name
+          }));
           return;
         }
         candidates.sort((a, b) => {
@@ -2492,7 +2509,9 @@ export const applyApprovedLeaveToRoster = ({
         replHist[shiftType] = (replHist[shiftType] || 0) + 1;
         histByNurseId.set(replacementFull.id, replHist);
 
-        notes.push(`${dateStr} ${shiftLabel(shiftType)}: ${leaveNurse.name}(휴가) → ${replacementFull.name} 대체`);
+        notes.push(t('{{date}} {{shift}}: {{name}}(휴가) → {{replacement}} 대체', {
+          date: dateStr, shift: t(shiftLabel(shiftType)), name: leaveNurse.name, replacement: replacementFull.name
+        }));
       });
     }
   });

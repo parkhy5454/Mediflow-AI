@@ -12,6 +12,7 @@ const NAME_PREVIEW_COUNT = 3; // 기본으로 몇 명까지 보여줄지
 // 교대 한 줄(데이/이브닝/... 또는 휴무)을 담당하는 컴포넌트.
 // 이름이 NAME_PREVIEW_COUNT를 넘으면 "+N명"으로 축약하고, 클릭하면 전체를 펼친다.
 const NameLine = ({ label, count, size, names, color, isIssue }) => {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const hasMore = names.length > NAME_PREVIEW_COUNT;
   const visibleNames = expanded || !hasMore ? names : names.slice(0, NAME_PREVIEW_COUNT);
@@ -26,7 +27,7 @@ const NameLine = ({ label, count, size, names, color, isIssue }) => {
         wordBreak: 'keep-all',
         cursor: hasMore ? 'pointer' : 'default'
       }}
-      title={hasMore ? (expanded ? '클릭하여 접기' : `클릭하여 전체 ${names.length}명 보기`) : names.join(', ')}
+      title={hasMore ? (expanded ? t('클릭하여 접기') : t('클릭하여 전체 {{count}}명 보기', { count: names.length })) : names.join(', ')}
     >
       {color && (
         <span
@@ -49,7 +50,7 @@ const NameLine = ({ label, count, size, names, color, isIssue }) => {
       {hasMore && (
         <span style={{ color: '#2563eb', fontWeight: 600 }}>
           {' '}
-          {expanded ? '접기 ▲' : `+${names.length - NAME_PREVIEW_COUNT}명 더보기`}
+          {expanded ? t('접기 ▲') : t('+{{count}}명 더보기', { count: names.length - NAME_PREVIEW_COUNT })}
         </span>
       )}
     </div>

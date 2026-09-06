@@ -1,6 +1,7 @@
 // src/hooks/useSwapRequests.js
 // 근무 변경 요청(1:1 맞교환 / 공개 대타) 관련 서버 API 호출을 담당하는 훅.
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 
 const authHeaders = (currentUser, withBody = false) => {
   const headers = { 'Authorization': `Bearer ${currentUser?.token}` };
@@ -9,6 +10,7 @@ const authHeaders = (currentUser, withBody = false) => {
 };
 
 export const useSwapRequests = (currentUser, selectedYear, selectedMonth) => {
+  const { t } = useTranslation();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -22,14 +24,14 @@ export const useSwapRequests = (currentUser, selectedYear, selectedMonth) => {
         headers: authHeaders(currentUser)
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || '요청 목록을 가져오지 못했습니다.');
+      if (!res.ok) throw new Error(data.error || t('요청 목록을 가져오지 못했습니다.'));
       setRequests(data);
     } catch (err) {
-      setError(err.message || '오류가 발생했습니다.');
+      setError(err.message || t('오류가 발생했습니다.'));
     } finally {
       setLoading(false);
     }
-  }, [currentUser, selectedYear, selectedMonth]);
+  }, [currentUser, selectedYear, selectedMonth, t]);
 
   useEffect(() => {
     fetchRequests();
@@ -43,7 +45,7 @@ export const useSwapRequests = (currentUser, selectedYear, selectedMonth) => {
         body: JSON.stringify(payload)
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || '요청 등록에 실패했습니다.');
+      if (!res.ok) throw new Error(data.error || t('요청 등록에 실패했습니다.'));
       setRequests(prev => [data, ...prev]);
       return { success: true };
     } catch (err) {
@@ -59,7 +61,7 @@ export const useSwapRequests = (currentUser, selectedYear, selectedMonth) => {
         body: JSON.stringify({ nurseId })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || '지원 처리에 실패했습니다.');
+      if (!res.ok) throw new Error(data.error || t('지원 처리에 실패했습니다.'));
       setRequests(prev => prev.map(r => (r.id === requestId ? data : r)));
       return { success: true };
     } catch (err) {
@@ -74,7 +76,7 @@ export const useSwapRequests = (currentUser, selectedYear, selectedMonth) => {
         headers: authHeaders(currentUser, true)
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || '취소에 실패했습니다.');
+      if (!res.ok) throw new Error(data.error || t('취소에 실패했습니다.'));
       setRequests(prev => prev.map(r => (r.id === requestId ? data : r)));
       return { success: true };
     } catch (err) {
@@ -91,7 +93,7 @@ export const useSwapRequests = (currentUser, selectedYear, selectedMonth) => {
         body: JSON.stringify({ decision, note })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || '처리에 실패했습니다.');
+      if (!res.ok) throw new Error(data.error || t('처리에 실패했습니다.'));
       setRequests(prev => prev.map(r => (r.id === requestId ? data : r)));
       return { success: true };
     } catch (err) {

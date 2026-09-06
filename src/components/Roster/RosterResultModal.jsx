@@ -37,8 +37,8 @@ const RosterResultModal = ({ result, onClose }) => {
           <div>
             <h3 style={{ margin: 0, fontSize: '16px', color: isSuccess ? '#166534' : '#92400e' }}>
               {result.success
-                ? (isSuccess ? '균형 잡힌 근무표가 생성되었습니다' : '근무표는 생성됐지만 확인이 필요합니다')
-                : '근무표 생성에 실패했습니다'}
+                ? (isSuccess ? t('균형 잡힌 근무표가 생성되었습니다') : t('근무표는 생성됐지만 확인이 필요합니다'))
+                : t('근무표 생성에 실패했습니다')}
             </h3>
             {nursesInTransition > 0 && (
               <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}>

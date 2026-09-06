@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 
 import { useTranslation } from 'react-i18next';
+import { localeFor } from '../../utils/dateUtils';
 
 const TYPE_INFO = {
   bug: { label: '버그 신고', icon: Bug, color: '#dc2626' },
@@ -22,7 +23,7 @@ const STATUS_INFO = {
 };
 
 const AdminDashboard = ({ currentUser }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [view, setView] = useState('hospitals'); // 'hospitals' | 'feedback'
 
   const [stats, setStats] = useState(null);
@@ -42,10 +43,10 @@ const AdminDashboard = ({ currentUser }) => {
         headers: { 'Authorization': `Bearer ${currentUser.token}` }
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || '비밀번호 초기화에 실패했습니다.');
+      if (!res.ok) throw new Error(data.error || t('비밀번호 초기화에 실패했습니다.'));
       setResetResult(data);
     } catch (err) {
-      alert(err.message || '비밀번호 초기화 중 오류가 발생했습니다.');
+      alert(err.message || t('비밀번호 초기화 중 오류가 발생했습니다.'));
     } finally {
       setResettingId(null);
     }
@@ -65,10 +66,10 @@ const AdminDashboard = ({ currentUser }) => {
         headers: { 'Authorization': `Bearer ${currentUser.token}` }
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || '통계를 불러오지 못했습니다.');
+      if (!res.ok) throw new Error(data.error || t('통계를 불러오지 못했습니다.'));
       setStats(data);
     } catch (err) {
-      setError(err.message || '오류가 발생했습니다.');
+      setError(err.message || t('오류가 발생했습니다.'));
     } finally {
       setLoading(false);
     }
@@ -299,7 +300,7 @@ const AdminDashboard = ({ currentUser }) => {
                                   backgroundColor: m.role === 'admin' ? '#fef3c7' : '#f3f4f6',
                                   color: m.role === 'admin' ? '#92400e' : '#4b5563'
                                 }}>
-                                  {m.role === 'admin' ? '관리자' : '일반 사용자'}
+                                  {m.role === 'admin' ? t('관리자') : t('일반 사용자')}
                                 </span>
                                 <button
                                   disabled={resettingId === m.id}
@@ -313,7 +314,7 @@ const AdminDashboard = ({ currentUser }) => {
                                     opacity: resettingId === m.id ? 0.5 : 1
                                   }}
                                 >
-                                  <KeyRound size={11} /> {resettingId === m.id ? '처리중' : '초기화'}
+                                  <KeyRound size={11} /> {resettingId === m.id ? t('처리중') : t('초기화')}
                                 </button>
                               </div>
                             </div>
@@ -367,7 +368,7 @@ const AdminDashboard = ({ currentUser }) => {
                   cursor: 'pointer'
                 }}
               >
-                {f.label}
+                {t(f.label)}
               </button>
             ))}
           </div>
@@ -396,16 +397,16 @@ const AdminDashboard = ({ currentUser }) => {
                             display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '700',
                             color: typeInfo.color, backgroundColor: `${typeInfo.color}15`, padding: '3px 8px', borderRadius: '10px'
                           }}>
-                            <TypeIcon size={12} /> {typeInfo.label}
+                            <TypeIcon size={12} /> {t(typeInfo.label)}
                           </span>
                           <span style={{
                             fontSize: '11px', fontWeight: '700', color: statusInfo.color,
                             backgroundColor: statusInfo.bg, padding: '3px 8px', borderRadius: '10px'
                           }}>
-                            {statusInfo.label}
+                            {t(statusInfo.label)}
                           </span>
                           <span style={{ fontSize: '11px', color: '#9ca3af' }}>
-                            {f.hospital_name} · {new Date(f.created_at).toLocaleString('ko-KR')}
+                            {f.hospital_name} · {new Date(f.created_at).toLocaleString(localeFor(i18n.language))}
                           </span>
                         </div>
                         <div style={{ fontWeight: '700', color: '#1f2937', fontSize: '14px', marginBottom: '4px' }}>{f.title}</div>

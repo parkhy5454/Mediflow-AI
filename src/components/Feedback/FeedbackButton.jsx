@@ -38,7 +38,7 @@ const FeedbackButton = ({ currentUser }) => {
   const handleSubmit = async () => {
     setError('');
     if (!title.trim() || !message.trim()) {
-      setError('제목과 내용을 입력해주세요.');
+      setError(t('제목과 내용을 입력해주세요.'));
       return;
     }
     setSubmitting(true);
@@ -49,10 +49,10 @@ const FeedbackButton = ({ currentUser }) => {
         body: JSON.stringify({ type, title: title.trim(), message: message.trim(), phone: phone.trim() || undefined })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || '문의 접수에 실패했습니다.');
+      if (!res.ok) throw new Error(data.error || t('문의 접수에 실패했습니다.'));
       setSubmitted(true);
     } catch (err) {
-      setError(err.message || '오류가 발생했습니다.');
+      setError(err.message || t('오류가 발생했습니다.'));
     } finally {
       setSubmitting(false);
     }
@@ -113,7 +113,7 @@ const FeedbackButton = ({ currentUser }) => {
                 <p style={{ color: '#1f2937', fontWeight: '600', marginBottom: '6px' }}>{t('문의가 접수되었습니다')}</p>
                 <p style={{ color: '#6b7280', fontSize: '13px', marginBottom: '20px' }}>
                                   {t('확인 후 등록하신 이메일{{value}}로 답변드릴게요.', {
-                  value: phone ? '이나 연락처' : ''
+                  value: phone ? t('이나 연락처') : ''
                 })}
                                 </p>
                 <button
@@ -148,7 +148,7 @@ const FeedbackButton = ({ currentUser }) => {
                           }}
                         >
                           <Icon size={16} />
-                          {opt.label}
+                          {t(opt.label)}
                         </button>
                       );
                     })}
@@ -211,7 +211,7 @@ const FeedbackButton = ({ currentUser }) => {
                     fontWeight: '600', opacity: submitting ? 0.7 : 1
                   }}
                 >
-                  {submitting ? '접수 중...' : '문의 보내기'}
+                  {submitting ? t('접수 중...') : t('문의 보내기')}
                 </button>
               </div>
             )}
