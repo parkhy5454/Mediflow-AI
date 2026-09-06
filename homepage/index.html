@@ -60,15 +60,22 @@
   .brand{
     font-family:var(--serif);font-weight:700;font-size:19px;letter-spacing:-0.01em;
     display:flex;align-items:center;gap:8px;text-decoration:none;
+    white-space:nowrap;flex-shrink:0;
   }
-  .brand .dot{width:8px;height:8px;border-radius:50%;background:var(--amber);display:inline-block;}
-  .nav-links{display:flex;align-items:center;gap:28px;}
-  .nav-links a{font-size:14px;color:var(--slate);text-decoration:none;}
+  .brand .dot{width:8px;height:8px;border-radius:50%;background:var(--amber);display:inline-block;flex-shrink:0;}
+  .nav-links{
+    display:flex;align-items:center;gap:28px;
+    overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;
+  }
+  .nav-links::-webkit-scrollbar{display:none;}
+  .nav-links a{font-size:14px;color:var(--slate);text-decoration:none;white-space:nowrap;}
   .nav-links a:hover{color:var(--ink);}
+  .nav-links > *{flex-shrink:0;}
   .btn{
     display:inline-flex;align-items:center;justify-content:center;
     padding:11px 22px;border-radius:8px;font-size:14px;font-weight:600;
     text-decoration:none;border:1px solid transparent;cursor:pointer;
+    white-space:nowrap;
     transition:transform .15s ease, background .15s ease;
   }
   .btn:active{transform:scale(0.97);}
@@ -77,12 +84,14 @@
   .btn-ghost{background:transparent;color:var(--ink);border-color:var(--line-dark);}
   .btn-amber{background:var(--amber);color:#3A2606;}
   .btn-amber:hover{background:var(--amber-deep);color:var(--white);}
+  .nav-login{padding:9px 18px;}
 
   /* language switcher */
-  .lang-switch{display:flex;align-items:center;gap:2px;background:var(--paper-deep);border-radius:7px;padding:3px;}
+  .lang-switch{display:flex;align-items:center;gap:2px;background:var(--paper-deep);border-radius:7px;padding:3px;flex-shrink:0;}
   .lang-btn{
     border:none;background:transparent;padding:6px 10px;border-radius:5px;
     font-size:12.5px;font-weight:600;color:var(--slate);cursor:pointer;font-family:var(--sans);
+    white-space:nowrap;
   }
   .lang-btn.active{background:var(--white);color:var(--ink);box-shadow:0 1px 2px rgba(16,24,40,0.08);}
 
@@ -241,11 +250,26 @@
     .flow::before{display:none;}
     .discount-grid{grid-template-columns:repeat(2,1fr);}
     .price-hero{flex-direction:column;align-items:flex-start;}
-    .nav-links{gap:14px;}
+    .nav .wrap{padding:0 16px;}
+    .brand{font-size:17px;}
+    .nav-links{gap:8px;}
     .nav-links .link-text{display:none;}
     .nav-links .share-btn span{display:none;}
     .nav-links .share-btn{padding:9px;}
+    .nav-login{padding:8px 12px;font-size:13px;}
+    .lang-switch{padding:2px;}
+    .lang-btn{padding:5px 7px;font-size:11px;}
     footer .wrap{flex-direction:column;gap:28px;}
+  }
+
+  @media (max-width:360px){
+    .nav .wrap{padding:0 12px;}
+    .brand{font-size:15px;gap:6px;}
+    .nav-links{gap:5px;}
+    .nav-login{padding:7px 9px;font-size:12px;}
+    .nav-links .share-btn{padding:7px;}
+    .lang-switch{padding:2px;gap:1px;}
+    .lang-btn{padding:4px 5px;font-size:10px;}
   }
 </style>
 </head>
@@ -258,7 +282,7 @@
       <a href="#features" class="link-text" data-i18n="nav_features">기능</a>
       <a href="#how" class="link-text" data-i18n="nav_how">이용 방법</a>
       <a href="#pricing" class="link-text" data-i18n="nav_pricing">요금제</a>
-      <a href="https://app.nduty.kr" class="btn btn-ghost" style="padding:9px 18px;" data-i18n="nav_login">로그인</a>
+      <a href="https://app.nduty.kr" class="btn btn-ghost nav-login" data-i18n="nav_login">로그인</a>
       <button class="btn btn-ghost share-btn" style="padding:9px 14px;display:flex;align-items:center;gap:6px;" onclick="mediflowShare()">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.6" y1="10.5" x2="15.4" y2="6.5"></line><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"></line></svg>
         <span data-i18n="share_btn">공유하기</span>
