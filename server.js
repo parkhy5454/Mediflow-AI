@@ -58,6 +58,7 @@ const { createClient } = require('@supabase/supabase-js');
 const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
+const { Resend } = require('resend');
 
 const app = express();
 // [추가] Render는 프록시(로드밸런서) 뒤에서 앱을 실행하며 X-Forwarded-For 헤더로 실제
@@ -136,6 +137,37 @@ const generateTempPassword = () => {
   let pw = '';
   for (let i = 0; i < 10; i++) pw += chars[Math.floor(Math.random() * chars.length)];
   return pw;
+};
+
+// ------------------------------------------------------------------
+// [추가] 이메일 발송 (Resend). 비밀번호 찾기(임시 비밀번호 발송)에 사용.
+// RESEND_API_KEY가 없으면 발송 없이 콘솔에만 로그를 남긴다(개발 중 안전장치).
+// ------------------------------------------------------------------
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+const MAIL_FROM = process.env.MAIL_FROM || 'N-Duty <onboarding@resend.dev>';
+
+const sendTempPasswordEmail = async (toEmail, userName, tempPassword) => {
+  if (!resend) {
+    console.warn('[경고] RESEND_API_KEY가 없어 이메일을 실제로 보내지 못했습니다. (개발 모드)');
+    return;
+  }
+  await resend.emails.send({
+    from: MAIL_FROM,
+    to: toEmail,
+    subject: '[N-Duty] 임시 비밀번호 안내',
+    html: `
+      <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; color: #101828;">
+        <h2 style="margin: 0 0 16px;">비밀번호 찾기</h2>
+        <p style="color: #5B6474; line-height: 1.6;">${userName}님, 요청하신 임시 비밀번호를 보내드립니다.</p>
+        <div style="background: #EEF1F5; border-radius: 10px; padding: 18px 20px; margin: 20px 0; text-align: center;">
+          <span style="font-size: 20px; font-weight: 700; letter-spacing: 0.05em;">${tempPassword}</span>
+        </div>
+        <p style="color: #5B6474; font-size: 13px; line-height: 1.6;">
+          로그인 후 반드시 새 비밀번호로 변경해주세요. 본인이 요청하지 않았다면 이 메일을 무시하셔도 됩니다.
+        </p>
+      </div>
+    `
+  });
 };
 
 // [추가] 비밀번호 규칙: 8자 이상 + 영문/숫자 최소 1개씩 포함.
@@ -301,6 +333,51 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
   } catch (err) {
     console.error('login error:', err);
     res.status(500).json({ error: '로그인 중 오류가 발생했습니다.' });
+  }
+});
+
+// 본인 비밀번호 찾기 — 등록된 이메일로 임시 비밀번호를 보내준다.
+// [보안] 이메일이 실제로 등록되어 있는지 여부를 응답으로 알려주지 않는다(계정 존재 여부 유추 방지).
+// 항상 같은 성공 메시지를 반환하고, 실제로 등록되어 있을 때만 뒤에서 조용히 이메일을 보낸다.
+app.post('/api/auth/forgot-password', authLimiter, async (req, res) => {
+  const genericMessage = '입력하신 이메일로 임시 비밀번호를 보내드렸습니다. 이메일이 가입되어 있다면 잠시 후 도착합니다.';
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: '이메일을 입력해주세요.' });
+    }
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const { data: user, error } = await supabase
+      .from('mediflow_users')
+      .select('*')
+      .eq('email', normalizedEmail)
+      .maybeSingle();
+    if (error) throw error;
+
+    if (user) {
+      const tempPassword = generateTempPassword();
+      const passwordHash = bcrypt.hashSync(tempPassword, 10);
+      const { error: updateError } = await supabase
+        .from('mediflow_users')
+        .update({ password: passwordHash, must_change_password: true })
+        .eq('id', user.id);
+      if (updateError) throw updateError;
+
+      try {
+        await sendTempPasswordEmail(user.email, user.name, tempPassword);
+      } catch (mailErr) {
+        console.error('forgot-password email send error:', mailErr);
+        // 메일 발송이 실패해도 사용자에게는 같은 안내를 준다(계정 존재 여부 유추 방지).
+        // 실제 발송 실패는 서버 로그로만 확인한다.
+      }
+    }
+
+    res.json({ message: genericMessage });
+  } catch (err) {
+    console.error('forgot password error:', err);
+    // 에러가 나도 계정 존재 여부가 드러나지 않도록 같은 메시지를 준다.
+    res.json({ message: genericMessage });
   }
 });
 
