@@ -84,6 +84,7 @@ const CalendarView = ({ selectedMonth, selectedYear, rosterConfig, getCurrentMon
     });
     const hasIssues = counts.some(c => c.count < c.size);
     const offDutyNames = (dayData?.offDuty || []).map(getName).filter(Boolean);
+    const translatedCounts = counts.map(c => ({ ...c, label: t(shiftLabel(c.shiftType)) }));
 
     days.push(
       <div key={day} style={{
@@ -95,10 +96,10 @@ const CalendarView = ({ selectedMonth, selectedYear, rosterConfig, getCurrentMon
         <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>{day}</div>
         {dayData && (
           <div style={{ fontSize: '11px' }}>
-            {counts.map(c => (
+            {translatedCounts.map(c => (
               <NameLine
                 key={c.shiftType}
-                label={shiftLabel(c.shiftType)}
+                label={c.label}
                 count={c.count}
                 size={c.size}
                 names={c.names}
@@ -107,7 +108,7 @@ const CalendarView = ({ selectedMonth, selectedYear, rosterConfig, getCurrentMon
               />
             ))}
             <NameLine
-              label="휴무"
+              label={t('휴무')}
               count={dayData.offDuty?.length || 0}
               names={offDutyNames}
               isIssue={false}
@@ -140,7 +141,7 @@ const CalendarView = ({ selectedMonth, selectedYear, rosterConfig, getCurrentMon
               fontWeight: 'bold',
               backgroundColor: '#f3f4f6'
             }}>
-              {day}
+              {t(day)}
             </div>
           ))}
         </div>

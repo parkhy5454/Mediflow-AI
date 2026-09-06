@@ -269,7 +269,7 @@ const NurseTable = ({ nurses, updateNurseStatus, updateNurse, deleteNurse, nameO
                             <StatusBadge text={nurse.status} type="status" status={nurse.status} />
                           </td>
                           <td style={{ padding: '10px' }}>
-                            {SHIFT_TYPES.includes(nurse.lastShiftType) ? shiftLabel(nurse.lastShiftType) : '없음'}
+                            {SHIFT_TYPES.includes(nurse.lastShiftType) ? t(shiftLabel(nurse.lastShiftType)) : t('없음')}
                           </td>
                           <td style={{ padding: '10px', textAlign: 'center' }}>
                             {renderEditActions(nurse)}
@@ -288,7 +288,7 @@ const NurseTable = ({ nurses, updateNurseStatus, updateNurse, deleteNurse, nameO
                             qualification={nurse.qualification}
                           />
                         </td>
-                        <td style={{ padding: '12px' }}>{nurse.experience}</td>
+                        <td style={{ padding: '12px' }}>{t(nurse.experience)}</td>
                         <td style={{ padding: '12px' }}>{nurse.department}</td>
                         <td style={{ padding: '12px' }}>
                           <StatusBadge
@@ -298,7 +298,7 @@ const NurseTable = ({ nurses, updateNurseStatus, updateNurse, deleteNurse, nameO
                           />
                         </td>
                         <td style={{ padding: '12px' }}>
-                          {SHIFT_TYPES.includes(nurse.lastShiftType) ? shiftLabel(nurse.lastShiftType) : '없음'}
+                          {SHIFT_TYPES.includes(nurse.lastShiftType) ? t(shiftLabel(nurse.lastShiftType)) : t('없음')}
                         </td>
                         <td style={{ padding: '12px', textAlign: 'center' }}>
                           {renderActions(nurse)}

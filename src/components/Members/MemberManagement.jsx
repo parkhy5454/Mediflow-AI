@@ -252,7 +252,7 @@ const MemberManagement = ({ currentUser, onUserUpdate }) => {
                       backgroundColor: m.role === 'admin' ? '#fef3c7' : '#f3f4f6',
                       color: m.role === 'admin' ? '#92400e' : '#4b5563'
                     }}>
-                      {m.role === 'admin' ? '관리자' : '일반 사용자'}
+                      {m.role === 'admin' ? t('관리자') : t('일반 사용자')}
                     </span>
                   </div>
                   {isAdmin && (

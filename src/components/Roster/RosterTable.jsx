@@ -39,7 +39,7 @@ const RosterTable = ({ selectedMonth, selectedYear, getCurrentMonthRoster, roste
               </th>
               {shiftTypes.map(s => (
                 <th key={s} style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>
-                  {shiftFullLabel(s)}
+                  {t(shiftFullLabel(s))}
                 </th>
               ))}
               <th style={{ padding: '12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb' }}>
@@ -89,7 +89,7 @@ const RosterTable = ({ selectedMonth, selectedYear, getCurrentMonthRoster, roste
                         borderRadius: '4px',
                         fontSize: '12px'
                       }}>
-                        {nurse.name} {nurse.daysRemaining > 0 ? `(${nurse.daysRemaining}일)` : nurse.status === 'Available' ? '(근무 가능)' : ''}
+                        {nurse.name} {nurse.daysRemaining > 0 ? t('({{days}}일)', { days: nurse.daysRemaining }) : nurse.status === 'Available' ? t('(근무 가능)') : ''}
                       </div>
                     ))}
                   </td>

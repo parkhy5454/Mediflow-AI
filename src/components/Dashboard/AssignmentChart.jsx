@@ -34,9 +34,9 @@ const AssignmentChart = ({ assignmentData, rosterConfig }) => {
           <Tooltip />
           <Legend />
           {shiftTypes.map(s => (
-            <Bar key={s} dataKey={s} fill={shiftColor(s)} name={`${shiftLabel(s)} 근무일`} />
+            <Bar key={s} dataKey={s} fill={shiftColor(s)} name={t('{{shift}} 근무일', { shift: t(shiftLabel(s)) })} />
           ))}
-          <Bar dataKey="offDutyDays" fill="#6b7280" name="비번 (OFF)" />
+          <Bar dataKey="offDutyDays" fill="#6b7280" name={t('비번 (OFF)')} />
         </BarChart>
       </ResponsiveContainer>
     </div>

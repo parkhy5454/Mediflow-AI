@@ -410,8 +410,8 @@ const BalanceAnalysis = ({ nurses, rosterConfig }) => {
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} fontSize={12} />
             <YAxis />
-            <Tooltip formatter={(value, name) => [value, shiftLabel(name)]} labelFormatter={(label) => `간호사: ${label}`} />
-            <Legend formatter={(value) => shiftLabel(value)} />
+            <Tooltip formatter={(value, name) => [value, t(shiftLabel(name))]} labelFormatter={(label) => t('간호사: {{label}}', { label })} />
+            <Legend formatter={(value) => t(shiftLabel(value))} />
             {shiftTypes.map(s => (
               <Bar key={s} dataKey={s} fill={shiftColor(s)} name={s} />
             ))}
@@ -430,7 +430,7 @@ const BalanceAnalysis = ({ nurses, rosterConfig }) => {
                 {shiftTypes.map(s => (
                   <th key={s} style={{ padding: '12px 8px', textAlign: 'center', borderBottom: '1px solid #e5e7eb' }}>
                                       {t('{{shiftLabel}} (누적)', {
-                      shiftLabel: shiftLabel(s)
+                      shiftLabel: t(shiftLabel(s))
                     })}
                                     </th>
                 ))}
@@ -466,7 +466,7 @@ const BalanceAnalysis = ({ nurses, rosterConfig }) => {
                         ? <CheckCircle size={16} style={{ color: '#10b981' }} />
                         : <AlertTriangle size={16} style={{ color: '#d97706' }} />}
                       <span style={{ fontSize: '11px', color: nurse.isBalanced ? '#166534' : '#6b7280' }}>
-                        {nurse.isBalanced ? '완벽' : '조정 필요'}
+                        {nurse.isBalanced ? t('완벽') : t('조정 필요')}
                       </span>
                     </div>
                   </td>
@@ -495,8 +495,8 @@ const BalanceAnalysis = ({ nurses, rosterConfig }) => {
               .slice(0, 3)
               .map(nurse => (
                 <div key={nurse.name} style={{ marginBottom: '4px' }}>• <strong>{nurse.name}</strong>{t(': {{shiftLabel}} 근무가 상대적으로 적음 - 다음 달은 {{shiftLabel2}} 우선 배정 권장', {
-                    shiftLabel: shiftLabel(nurse.leastShift),
-                    shiftLabel2: shiftLabel(nurse.leastShift)
+                    shiftLabel: t(shiftLabel(nurse.leastShift)),
+                    shiftLabel2: t(shiftLabel(nurse.leastShift))
                   })}
                 </div>
               ))}

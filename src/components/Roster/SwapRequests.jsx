@@ -157,12 +157,20 @@ const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, select
   };
 
   const describeRequest = (r) => {
-    const fromText = `${r.fromDay}일 ${shiftFullLabel(r.fromShiftType)} — ${r.fromNurseName}`;
+    const fromText = t('{{day}}일 {{shift}} — {{name}}', {
+      day: r.fromDay,
+      shift: t(shiftFullLabel(r.fromShiftType)),
+      name: r.fromNurseName
+    });
     if (r.requestType === 'swap') {
-      const toText = `${r.toDay}일 ${shiftFullLabel(r.toShiftType)} — ${r.toNurseName || '?'}`;
+      const toText = t('{{day}}일 {{shift}} — {{name}}', {
+        day: r.toDay,
+        shift: t(shiftFullLabel(r.toShiftType)),
+        name: r.toNurseName || '?'
+      });
       return `${fromText}  ⇄  ${toText}`;
     }
-    return `${fromText}${r.toNurseName ? `  →  대타: ${r.toNurseName}` : ''}`;
+    return `${fromText}${r.toNurseName ? `  →  ${t('대타: {{name}}', { name: r.toNurseName })}` : ''}`;
   };
 
   const canCancel = (r) => (r.createdByUserId === currentUser.id || isAdmin) && ['pending', 'ready_for_review'].includes(r.status);
@@ -368,7 +376,7 @@ const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, select
               <select value={fromShiftType} onChange={e => { setFromShiftType(e.target.value); setFromNurseId(''); }} style={selectStyle} disabled={!fromDay}>
                 <option value="">{t('선택')}</option>
                 {shiftTypes.filter(s => getNursesForDayShift(fromDay, s).length > 0).map(s => (
-                  <option key={s} value={s}>{shiftFullLabel(s)}</option>
+                  <option key={s} value={s}>{t(shiftFullLabel(s))}</option>
                 ))}
               </select>
             </div>
@@ -403,7 +411,7 @@ const SwapRequests = ({ currentUser, nurses, rosterConfig, selectedMonth, select
                   <select value={toShiftType} onChange={e => { setToShiftType(e.target.value); setToNurseId(''); }} style={selectStyle} disabled={!toDay}>
                     <option value="">{t('선택')}</option>
                     {shiftTypes.filter(s => getNursesForDayShift(toDay, s).length > 0).map(s => (
-                      <option key={s} value={s}>{shiftFullLabel(s)}</option>
+                      <option key={s} value={s}>{t(shiftFullLabel(s))}</option>
                     ))}
                   </select>
                 </div>

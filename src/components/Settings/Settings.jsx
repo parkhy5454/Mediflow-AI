@@ -110,7 +110,7 @@ const Settings = ({ rosterConfig, updateRosterConfig, departmentOptions, selecte
               style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', border: '1px solid #e5e7eb' }}
             >
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '14px' }}>
-                <h3 style={{ margin: 0, color: '#1f2937', fontSize: '16px' }}>{shiftFullLabel(shiftCode)}</h3>
+                <h3 style={{ margin: 0, color: '#1f2937', fontSize: '16px' }}>{t(shiftFullLabel(shiftCode))}</h3>
                 <span style={{ fontSize: '12px', color: '#9ca3af' }}>{shiftTime(shiftCode)}</span>
               </div>
               <div style={{
@@ -172,7 +172,7 @@ const Settings = ({ rosterConfig, updateRosterConfig, departmentOptions, selecte
             {otherFields.map(field => (
               <div key={field.key}>
                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500', color: '#374151', fontSize: '13px' }}>
-                  {field.label}
+                  {t(field.label)}
                 </label>
                 <input
                   type="number"

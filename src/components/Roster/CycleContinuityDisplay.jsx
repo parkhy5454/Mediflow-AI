@@ -118,7 +118,7 @@ const CycleContinuityDisplay = ({ nurses, rosterConfig }) => {
                 <Clock size={16} style={{ color }} />
                 <strong style={{ color, fontSize: '14px' }}>
                   {t('{{shiftFullLabel}} 계속 ({{length}}명)', {
-                    shiftFullLabel: shiftFullLabel(shiftType),
+                    shiftFullLabel: t(shiftFullLabel(shiftType)),
                     length: list.length
                   })}
                 </strong>

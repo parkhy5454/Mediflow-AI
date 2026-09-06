@@ -1,7 +1,9 @@
 // src/components/Common/StatusBadge.jsx
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 const StatusBadge = ({ text, type, qualification, status }) => {
+  const { t } = useTranslation();
   const getStyles = () => {
     if (type === 'qualification') {
       switch (qualification) {
@@ -38,7 +40,7 @@ const StatusBadge = ({ text, type, qualification, status }) => {
   const getDisplayText = () => {
     if (type === 'status') {
       const statusLabels = { active: '근무 가능', disabled: '근무 중지', archived: '보관됨' };
-      return statusLabels[status] || text;
+      return statusLabels[status] ? t(statusLabels[status]) : text;
     }
     return text;
   };

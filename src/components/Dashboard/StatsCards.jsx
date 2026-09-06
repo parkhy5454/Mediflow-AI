@@ -3,26 +3,28 @@
 import React from 'react';
 import { Users, CheckCircle, Clock } from 'lucide-react';
 import { SHIFT_TYPES, shiftLabel, shiftColor } from '../../constants/shiftTypes';
+import { useTranslation } from 'react-i18next';
 
 const StatsCards = ({ nurses, activeNurses, stats }) => {
+  const { t } = useTranslation();
   const totalsByShift = stats?.totalsByShift || {};
   const shiftKeys = Object.keys(totalsByShift).length > 0 ? Object.keys(totalsByShift) : SHIFT_TYPES;
 
   const statsConfig = [
     {
-      title: '전체 간호사',
+      title: t('전체 간호사'),
       value: nurses.length,
       icon: Users,
       color: '#3b82f6'
     },
     {
-      title: '근무 가능 간호사',
+      title: t('근무 가능 간호사'),
       value: activeNurses.length,
       icon: CheckCircle,
       color: '#10b981'
     },
     ...shiftKeys.map(s => ({
-      title: `${shiftLabel(s)} 근무`,
+      title: t('{{shift}} 근무', { shift: t(shiftLabel(s)) }),
       value: totalsByShift[s] || 0,
       icon: Clock,
       color: shiftColor(s)

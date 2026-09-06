@@ -327,19 +327,19 @@ const RosterView = ({
       );
       
       if (nursesInTransition.length > 0) {
-        const confirmMessage = `${getMonthName(newMonth)} ${newYear}년으로 전환합니다.\n\n` +
-          `${nursesInTransition.length}명의 간호사가 이전 달의 근무 주기를 완료하지 못했습니다:\n` +
+        const confirmMessage = t('{{month}} {{year}}년으로 전환합니다.', { month: getMonthName(newMonth), year: newYear }) + '\n\n' +
+          t('{{count}}명의 간호사가 이전 달의 근무 주기를 완료하지 못했습니다:', { count: nursesInTransition.length }) + '\n' +
           nursesInTransition.map(n => {
             if (n.lastOffDutyRemaining > 0) {
-              return `• ${n.name}: 휴무 ${n.lastOffDutyRemaining}일 남음`;
+              return '• ' + t('{{name}}: 휴무 {{days}}일 남음', { name: n.name, days: n.lastOffDutyRemaining });
             } else {
               const shiftCfg = rosterConfig.shifts[n.lastShiftType];
               const totalDays = shiftCfg ? shiftCfg.shiftDays : 0;
               const remaining = totalDays - n.lastShiftCycleDay;
-              return `• ${n.name}: ${shiftLabel(n.lastShiftType)} 근무 ${remaining}일 남음`;
+              return '• ' + t('{{name}}: {{shift}} 근무 {{days}}일 남음', { name: n.name, shift: t(shiftLabel(n.lastShiftType)), days: remaining });
             }
           }).join('\n') +
-          `\n\n이 간호사들은 새로운 배정 전에 현재 주기를 완료합니다. 계속하시겠습니까?`;
+          '\n\n' + t('이 간호사들은 새로운 배정 전에 현재 주기를 완료합니다. 계속하시겠습니까?');
         
         if (!window.confirm(confirmMessage)) {
           return;
