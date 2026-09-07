@@ -13,6 +13,11 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background-color: #f9fafb;
   color: #1f2937;
+  /* 홈 화면에 설치된 PWA(standalone)나 edge-to-edge를 강제하는 최신 안드로이드에서
+     화면 콘텐츠가 상태표시줄(시계/배터리) 밑에 깔려 겹쳐 보이는 문제 방지.
+     safe-area-inset을 지원하지 않는 기기에서는 0px이라 기존 레이아웃에 영향 없음. */
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 button {
@@ -212,6 +217,18 @@ table {
   /* Hide the least essential bit of header text on very small phones */
   .app-header-stats {
     display: none;
+  }
+
+  /* 월간 캘린더: 7칸 그리드가 좁은 화면 폭에 맞춰 여유 있게 들어가도록
+     바깥 여백/셀 여백/글자 크기를 함께 줄인다. */
+  .calendar-view-container {
+    padding: 10px !important;
+  }
+
+  .calendar-day-cell {
+    padding: 4px !important;
+    min-height: 60px !important;
+    font-size: 10px !important;
   }
 }
 

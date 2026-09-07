@@ -25,6 +25,7 @@ const NameLine = ({ label, count, size, names, color, isIssue }) => {
         marginBottom: '2px',
         lineHeight: '1.4',
         wordBreak: 'keep-all',
+        overflowWrap: 'anywhere',
         cursor: hasMore ? 'pointer' : 'default'
       }}
       title={hasMore ? (expanded ? t('클릭하여 접기') : t('클릭하여 전체 {{count}}명 보기', { count: names.length })) : names.join(', ')}
@@ -88,10 +89,12 @@ const CalendarView = ({ selectedMonth, selectedYear, rosterConfig, getCurrentMon
     const translatedCounts = counts.map(c => ({ ...c, label: t(shiftLabel(c.shiftType)) }));
 
     days.push(
-      <div key={day} style={{
+      <div key={day} className="calendar-day-cell" style={{
         border: '1px solid #e5e7eb',
         padding: '8px',
         minHeight: '80px',
+        minWidth: 0,
+        overflow: 'hidden',
         backgroundColor: hasIssues ? '#fef2f2' : '#f9fafb'
       }}>
         <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>{day}</div>
@@ -121,7 +124,7 @@ const CalendarView = ({ selectedMonth, selectedYear, rosterConfig, getCurrentMon
   }
 
   return (
-    <div style={{
+    <div className="calendar-view-container" style={{
       backgroundColor: 'white',
       padding: '20px',
       borderRadius: '8px',
@@ -131,7 +134,7 @@ const CalendarView = ({ selectedMonth, selectedYear, rosterConfig, getCurrentMon
       <div>
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(7, 1fr)',
+          gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
           gap: '2px',
           marginBottom: '10px'
         }}>
@@ -140,7 +143,8 @@ const CalendarView = ({ selectedMonth, selectedYear, rosterConfig, getCurrentMon
               padding: '10px',
               textAlign: 'center',
               fontWeight: 'bold',
-              backgroundColor: '#f3f4f6'
+              backgroundColor: '#f3f4f6',
+              overflow: 'hidden'
             }}>
               {t(day)}
             </div>
@@ -148,7 +152,7 @@ const CalendarView = ({ selectedMonth, selectedYear, rosterConfig, getCurrentMon
         </div>
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(7, 1fr)',
+          gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
           gap: '2px'
         }}>
           {days}
